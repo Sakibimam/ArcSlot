@@ -23,6 +23,12 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 | `contracts/Slot.sol` | EIP-1167 clone implementation — one shared bytecode, one clone per deposit address |
 | `contracts/SlotFactory.sol` | Deploys and tracks clones deterministically via `Clones.cloneDeterministic` |
 
+### How it works for people
+
+- **Merchant:** connect a wallet → enter an amount and what it's for → get a payment link + QR. Funds go to the connected wallet by default (no separate merchant address needed). Each request card shows live progress (`0.40 of 1.00 USDC received`) and a **Collect** button that moves the USDC to the wallet in one transaction.
+- **Payer:** open the link → see the amount, what it's for, and the payee address read from the contract (not from the link) → **Pay with wallet** in one click, or **Send manually** to the address/QR from any exchange or wallet. The page confirms live when the payment lands. On testnet it links to the Circle faucet.
+- Links are hash routes (`/#/pay/<chainId>/<slot>?amount=&for=`) so they work on any static host.
+
 ### Key design decisions
 
 - **Permissionless sweep** — anyone can sweep any funded slot; the caller receives a gas reimbursement (USDC) plus a flat tip so they are always net-positive.
@@ -98,12 +104,18 @@ bun run build        # Vite production build → dist/
 ```bash
 bun run contracts:test        # 59 Foundry unit + fuzz tests (mock USDC)
 bun run contracts:test:fork   # 9 integration tests on an Arc mainnet fork (real USDC + blocklist)
-bun run test                  # 31 Vitest unit + component integration tests
+bun run test                  # 71 Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```
 
 Fork tests need [Arc Foundry](https://docs.arc.io/arc/tutorials/install-arc-foundry.md) (`arc-forge`): stock Foundry can't execute Arc's native-coin precompile that USDC transfers go through.
+
+Browser end-to-end on Arc testnet — drives the real UI with two wallets (merchant creates a link → payer pays → merchant collects). Needs the dev server on :5179:
+
+```bash
+PAYER_PRIVATE_KEY=0x... bun run test:e2e:ui
+```
 
 Live end-to-end check against a deployed factory (signs with `PRIVATE_KEY` from `.env`):
 

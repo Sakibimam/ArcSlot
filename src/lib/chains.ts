@@ -36,3 +36,15 @@ export { formatUsdc6 } from './slot-logic'
 export function shortenAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
+
+export function networkName(chainId: number): string {
+  return chainId === ARC_MAINNET_ID ? 'Arc Mainnet' : 'Arc Testnet'
+}
+
+/** 0x6192…E63b */
+export function shortAddr(addr: string): string {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`
+}
+
+export const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as const
+export const TESTNET_FAUCET_URL = 'https://faucet.circle.com'

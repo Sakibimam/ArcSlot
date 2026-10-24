@@ -1,0 +1,40 @@
+import { describe, it, expect } from 'vitest'
+import { buildPayHash, parseRoute } from './links'
+
+const SLOT = '0x10C2D81E0197F64Bd3e4c460a516eaDB0C348b7F'
+
+describe('buildPayHash', () => {
+  it('encodes chain, slot, amount and label', () => {
+    expect(buildPayHash({ chainId: 5042002, slot: SLOT, amount: 1_500_000n, label: 'Invoice #42' }))
+      .toBe(`#/pay/5042002/${SLOT}?amount=1.5&for=Invoice+%2342`)
+  })
+  it('omits optional fields', () => {
+    expect(buildPayHash({ chainId: 5042, slot: SLOT })).toBe(`#/pay/5042/${SLOT}`)
+  })
+})
+
+describe('parseRoute', () => {
+  it('defaults to the merchant dashboard', () => {
+    expect(parseRoute('')).toEqual({ page: 'merchant' })
+    expect(parseRoute('#/')).toEqual({ page: 'merchant' })
+    expect(parseRoute('#/nonsense')).toEqual({ page: 'merchant' })
+  })
+  it('round-trips a pay link', () => {
+    const hash = buildPayHash({ chainId: 5042002, slot: SLOT, amount: 1_500_000n, label: 'Invoice #42' })
+    expect(parseRoute(hash)).toEqual({ page: 'pay', chainId: 5042002, slot: SLOT, amount: 1_500_000n, label: 'Invoice #42' })
+  })
+  it('accepts a pay link without amount or label', () => {
+    expect(parseRoute(`#/pay/5042/${SLOT}`)).toEqual({ page: 'pay', chainId: 5042, slot: SLOT, amount: undefined, label: undefined })
+  })
+  it('rejects unsupported chains and bad addresses', () => {
+    expect(parseRoute(`#/pay/1/${SLOT}`)).toEqual({ page: 'invalid-pay' })
+    expect(parseRoute('#/pay/5042/0x1234')).toEqual({ page: 'invalid-pay' })
+  })
+  it('ignores a malformed amount instead of trusting it', () => {
+    expect(parseRoute(`#/pay/5042/${SLOT}?amount=-5`)).toMatchObject({ page: 'pay', amount: undefined })
+  })
+  it('caps the label length', () => {
+    const r = parseRoute(`#/pay/5042/${SLOT}?for=${'x'.repeat(500)}`)
+    expect(r.page === 'pay' && r.label?.length).toBe(80)
+  })
+})

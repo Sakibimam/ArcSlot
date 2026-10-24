@@ -1,0 +1,228 @@
+import { useState } from 'react'
+import { useAccount, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { ConnectKitButton } from 'connectkit'
+import { erc20Abi } from 'viem'
+import { QRCodeSVG } from 'qrcode.react'
+import { AlertTriangle, CircleCheck, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
+import { SLOT_ABI } from '@/lib/abis'
+import {
+  ARC_TESTNET_ID,
+  type SupportedChainId,
+  TESTNET_FAUCET_URL,
+  USDC_ADDRESS,
+  networkName,
+  shortAddr,
+} from '@/lib/chains'
+import { formatUsdc6, parseUsdc6 } from '@/lib/slot-logic'
+import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
+import { Button, Card, CopyButton, Field, NetworkBadge, inputClass, inputStyle } from './ui'
+
+interface PayPageProps {
+  chainId: SupportedChainId
+  slot: string
+  amount: bigint | undefined
+  label: string | undefined
+}
+
+export function PayPage({ chainId, slot, amount: requested, label }: PayPageProps) {
+  const testnet = chainId === ARC_TESTNET_ID
+  const network = networkName(chainId)
+  const addr = slot as `0x${string}`
+  const { address: wallet, chainId: walletChain } = useAccount()
+  const { switchChain, isPending: switching } = useSwitchChain()
+  const [mode, setMode] = useState<'wallet' | 'manual'>('wallet')
+  const [typed, setTyped] = useState('')
+
+  // The slot itself tells us who gets paid — don't trust the link for that.
+  const { data, isError, isLoading } = useReadContracts({
+    contracts: [
+      { address: addr, abi: SLOT_ABI, functionName: 'merchant', chainId },
+      { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [addr], chainId },
+    ],
+    query: { refetchInterval: 4_000 },
+  })
+  const merchant = data?.[0].result as string | undefined
+  const slotBalance = data?.[1].result
+  const invalid = isError || (!isLoading && data !== undefined && !merchant)
+
+  const { data: myBalance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: wallet ? [wallet] : undefined,
+    chainId,
+    query: { enabled: !!wallet, refetchInterval: 6_000 },
+  })
+
+  const typedRaw = parseUsdc6(typed)
+  const payAmount = requested ?? (typedRaw && typedRaw > 0n ? typedRaw : undefined)
+  const insufficient = typeof myBalance === 'bigint' && payAmount !== undefined && myBalance < payAmount
+
+  const { writeContract, data: txHash, isPending, error } = useWriteContract()
+  const { isLoading: confirming, isSuccess: sent } = useWaitForTransactionReceipt({ hash: txHash, chainId })
+
+  const fullyPaid = requested !== undefined && slotBalance !== undefined && slotBalance >= requested
+
+  if (invalid) {
+    return (
+      <Card className="text-center">
+        <AlertTriangle className="size-8 mx-auto mb-3" style={{ color: 'var(--warning)' }} />
+        <h1 className="display text-xl font-semibold">This payment link is not valid</h1>
+        <p className="text-sm mt-2" style={{ color: 'var(--subtle)' }}>
+          It doesn&apos;t point to a payment request on {network}. Ask the merchant for a new link.
+        </p>
+      </Card>
+    )
+  }
+
+  const pay = () => {
+    if (!payAmount) return
+    writeContract({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'transfer',
+      args: [addr, payAmount],
+      chainId,
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <span className="text-sm" style={{ color: 'var(--subtle)' }}>Payment request</span>
+          <NetworkBadge name={network} testnet={testnet} />
+        </div>
+        <h1 className="display text-2xl font-semibold break-words">{label ?? 'Payment'}</h1>
+        {requested !== undefined && (
+          <p data-testid="pay-amount" className="display text-4xl font-bold mt-2 tabular-nums">
+            {formatUsdc6(requested)} <span className="text-xl font-semibold" style={{ color: 'var(--subtle)' }}>USDC</span>
+          </p>
+        )}
+        <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: 'var(--muted)' }}>
+          <ShieldCheck className="size-4 shrink-0" style={{ color: 'var(--success)' }} />
+          <span>
+            Paid to{' '}
+            {merchant ? (
+              <a href={buildAddressExplorerUrl(chainId, merchant)} target="_blank" rel="noreferrer" className="mono underline decoration-dotted">
+                {shortAddr(merchant)}
+              </a>
+            ) : '…'}
+            {' '}— verified on-chain
+          </span>
+        </div>
+      </Card>
+
+      {fullyPaid || sent ? (
+        <Card className="text-center">
+          <CircleCheck className="size-10 mx-auto mb-2" style={{ color: 'var(--success)' }} />
+          <h2 className="display text-xl font-semibold">{sent ? 'Payment sent' : 'Payment received'}</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--subtle)' }}>
+            {sent ? 'Arc confirms in under a second — you’re all set.' : 'The merchant has received the full amount.'}
+          </p>
+          {txHash && (
+            <a href={buildTxExplorerUrl(chainId, txHash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm mt-3" style={{ color: 'var(--accent)' }}>
+              View transaction <ExternalLink className="size-3.5" />
+            </a>
+          )}
+        </Card>
+      ) : (
+        <Card>
+          <div className="grid grid-cols-2 gap-1 rounded-2xl p-1 mb-5" style={{ background: 'var(--surface-muted)' }} role="tablist">
+            {([
+              ['wallet', 'Pay with wallet', Wallet],
+              ['manual', 'Send manually', QrCode],
+            ] as const).map(([key, text, Icon]) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={mode === key}
+                onClick={() => setMode(key)}
+                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all"
+                style={mode === key ? { background: 'var(--surface-strong)', color: 'var(--ink)' } : { color: 'var(--subtle)' }}
+              >
+                <Icon className="size-4" /> {text}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'wallet' ? (
+            <div className="space-y-4">
+              {requested === undefined && (
+                <Field id="pay-amount-input" label="Amount to pay (USDC)">
+                  <input
+                    id="pay-amount-input"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={typed}
+                    onChange={(e) => setTyped(e.target.value.replace(',', '.'))}
+                    className={`${inputClass} display text-2xl font-semibold`}
+                    style={inputStyle(typed !== '' && !typedRaw)}
+                  />
+                </Field>
+              )}
+
+              {!wallet ? (
+                <div className="text-center space-y-3">
+                  <p className="text-sm" style={{ color: 'var(--muted)' }}>Connect a wallet holding USDC on {network}.</p>
+                  <div className="flex justify-center"><ConnectKitButton /></div>
+                </div>
+              ) : walletChain !== chainId ? (
+                <Button className="w-full" loading={switching} onClick={() => switchChain({ chainId })}>
+                  Switch to {network}
+                </Button>
+              ) : (
+                <>
+                  {typeof myBalance === 'bigint' && (
+                    <p className="text-xs text-center" style={{ color: insufficient ? 'var(--danger)' : 'var(--subtle)' }}>
+                      {insufficient ? 'Not enough USDC — ' : ''}You have {formatUsdc6(myBalance)} USDC
+                    </p>
+                  )}
+                  <Button className="w-full text-base" disabled={!payAmount || insufficient} loading={isPending || confirming} onClick={pay}>
+                    {isPending ? 'Confirm in your wallet…' : confirming ? 'Sending…' : payAmount ? `Pay ${formatUsdc6(payAmount)} USDC` : 'Enter an amount'}
+                  </Button>
+                  {error && (
+                    <p className="text-xs text-center" style={{ color: 'var(--danger)' }}>
+                      {/rejected|denied/i.test(error.message) ? 'You cancelled the payment.' : 'Payment failed. Please try again.'}
+                    </p>
+                  )}
+                </>
+              )}
+              {testnet && (wallet === undefined || insufficient) && (
+                <p className="text-xs text-center" style={{ color: 'var(--subtle)' }}>
+                  Testing?{' '}
+                  <a href={TESTNET_FAUCET_URL} target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--accent)' }}>
+                    Get test USDC
+                  </a>{' '}
+                  (choose Arc Testnet).
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="rounded-2xl p-3 bg-white">
+                  <QRCodeSVG value={slot} size={168} />
+                </div>
+              </div>
+              <p className="mono text-xs break-all rounded-xl p-3 text-center" style={{ background: 'var(--surface-muted)' }}>{slot}</p>
+              <CopyButton text={slot} label="Copy address" variant="primary" className="w-full" />
+              <p className="flex gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(245,201,122,0.1)', color: 'var(--warning)' }}>
+                <AlertTriangle className="size-4 shrink-0" />
+                <span>
+                  Only send USDC on {network}{requested !== undefined ? <> — exactly <b>{formatUsdc6(requested)} USDC</b></> : null}. Other tokens or networks can&apos;t be recovered.
+                </span>
+              </p>
+            </div>
+          )}
+
+          {slotBalance !== undefined && slotBalance > 0n && !fullyPaid && (
+            <p className="mt-4 text-xs text-center" style={{ color: 'var(--subtle)' }}>
+              {formatUsdc6(slotBalance)} USDC received so far
+            </p>
+          )}
+        </Card>
+      )}
+    </div>
+  )
+}

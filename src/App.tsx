@@ -1,82 +1,116 @@
 import { useCallback, useEffect, useState } from 'react'
+import { ArrowDownToLine, Inbox, Link2, Send } from 'lucide-react'
 import { Header } from '@/components/Header'
-import { NewSlot } from '@/components/NewSlot'
-import { SlotsList } from '@/components/SlotsList'
-import { ARC_MAINNET_ID, type SupportedChainId } from '@/lib/chains'
-import { type ReceiptData, type StoredSlot, loadSlots, saveSlots } from '@/lib/slot-logic'
+import { CreateRequest } from '@/components/CreateRequest'
+import { RequestCard } from '@/components/RequestCard'
+import { PayPage } from '@/components/PayPage'
+import { Card } from '@/components/ui'
+import { type SupportedChainId, getFactoryAddress } from '@/lib/chains'
+import { type Route, parseRoute } from '@/lib/links'
+import { type ReceiptData, type StoredSlot, loadSlots, pickDefaultChain, saveSlots } from '@/lib/slot-logic'
+
+function useRoute(): Route {
+  const [route, setRoute] = useState(() => parseRoute(window.location.hash))
+  useEffect(() => {
+    const onHash = () => {
+      setRoute(parseRoute(window.location.hash))
+      window.scrollTo?.(0, 0)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+  return route
+}
+
+const defaultChain = () =>
+  pickDefaultChain({ 5042: getFactoryAddress(5042), 5042002: getFactoryAddress(5042002) })
 
 export default function App() {
-  // Default to Arc mainnet
-  const [chainId, setChainId] = useState<SupportedChainId>(ARC_MAINNET_ID)
-  const [slots, setSlots] = useState<StoredSlot[]>(loadSlots)
-  const [activeTab, setActiveTab] = useState<'new' | 'list'>('new')
+  const route = useRoute()
+  const [chainId, setChainId] = useState<SupportedChainId>(defaultChain)
+  const [requests, setRequests] = useState<StoredSlot[]>(loadSlots)
 
-  useEffect(() => saveSlots(slots), [slots])
+  useEffect(() => saveSlots(requests), [requests])
 
-  const handleSlotCreated = useCallback((address: string) => {
-    setSlots((prev) => {
-      // Avoid duplicates
-      if (prev.some((s) => s.address === address && s.chainId === chainId)) return prev
-      return [{ address, chainId }, ...prev]
-    })
-    setActiveTab('list')
-  }, [chainId])
+  const handleCreated = useCallback((req: StoredSlot) => {
+    setRequests((prev) =>
+      prev.some((r) => r.address === req.address && r.chainId === req.chainId) ? prev : [req, ...prev],
+    )
+  }, [])
 
   const handleSwept = useCallback((address: string, receipt: ReceiptData) => {
-    setSlots((prev) =>
-      prev.map((s) => (s.address === address && s.chainId === chainId ? { ...s, receipt } : s)),
-    )
-  }, [chainId])
+    setRequests((prev) => prev.map((r) => (r.address === address ? { ...r, receipt } : r)))
+  }, [])
 
-  const slotsForChain = slots.filter((s) => s.chainId === chainId)
+  if (route.page !== 'merchant') {
+    return (
+      <div className="min-h-dvh flex flex-col">
+        <Header />
+        <main className="flex-1 mx-auto w-full max-w-md px-4 pt-6 pb-24 sm:pt-10">
+          {route.page === 'pay' ? (
+            <PayPage chainId={route.chainId} slot={route.slot} amount={route.amount} label={route.label} />
+          ) : (
+            <Card className="text-center">
+              <h1 className="display text-xl font-semibold">This payment link is not valid</h1>
+              <p className="text-sm mt-2" style={{ color: 'var(--subtle)' }}>Check you copied the whole link, or ask for a new one.</p>
+            </Card>
+          )}
+          <p className="text-xs text-center mt-6" style={{ color: 'var(--subtle)' }}>
+            Payments settle in USDC on Arc. Non-custodial: funds go straight to the merchant.
+          </p>
+        </main>
+      </div>
+    )
+  }
+
+  const visible = requests.filter((r) => r.chainId === chainId)
 
   return (
     <div className="min-h-dvh flex flex-col">
-      <Header chainId={chainId} onChainChange={(id) => setChainId(id as SupportedChainId)} />
+      <Header chainId={chainId} onChainChange={setChainId} />
+      <main className="flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24 sm:pt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-6 lg:gap-8 items-start">
+          <CreateRequest chainId={chainId} onCreated={handleCreated} />
 
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-8">
-        {/* Tab row */}
-        <div className="flex items-center gap-1 mb-8 rounded-xl p-1 w-fit" style={{ background: 'var(--surface-muted)' }}>
-          {[
-            { key: 'new' as const, label: 'New Slot' },
-            { key: 'list' as const, label: `Slots${slotsForChain.length > 0 ? ` (${slotsForChain.length})` : ''}` },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setActiveTab(key)}
-              className="px-5 py-2 rounded-lg text-sm font-semibold transition-all"
-              style={
-                activeTab === key
-                  ? { background: 'var(--surface-strong)', color: 'var(--ink)' }
-                  : { color: 'var(--subtle)' }
-              }
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Two-panel layout on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8">
-          {/* Left / New slot form — always visible on desktop, tab-gated on mobile */}
-          <div className={activeTab === 'new' ? 'block' : 'hidden lg:block'}>
-            <NewSlot chainId={chainId} onSlotCreated={handleSlotCreated} />
-          </div>
-
-          {/* Right / Slots list — always visible on desktop, tab-gated on mobile */}
-          <div className={activeTab === 'list' ? 'block' : 'hidden lg:block'}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="display text-lg font-semibold" style={{ color: 'var(--ink)' }}>
-                Slots
-              </h2>
-              {slotsForChain.length > 1 && (
-                <span className="text-xs" style={{ color: 'var(--subtle)' }}>
-                  {slotsForChain.length} slots on this chain
-                </span>
+          <section>
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="display text-xl font-semibold">Your requests</h2>
+              {visible.length > 0 && (
+                <span className="text-xs" style={{ color: 'var(--subtle)' }}>Updates live</span>
               )}
             </div>
-            <SlotsList slots={slotsForChain} chainId={chainId} onSwept={handleSwept} />
-          </div>
+            {visible.length === 0 ? (
+              <Card className="text-center">
+                <Inbox className="size-7 mx-auto mb-2" style={{ color: 'var(--subtle)' }} />
+                <p className="font-medium">No payment requests yet</p>
+                <ol className="mt-5 grid gap-3 sm:grid-cols-3 text-left">
+                  {[
+                    [Link2, 'Create a link', 'Set an amount and what it’s for.'],
+                    [Send, 'Customer pays', 'They open the link and pay with any wallet.'],
+                    [ArrowDownToLine, 'Collect', 'Move the USDC to your wallet in one tap.'],
+                  ].map(([Icon, title, text], i) => {
+                    const I = Icon as typeof Link2
+                    return (
+                      <li key={i} className="rounded-2xl p-4" style={{ background: 'var(--surface-muted)' }}>
+                        <I className="size-5 mb-2" style={{ color: 'var(--accent)' }} />
+                        <p className="text-sm font-semibold">{i + 1}. {title as string}</p>
+                        <p className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>{text as string}</p>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </Card>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                {visible.map((r) => (
+                  <RequestCard key={`${r.chainId}:${r.address}`} request={r} onSwept={handleSwept} />
+                ))}
+              </div>
+            )}
+            <p className="text-xs mt-4" style={{ color: 'var(--subtle)' }}>
+              Requests are remembered in this browser. Each one has its own address, so payments never mix.
+            </p>
+          </section>
         </div>
       </main>
     </div>

@@ -1,6 +1,6 @@
 // Pure slot logic, kept out of components so it can be unit tested.
 
-import { decodeEventLog, isAddressEqual, type Hex } from 'viem'
+import { decodeEventLog, isAddressEqual, keccak256, toHex, type Hex } from 'viem'
 import { SLOT_ABI } from './abis'
 
 export interface ReceiptData {
@@ -29,6 +29,38 @@ export function deriveSlotStatus(s: {
 
 export function canSweep(status: SlotStatus): boolean {
   return status === 'funded'
+}
+
+// ─── Payment-request view (merchant + sender UI) ─────────────────────────────
+
+export type RequestStatus = 'loading' | 'waiting' | 'partial' | 'paid' | 'below-minimum' | 'collected' | 'on-hold'
+
+/** Status of a payment request, given the (off-chain) requested amount. */
+export function deriveRequestStatus(s: Parameters<typeof deriveSlotStatus>[0] & { amount: bigint | undefined }): RequestStatus {
+  const base = deriveSlotStatus(s)
+  if (base === 'loading') return 'loading'
+  if (base === 'quarantined') return 'on-hold'
+  if (base === 'swept') return 'collected'
+  if (base === 'awaiting') return 'waiting'
+  const balance = s.balance ?? 0n
+  if (s.amount !== undefined) return balance >= s.amount ? 'paid' : 'partial'
+  return base === 'funded' ? 'paid' : 'below-minimum'
+}
+
+/** The contract accepts a sweep once the balance reaches minSweep. */
+export function canCollect(status: RequestStatus, balance: bigint | undefined, minSweep: bigint | undefined): boolean {
+  if (status !== 'paid' && status !== 'partial') return false
+  return balance !== undefined && minSweep !== undefined && balance >= minSweep
+}
+
+/** bytes32 reference: label + random salt, so a merchant can reuse labels. */
+export function makePayRef(label: string, salt: string): Hex {
+  return keccak256(toHex(`${label}#${salt}`))
+}
+
+/** Open on mainnet once it is deployed, otherwise testnet. */
+export function pickDefaultChain(factories: Record<5042 | 5042002, string | null>): 5042 | 5042002 {
+  return factories[5042] ? 5042 : 5042002
 }
 
 /** Parse a user-entered USDC amount ("0.05") into 6-decimal units. */
@@ -78,6 +110,11 @@ export interface StoredSlot {
   address: string
   chainId: number
   receipt?: ReceiptData
+  /** Human label ("Invoice #42") — on-chain only its hash is stored. */
+  label?: string
+  /** Requested amount (6-dec). Off-chain; the contract accepts any amount. */
+  amount?: bigint
+  createdAt?: number
 }
 
 const STORAGE_KEY = 'arc-slot:slots:v1'

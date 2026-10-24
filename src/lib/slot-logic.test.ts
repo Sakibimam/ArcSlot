@@ -9,6 +9,10 @@ import {
   decodeSweepReceipt,
   loadSlots,
   saveSlots,
+  deriveRequestStatus,
+  canCollect,
+  makePayRef,
+  pickDefaultChain,
 } from './slot-logic'
 
 const MIN = 100_000n
@@ -120,5 +124,60 @@ describe('slot persistence', () => {
   it('returns [] on corrupt storage', () => {
     localStorage.setItem('arc-slot:slots:v1', '{not json')
     expect(loadSlots()).toEqual([])
+  })
+})
+
+describe('deriveRequestStatus', () => {
+  const base = { loading: false, quarantined: false, balance: 0n, minSweep: MIN, receipt: undefined, amount: 1_000_000n }
+  const receipt = { gross: 1n, net: 1n, fee: 0n, reimbursement: 0n, sweeper: '0x1', txHash: '0x2' }
+
+  it('waiting when nothing received', () => {
+    expect(deriveRequestStatus(base)).toBe('waiting')
+  })
+  it('partial when some but not all of the amount arrived', () => {
+    expect(deriveRequestStatus({ ...base, balance: 400_000n })).toBe('partial')
+  })
+  it('paid when the full amount arrived', () => {
+    expect(deriveRequestStatus({ ...base, balance: 1_000_000n })).toBe('paid')
+    expect(deriveRequestStatus({ ...base, balance: 1_200_000n })).toBe('paid')
+  })
+  it('collected after a sweep', () => {
+    expect(deriveRequestStatus({ ...base, receipt })).toBe('collected')
+  })
+  it('without a requested amount, any collectable balance counts as paid', () => {
+    expect(deriveRequestStatus({ ...base, amount: undefined, balance: MIN })).toBe('paid')
+    expect(deriveRequestStatus({ ...base, amount: undefined, balance: 50_000n })).toBe('below-minimum')
+  })
+  it('on-hold when quarantined, loading while reads pending', () => {
+    expect(deriveRequestStatus({ ...base, quarantined: true, balance: MIN })).toBe('on-hold')
+    expect(deriveRequestStatus({ ...base, loading: true })).toBe('loading')
+  })
+})
+
+describe('canCollect', () => {
+  it('needs at least minSweep, even if the request is partial', () => {
+    expect(canCollect('paid', 1_000_000n, MIN)).toBe(true)
+    expect(canCollect('partial', 400_000n, MIN)).toBe(true)
+    expect(canCollect('partial', 50_000n, MIN)).toBe(false)
+    expect(canCollect('below-minimum', 50_000n, MIN)).toBe(false)
+    expect(canCollect('on-hold', 1_000_000n, MIN)).toBe(false)
+    expect(canCollect('collected', 0n, MIN)).toBe(false)
+  })
+})
+
+describe('makePayRef', () => {
+  it('is unique per salt so the same label can be reused', () => {
+    expect(makePayRef('Coffee', 'a')).not.toBe(makePayRef('Coffee', 'b'))
+    expect(makePayRef('Coffee', 'a')).toBe(makePayRef('Coffee', 'a'))
+    expect(makePayRef('Coffee', 'a')).toMatch(/^0x[0-9a-f]{64}$/)
+  })
+})
+
+describe('pickDefaultChain', () => {
+  it('prefers mainnet when its factory is deployed', () => {
+    expect(pickDefaultChain({ 5042: '0xabc', 5042002: '0xdef' })).toBe(5042)
+  })
+  it('falls back to testnet while mainnet is not deployed', () => {
+    expect(pickDefaultChain({ 5042: null, 5042002: '0xdef' })).toBe(5042002)
   })
 })
