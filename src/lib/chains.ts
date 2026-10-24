@@ -22,8 +22,8 @@ export function getChainMeta(chainId: SupportedChainId) {
 // Factory addresses: set after deploy. Zero address = not yet deployed.
 // Replace these with real addresses once createSlot is deployed on each chain.
 export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
-  [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000',
-  [ARC_TESTNET_ID]: '0x0000000000000000000000000000000000000000',
+  [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000', // not yet deployed
+  [ARC_TESTNET_ID]: '0x34163d378498caca5cfedd06995f5cee02a14a45',
 };
 
 export function getFactoryAddress(chainId: SupportedChainId): `0x${string}` | null {

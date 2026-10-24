@@ -20,3 +20,18 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792808778182}
 {"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792808778209}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792808778209}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792809021969}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792809021972}
+{"level":"debug","message":"[vite] connected.","timestamp":1792810334488}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792810917902}
+{"level":"debug","message":"[vite] connected.","timestamp":1792810923307}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792810942171}
+{"level":"debug","message":"[vite] connected.","timestamp":1792810947224}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792810963947}
+{"level":"debug","message":"[vite] connected.","timestamp":1792810968301}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792810979903}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792810979903}
+{"level":"debug","message":"[vite] hot updated: /src/components/Header.tsx","timestamp":1792810979903}
+{"level":"debug","message":"[vite] hot updated: /src/components/NewSlot.tsx","timestamp":1792810979903}
+{"level":"debug","message":"[vite] hot updated: /src/components/SlotCard.tsx","timestamp":1792810979903}
+{"level":"debug","message":"[vite] connected.","timestamp":1792810997154}

@@ -7,12 +7,29 @@ import {Slot}   from "./Slot.sol";
 /// @title SlotFactory
 /// @notice Deploys EIP-1167 minimal-proxy Slot instances deterministically.
 ///         No owner, no admin, no pause, no upgrade path.
+///
+///         Constructor parameters are operator-configurable at deploy time,
+///         so the same implementation can be reused across chains and
+///         operators without redeploying the Slot logic.
 contract SlotFactory {
     using Clones for address;
 
-    // ─── State ─────────────────────────────────────────────────────────────────
+    // ─── Immutable configuration ────────────────────────────────────────────────
 
+    /// @notice EIP-1167 implementation address.  All clones proxy to this.
     address public immutable implementation;
+
+    /// @notice ERC-20 USDC token address forwarded to every clone.
+    address public immutable usdc;
+
+    /// @notice Flat caller tip (6-decimal USDC) forwarded to every clone.
+    uint256 public immutable tip;
+
+    /// @notice Minimum gross balance (6-decimal USDC) required to sweep,
+    ///         forwarded to every clone.
+    uint256 public immutable minSweep;
+
+    // ─── State ─────────────────────────────────────────────────────────────────
 
     /// @dev merchant => payRef => slot address (non-zero once deployed).
     mapping(address => mapping(bytes32 => address)) public slots;
@@ -29,6 +46,8 @@ contract SlotFactory {
 
     // ─── Errors ────────────────────────────────────────────────────────────────
 
+    error ZeroImplementation();
+    error ZeroUSDC();
     error ZeroMerchant();
     error ZeroFeeRecipient();
     error FeeBpsTooHigh();
@@ -36,8 +55,23 @@ contract SlotFactory {
 
     // ─── Constructor ───────────────────────────────────────────────────────────
 
-    constructor() {
-        implementation = address(new Slot());
+    /// @param _implementation  Address of the deployed Slot implementation.
+    /// @param _usdc            ERC-20 USDC token address (non-zero).
+    /// @param _tip             Flat caller bonus in 6-decimal USDC units.
+    /// @param _minSweep        Minimum gross balance required to trigger sweep.
+    constructor(
+        address _implementation,
+        address _usdc,
+        uint256 _tip,
+        uint256 _minSweep
+    ) {
+        if (_implementation == address(0)) revert ZeroImplementation();
+        if (_usdc           == address(0)) revert ZeroUSDC();
+
+        implementation = _implementation;
+        usdc           = _usdc;
+        tip            = _tip;
+        minSweep       = _minSweep;
     }
 
     // ─── Public interface ──────────────────────────────────────────────────────
@@ -59,13 +93,21 @@ contract SlotFactory {
         if (feeBps > 0 && feeRecipient == address(0)) revert ZeroFeeRecipient();
         if (slots[merchant][payRef] != address(0))    revert ReferenceAlreadyUsed();
 
-        bytes32 salt = _salt(merchant, payRef);
-        slot = implementation.cloneDeterministic(salt);
+        bytes32 salt_ = _salt(merchant, payRef);
+        slot = implementation.cloneDeterministic(salt_);
 
         // Record before external call (CEI).
         slots[merchant][payRef] = slot;
 
-        Slot(slot).initialize(merchant, payRef, feeBps, feeRecipient);
+        Slot(slot).initialize(
+            usdc,
+            tip,
+            minSweep,
+            merchant,
+            payRef,
+            feeBps,
+            feeRecipient
+        );
 
         emit SlotCreated(slot, merchant, payRef, feeBps, feeRecipient);
     }
@@ -86,12 +128,11 @@ contract SlotFactory {
     function sweepMany(address[] calldata slotAddresses) external {
         uint256 n = slotAddresses.length;
         for (uint256 i; i < n; ++i) {
-            // Skip zero addresses defensively.
             if (slotAddresses[i] == address(0)) continue;
             try Slot(slotAddresses[i]).sweep() {
-                // success — nothing extra to do
+                // success
             } catch {
-                // swallow the revert so the remaining slots are still swept
+                // swallow: one bad slot cannot block the rest
             }
         }
     }

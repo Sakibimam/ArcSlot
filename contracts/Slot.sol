@@ -9,33 +9,46 @@ import {ReentrancyGuard}  from "@openzeppelin/contracts/utils/ReentrancyGuard.so
 /// @notice A minimal deposit-address clone in the Arc Slot system.
 ///
 ///         Arc specifics honoured throughout:
-///         - USDC is the native gas token AND an ERC-20 at ARC_USDC_ADDRESS.
-///           We use ONLY the 6-decimal ERC-20 view; msg.value is never read.
-///         - Transfers to address(0) revert on Arc, so all zero-address paths
-///           are rejected at initialisation and quarantine-resolution time.
+///         - USDC is the native gas token AND an ERC-20.  We use ONLY the
+///           6-decimal ERC-20 view; msg.value is never read.
+///         - Transfers to address(0) revert on Arc, so all zero-address
+///           paths are rejected at initialisation time.
 ///         - No SELFDESTRUCT anywhere (would drain the contract's native
 ///           balance and leave a broken address).
 ///         - Nothing is payable.
+///
+///         The implementation is deployed once; SlotFactory deploys EIP-1167
+///         minimal proxies and calls initialize() on each clone.  USDC, TIP,
+///         and MIN_SWEEP are supplied at initialisation time so the factory
+///         can be configured per-operator without redeploying the
+///         implementation.
 contract Slot is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // ─── Constants ─────────────────────────────────────────────────────────────
-
-    /// @dev ERC-20 USDC on Arc (6 decimals). Only this interface is used.
-    IERC20 internal constant USDC =
-        IERC20(0x3600000000000000000000000000000000000000);
 
     /// @dev Covers intrinsic gas (21 000) + calldata + the bookkeeping inside
     ///      sweep() that runs before and after the gasleft() snapshot.
     ///      Calibrated conservatively high so callers are never under-paid.
     uint256 internal constant FIXED_OVERHEAD = 80_000;
 
-    /// @dev Flat bonus added on top of the gas reimbursement (6-decimal USDC).
-    ///      0.01 USDC — large enough that integer-division truncation in
-    ///      gasCost18 / 1e12 can never eat the caller's surplus.
-    uint256 internal constant TIP = 10_000;
+    // ─── Initialisation-time configuration ────────────────────────────────────
+    //
+    //     These are stored at clone initialisation (not compile time) so that
+    //     a single implementation can serve different chains / operators.
 
-    // ─── Storage ───────────────────────────────────────────────────────────────
+    /// @notice ERC-20 USDC token for this slot (6-decimal interface only).
+    IERC20  public usdc;
+
+    /// @notice Flat caller tip in 6-decimal USDC units added on top of the
+    ///         gas reimbursement.  Set by SlotFactory at initialisation.
+    uint256 public tip;
+
+    /// @notice Minimum gross balance (6-decimal USDC) required before
+    ///         sweep() will distribute funds.  Prevents dust sweeps.
+    uint256 public minSweep;
+
+    // ─── Slot storage ──────────────────────────────────────────────────────────
 
     address public merchant;
     bytes32 public payRef;
@@ -91,26 +104,42 @@ contract Slot is ReentrancyGuard {
     error AlreadyInitialised();
     error ZeroMerchant();
     error ZeroFeeRecipient();
+    error ZeroUSDC();
     error FeeBpsTooHigh();
     error NothingToSweep();
+    error BelowMinSweep();
     error NotMerchant();
     error NotQuarantined();
 
     // ─── Initialiser ───────────────────────────────────────────────────────────
 
     /// @notice Called exactly once by SlotFactory immediately after cloning.
+    /// @param _usdc         ERC-20 USDC token address (non-zero).
+    /// @param _tip          Flat caller bonus in 6-decimal USDC units.
+    /// @param _minSweep     Minimum gross balance required to trigger a sweep.
+    /// @param _merchant     Merchant payout address (non-zero).
+    /// @param _payRef       Off-chain payment reference (bytes32).
+    /// @param _feeBps       Fee in basis points (0-1000).
+    /// @param _feeRecipient Fee recipient (non-zero when _feeBps > 0).
     function initialize(
+        address _usdc,
+        uint256 _tip,
+        uint256 _minSweep,
         address _merchant,
         bytes32 _payRef,
         uint16  _feeBps,
         address _feeRecipient
     ) external {
         if (_initialised)                                revert AlreadyInitialised();
+        if (_usdc    == address(0))                      revert ZeroUSDC();
         if (_merchant == address(0))                     revert ZeroMerchant();
         if (_feeBps > 1000)                              revert FeeBpsTooHigh();
         if (_feeBps > 0 && _feeRecipient == address(0)) revert ZeroFeeRecipient();
 
         _initialised  = true;
+        usdc          = IERC20(_usdc);
+        tip           = _tip;
+        minSweep      = _minSweep;
         merchant      = _merchant;
         payRef        = _payRef;
         feeBps        = _feeBps;
@@ -121,7 +150,7 @@ contract Slot is ReentrancyGuard {
 
     /// @notice ERC-20 USDC balance of this slot (6-decimal units).
     function balance() external view returns (uint256) {
-        return USDC.balanceOf(address(this));
+        return usdc.balanceOf(address(this));
     }
 
     // ─── Sweep ─────────────────────────────────────────────────────────────────
@@ -130,7 +159,7 @@ contract Slot is ReentrancyGuard {
     ///         reimbursing the caller for gas (in USDC) plus a flat tip.
     ///
     ///         Checks-Effects-Interactions order:
-    ///           1. Checks       : balance, blacklist probes
+    ///           1. Checks       : balance, minSweep, blacklist probes
     ///           2. Effects      : quarantine flag written if needed
     ///           3. Interactions : SafeERC20 transfers, then event
     ///
@@ -139,9 +168,11 @@ contract Slot is ReentrancyGuard {
         // ── Step 1: snapshot gas at entry ──────────────────────────────────────
         uint256 g0 = gasleft();
 
-        // ── Step 2: read balance ───────────────────────────────────────────────
-        uint256 gross = USDC.balanceOf(address(this));
-        if (gross == 0) revert NothingToSweep();
+        // ── Step 2: read balance and enforce minimum ───────────────────────────
+        IERC20  _usdc  = usdc;
+        uint256 gross  = _usdc.balanceOf(address(this));
+        if (gross == 0)         revert NothingToSweep();
+        if (gross < minSweep)   revert BelowMinSweep();
 
         // ── Step 3: blacklist check (fail-closed on probe failure) ─────────────
         address _merchant     = merchant;
@@ -150,22 +181,17 @@ contract Slot is ReentrancyGuard {
         bytes32 _payRef       = payRef;
 
         {
-            // _checkBlacklist returns:
-            //   (blacklisted=true,  who=non-zero) → confirmed blacklisted address
-            //   (blacklisted=true,  who=zero)     → probe call failed (fail-closed)
-            //   (blacklisted=false, who=zero)     → all clear
             (bool isBlocked, address who) =
-                _checkBlacklist(_merchant, _feeRecipient, _feeBps);
+                _checkBlacklist(address(_usdc), _merchant, _feeRecipient, _feeBps);
 
             if (isBlocked) {
                 quarantined = true;
                 if (who == address(0)) {
-                    // Probe failure — emit distinct event so operators know why.
                     emit QuarantinedCheckFailed(address(this), _payRef);
                 } else {
                     emit Quarantined(address(this), _payRef, who);
                 }
-                return; // do NOT transfer; do NOT revert
+                return;
             }
         }
 
@@ -174,27 +200,25 @@ contract Slot is ReentrancyGuard {
         uint256 net = gross - fee;
 
         // ── Step 5: caller reimbursement ───────────────────────────────────────
-        // gasCost18 is in 18-decimal "wei-of-USDC-gas"; divide by 1e12 to get
-        // 6-decimal USDC units.  TIP ensures the caller is always net-positive
-        // even when integer division truncates to zero.
+        uint256 _tip          = tip;
         uint256 gasCost18     = (g0 - gasleft() + FIXED_OVERHEAD) * tx.gasprice;
-        uint256 reimbursement = gasCost18 / 1e12 + TIP;
+        uint256 reimbursement = gasCost18 / 1e12 + _tip;
 
         // Cap: reimbursement cannot exceed the gross balance.
-        // It is taken from net (never from fee), so fee integrity is preserved.
+        // Taken from net (never from fee), so fee integrity is preserved.
         if (reimbursement > gross) reimbursement = gross;
         if (reimbursement > net)   reimbursement = net;
         net -= reimbursement;
 
         // ── Step 6: SafeERC20 transfers (Interactions) ─────────────────────────
         if (reimbursement > 0) {
-            USDC.safeTransfer(msg.sender, reimbursement);
+            _usdc.safeTransfer(msg.sender, reimbursement);
         }
         if (fee > 0) {
-            USDC.safeTransfer(_feeRecipient, fee);
+            _usdc.safeTransfer(_feeRecipient, fee);
         }
         if (net > 0) {
-            USDC.safeTransfer(_merchant, net);
+            _usdc.safeTransfer(_merchant, net);
         }
 
         // ── Step 7: event ──────────────────────────────────────────────────────
@@ -237,24 +261,22 @@ contract Slot is ReentrancyGuard {
 
     // ─── Internal helpers ──────────────────────────────────────────────────────
 
-    /// @dev Returns (true, who) if a blacklisted address is found, where `who`
-    ///      is the blacklisted address.
-    ///      Returns (true, address(0)) if the isBlacklisted probe itself failed
+    /// @dev Returns (true, who) if a blacklisted address is found.
+    ///      Returns (true, address(0)) if the isBlacklisted probe failed
     ///      (fail-closed: treat as quarantine-worthy).
-    ///      Returns (false, address(0)) if both addresses are confirmed clear.
+    ///      Returns (false, address(0)) if all addresses are confirmed clear.
     function _checkBlacklist(
+        address _usdcAddr,
         address _merchant,
         address _feeRecipient,
         uint16  _feeBps
     ) internal view returns (bool isBlocked, address who) {
-        // Probe merchant.
-        (BlacklistResult merchantResult, bool merchantBlocked) = _probeBlacklist(_merchant);
+        (BlacklistResult merchantResult, bool merchantBlocked) = _probeBlacklist(_usdcAddr, _merchant);
         if (merchantResult == BlacklistResult.CallFailed) return (true, address(0));
         if (merchantBlocked) return (true, _merchant);
 
-        // Probe feeRecipient only when there is a fee.
         if (_feeBps > 0) {
-            (BlacklistResult feeResult, bool feeBlocked) = _probeBlacklist(_feeRecipient);
+            (BlacklistResult feeResult, bool feeBlocked) = _probeBlacklist(_usdcAddr, _feeRecipient);
             if (feeResult == BlacklistResult.CallFailed) return (true, address(0));
             if (feeBlocked) return (true, _feeRecipient);
         }
@@ -267,12 +289,12 @@ contract Slot is ReentrancyGuard {
     /// @dev Probes isBlacklisted(address) on the USDC contract via staticcall.
     ///      Returns (CallFailed, false) if the call reverts or returns short data
     ///      — the caller must treat this as a quarantine trigger (fail-closed).
-    function _probeBlacklist(address who)
+    function _probeBlacklist(address _usdcAddr, address who)
         internal
         view
         returns (BlacklistResult result, bool blacklisted_)
     {
-        (bool ok, bytes memory ret) = address(USDC).staticcall(
+        (bool ok, bytes memory ret) = _usdcAddr.staticcall(
             abi.encodeWithSignature("isBlacklisted(address)", who)
         );
         if (!ok || ret.length < 32) return (BlacklistResult.CallFailed, false);

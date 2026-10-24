@@ -84,6 +84,11 @@ contract MockUSDC {
 contract SlotTestBase is Test {
     address internal constant ARC_USDC = 0x3600000000000000000000000000000000000000;
 
+    // Match the constructor args used in the real deployment:
+    //   arc-forge create SlotFactory ... --constructor-args <IMPL> 0x3600... 2000 100000
+    uint256 internal constant TIP       = 2_000;    // 0.002 USDC
+    uint256 internal constant MIN_SWEEP = 100_000;  // 0.1 USDC
+
     MockUSDC     internal usdc;
     SlotFactory  internal factory;
 
@@ -96,25 +101,26 @@ contract SlotTestBase is Test {
     function setUp() public virtual {
         usdc = new MockUSDC();
         vm.etch(ARC_USDC, address(usdc).code);
-        // After etch we must interact through the etched address,
-        // but MockUSDC has mutable state (blacklist, reentrantTarget).
-        // vm.etch only copies bytecode; storage lives at ARC_USDC.
+        // After etch we interact through the etched address;
+        // storage lives at ARC_USDC, not at the original MockUSDC address.
         usdc = MockUSDC(ARC_USDC);
 
-        factory = new SlotFactory();
+        // Deploy implementation, then factory with configurable params.
+        Slot impl = new Slot();
+        factory   = new SlotFactory(address(impl), ARC_USDC, TIP, MIN_SWEEP);
     }
 
     function _fund(address to, uint256 amount) internal {
         usdc.mint(to, amount);
     }
 
-    // Convenience: deploy a slot and fund it in one call.
+    // Convenience: deploy a slot. Funds are added separately.
     function _slot(uint16 feeBps_) internal returns (address) {
         address fp = feeBps_ > 0 ? feeRecipient : address(0);
-        address s  = factory.createSlot(merchant, ref1, feeBps_, fp);
-        return s;
+        return factory.createSlot(merchant, ref1, feeBps_, fp);
     }
 
+    // Convenience: deploy and fund a slot above the MIN_SWEEP threshold.
     function _slotFunded(uint16 feeBps_, uint256 amount) internal returns (address) {
         address s = _slot(feeBps_);
         _fund(s, amount);
@@ -123,7 +129,7 @@ contract SlotTestBase is Test {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Predict / createSlot (unchanged from original suite — kept for regression)
+// Predict / createSlot
 // ═══════════════════════════════════════════════════════════════════════════════
 
 contract PredictTest is SlotTestBase {
@@ -184,14 +190,14 @@ contract InitialiseGuardTest is SlotTestBase {
     function test_InitialiseCannotBeCalledTwice() public {
         address slot = factory.createSlot(merchant, ref1, 0, address(0));
         vm.expectRevert(Slot.AlreadyInitialised.selector);
-        Slot(slot).initialize(merchant, ref1, 0, address(0));
+        Slot(slot).initialize(ARC_USDC, TIP, MIN_SWEEP, merchant, ref1, 0, address(0));
     }
 
     function test_InitialiseCannotBeCalledByStranger() public {
         address slot = factory.createSlot(merchant, ref1, 0, address(0));
         vm.prank(makeAddr("attacker"));
         vm.expectRevert(Slot.AlreadyInitialised.selector);
-        Slot(slot).initialize(makeAddr("attacker"), ref1, 0, address(0));
+        Slot(slot).initialize(ARC_USDC, TIP, MIN_SWEEP, makeAddr("attacker"), ref1, 0, address(0));
     }
 }
 
@@ -202,7 +208,6 @@ contract InitialiseGuardTest is SlotTestBase {
 contract SweepReimbursementTest is SlotTestBase {
     /// A stranger who calls sweep must end up net positive in USDC.
     function test_StrangerIsNetPositive() public {
-        // Fund the slot generously so reimbursement is not capped.
         address slot = _slotFunded(0, 10_000_000); // 10 USDC
 
         uint256 before = usdc.balanceOf(stranger);
@@ -226,41 +231,47 @@ contract SweepReimbursementTest is SlotTestBase {
 
     /// Reimbursement never exceeds gross balance.
     function testFuzz_ReimbursementNeverExceedsGross(uint256 gross, uint256 gasPrice) public {
-        gross    = bound(gross,    1,    1e15);
-        gasPrice = bound(gasPrice, 0,    500 gwei);
+        // gross must be >= MIN_SWEEP so sweep() does not revert BelowMinSweep
+        gross    = bound(gross,    MIN_SWEEP, 1e15);
+        gasPrice = bound(gasPrice, 0,         500 gwei);
         vm.txGasPrice(gasPrice);
 
         address slot = _slotFunded(0, gross);
 
-        uint256 merchantBefore  = usdc.balanceOf(merchant);
-        uint256 strangerBefore  = usdc.balanceOf(stranger);
+        uint256 merchantBefore = usdc.balanceOf(merchant);
+        uint256 strangerBefore = usdc.balanceOf(stranger);
 
         vm.prank(stranger);
         Slot(slot).sweep();
 
         uint256 strangerGot = usdc.balanceOf(stranger) - strangerBefore;
         assertLe(strangerGot, gross, "reimbursement exceeded gross");
-        // Slot is fully drained.
         assertEq(Slot(slot).balance(), 0, "slot not empty");
-        // Total out == gross.
         uint256 merchantGot = usdc.balanceOf(merchant) - merchantBefore;
         assertEq(strangerGot + merchantGot, gross, "gross not conserved");
     }
 
-    /// When gross is tiny (1 µUSDC), reimbursement is capped to gross,
-    /// and the remainder to merchant is zero — but sweep must not revert.
+    /// When gross == MIN_SWEEP (minimum valid balance), sweep must not revert.
     function test_ReimbursementCappedAtGross() public {
-        address slot = _slotFunded(0, 1); // 1 micro-USDC
+        address slot = _slotFunded(0, MIN_SWEEP);
 
         uint256 merchantBefore = usdc.balanceOf(merchant);
         vm.prank(stranger);
         Slot(slot).sweep();
 
-        uint256 strangerGot  = usdc.balanceOf(stranger);
-        uint256 merchantGot  = usdc.balanceOf(merchant) - merchantBefore;
+        uint256 strangerGot = usdc.balanceOf(stranger);
+        uint256 merchantGot = usdc.balanceOf(merchant) - merchantBefore;
 
-        assertLe(strangerGot, 1,  "reimbursement > gross");
-        assertEq(strangerGot + merchantGot, 1, "gross not conserved");
+        assertLe(strangerGot, MIN_SWEEP, "reimbursement > gross");
+        assertEq(strangerGot + merchantGot, MIN_SWEEP, "gross not conserved");
+    }
+
+    /// Balance below MIN_SWEEP reverts BelowMinSweep (not NothingToSweep).
+    function test_BelowMinSweepReverts() public {
+        address slot = _slot(0);
+        _fund(slot, MIN_SWEEP - 1);
+        vm.expectRevert(Slot.BelowMinSweep.selector);
+        Slot(slot).sweep();
     }
 }
 
@@ -271,33 +282,31 @@ contract SweepReimbursementTest is SlotTestBase {
 contract SweepFeeTest is SlotTestBase {
     /// fee + net + reimbursement == gross (no dust).
     function testFuzz_FeeArithmeticNoDust(uint256 gross, uint16 feeBps_) public {
-        gross   = bound(gross,   1, 1e15);
+        gross   = bound(gross,   MIN_SWEEP, 1e15);
         feeBps_ = uint16(bound(feeBps_, 0, 1000));
 
         address fp   = feeBps_ > 0 ? feeRecipient : address(0);
         address slot = factory.createSlot(merchant, ref1, feeBps_, fp);
         _fund(slot, gross);
 
-        uint256 mBefore  = usdc.balanceOf(merchant);
-        uint256 fBefore  = usdc.balanceOf(feeRecipient);
-        uint256 sBefore  = usdc.balanceOf(stranger);
+        uint256 mBefore = usdc.balanceOf(merchant);
+        uint256 fBefore = usdc.balanceOf(feeRecipient);
+        uint256 sBefore = usdc.balanceOf(stranger);
 
         vm.prank(stranger);
         Slot(slot).sweep();
 
-        uint256 merchantGot  = usdc.balanceOf(merchant)      - mBefore;
-        uint256 feeGot       = usdc.balanceOf(feeRecipient)  - fBefore;
-        uint256 reimburse    = usdc.balanceOf(stranger)       - sBefore;
+        uint256 merchantGot = usdc.balanceOf(merchant)     - mBefore;
+        uint256 feeGot      = usdc.balanceOf(feeRecipient) - fBefore;
+        uint256 reimburse   = usdc.balanceOf(stranger)     - sBefore;
 
         assertEq(merchantGot + feeGot + reimburse, gross, "dust left");
-        // Fee portion matches the formula.
         assertEq(feeGot, (gross * feeBps_) / 10_000, "fee formula wrong");
     }
 
-    /// Zero-fee slot: feeRecipient receives nothing, full remainder (minus
-    /// reimbursement) goes to merchant.
+    /// Zero-fee slot: feeRecipient receives nothing.
     function test_ZeroFeeSlot() public {
-        address slot = _slotFunded(0, 5_000_000); // 5 USDC, no fee
+        address slot = _slotFunded(0, 5_000_000);
 
         uint256 fBefore = usdc.balanceOf(feeRecipient);
         vm.prank(stranger);
@@ -308,15 +317,13 @@ contract SweepFeeTest is SlotTestBase {
 
     /// Fee is taken from gross before reimbursement is deducted from net.
     function test_FeeNotReducedByReimbursement() public {
-        // 100 USDC, 10% fee
-        address slot = _slotFunded(1000, 100_000_000);
+        address slot = _slotFunded(1000, 100_000_000); // 100 USDC, 10% fee
 
         uint256 fBefore = usdc.balanceOf(feeRecipient);
         vm.prank(stranger);
         Slot(slot).sweep();
 
         uint256 feeGot = usdc.balanceOf(feeRecipient) - fBefore;
-        // fee = 100_000_000 * 1000 / 10000 = 10_000_000
         assertEq(feeGot, 10_000_000, "fee not 10%");
     }
 }
@@ -326,14 +333,12 @@ contract SweepFeeTest is SlotTestBase {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 contract SweepBasicTest is SlotTestBase {
-    /// sweep() reverts NothingToSweep when balance is zero.
     function test_SweepRevertsWhenEmpty() public {
         address slot = _slot(0);
         vm.expectRevert(Slot.NothingToSweep.selector);
         Slot(slot).sweep();
     }
 
-    /// sweeping twice reverts NothingToSweep on the second call.
     function test_SweepTwiceReverts() public {
         address slot = _slotFunded(0, 1_000_000);
         Slot(slot).sweep();
@@ -341,22 +346,19 @@ contract SweepBasicTest is SlotTestBase {
         Slot(slot).sweep();
     }
 
-    /// Slot is fully drained after a sweep.
     function test_SlotDrainedAfterSweep() public {
         address slot = _slotFunded(0, 2_000_000);
         Slot(slot).sweep();
         assertEq(Slot(slot).balance(), 0);
     }
 
-    /// sweep() emits a Received event with correct gross.
     function test_EmitsReceived() public {
         address slot = _slotFunded(0, 5_000_000);
-        vm.expectEmit(false, false, false, false); // just check it fires
+        vm.expectEmit(false, false, false, false);
         emit Slot.Received(ref1, 0, 0, 0, 0, address(0));
         Slot(slot).sweep();
     }
 
-    /// Successive deposits and sweeps accumulate correctly.
     function test_MultipleSweepRounds() public {
         address slot = factory.createSlot(merchant, ref1, 0, address(0));
 
@@ -370,6 +372,14 @@ contract SweepBasicTest is SlotTestBase {
         uint256 r2 = usdc.balanceOf(merchant);
         assertGt(r2, r1);
     }
+
+    /// Factory immutables are forwarded correctly to every clone.
+    function test_CloneInheritsFactoryConfig() public {
+        address slot = factory.createSlot(merchant, ref1, 0, address(0));
+        assertEq(address(Slot(slot).usdc()),     ARC_USDC,  "usdc mismatch");
+        assertEq(Slot(slot).tip(),               TIP,       "tip mismatch");
+        assertEq(Slot(slot).minSweep(),          MIN_SWEEP, "minSweep mismatch");
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -377,8 +387,6 @@ contract SweepBasicTest is SlotTestBase {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 contract QuarantineTest is SlotTestBase {
-    /// Blacklisted merchant: sweep sets quarantined flag, emits Quarantined,
-    /// does NOT transfer, does NOT revert.
     function test_BlacklistedMerchantQuarantines() public {
         address slot = _slotFunded(0, 5_000_000);
 
@@ -389,16 +397,15 @@ contract QuarantineTest is SlotTestBase {
 
         vm.expectEmit(true, true, true, false);
         emit Slot.Quarantined(slot, ref1, merchant);
-        Slot(slot).sweep(); // must NOT revert
+        Slot(slot).sweep();
 
-        assertEq(usdc.balanceOf(slot), sBefore, "funds moved on quarantine");
+        assertEq(usdc.balanceOf(slot),     sBefore, "funds moved on quarantine");
         assertEq(usdc.balanceOf(merchant), mBefore, "merchant received on quarantine");
         assertTrue(Slot(slot).quarantined(), "quarantined flag not set");
     }
 
-    /// Blacklisted feeRecipient also quarantines.
     function test_BlacklistedFeeRecipientQuarantines() public {
-        address slot = _slotFunded(500, 5_000_000); // 5% fee
+        address slot = _slotFunded(500, 5_000_000);
 
         usdc.setBlacklisted(feeRecipient, true);
 
@@ -409,7 +416,6 @@ contract QuarantineTest is SlotTestBase {
         assertTrue(Slot(slot).quarantined());
     }
 
-    /// resolveQuarantine by non-merchant reverts NotMerchant.
     function test_ResolveQuarantineOnlyMerchant() public {
         address slot = _slotFunded(0, 5_000_000);
         usdc.setBlacklisted(merchant, true);
@@ -420,7 +426,6 @@ contract QuarantineTest is SlotTestBase {
         Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 0);
     }
 
-    /// resolveQuarantine on a non-quarantined slot reverts NotQuarantined.
     function test_ResolveQuarantineRequiresQuarantined() public {
         address slot = _slot(0);
         vm.prank(merchant);
@@ -428,7 +433,6 @@ contract QuarantineTest is SlotTestBase {
         Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 0);
     }
 
-    /// resolveQuarantine rejects zero newMerchant.
     function test_ResolveQuarantineRejectsZeroMerchant() public {
         address slot = _slotFunded(0, 5_000_000);
         usdc.setBlacklisted(merchant, true);
@@ -439,7 +443,6 @@ contract QuarantineTest is SlotTestBase {
         Slot(slot).resolveQuarantine(address(0), address(0), 0);
     }
 
-    /// resolveQuarantine rejects feeBps > 1000.
     function test_ResolveQuarantineRejectsHighFeeBps() public {
         address slot = _slotFunded(0, 5_000_000);
         usdc.setBlacklisted(merchant, true);
@@ -450,7 +453,6 @@ contract QuarantineTest is SlotTestBase {
         Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 1001);
     }
 
-    /// resolveQuarantine rejects zero feeRecipient when newFeeBps > 0.
     function test_ResolveQuarantineRejectsZeroFeeRecipientWithFee() public {
         address slot = _slotFunded(0, 5_000_000);
         usdc.setBlacklisted(merchant, true);
@@ -461,7 +463,6 @@ contract QuarantineTest is SlotTestBase {
         Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 500);
     }
 
-    /// resolveQuarantine then sweep: blacklisted merchant -> new merchant, no fee.
     function test_ResolveQuarantineThenSweepSucceeds_MerchantBlacklisted() public {
         address slot        = _slotFunded(0, 5_000_000);
         address newMerchant = makeAddr("newMerchant");
@@ -481,19 +482,16 @@ contract QuarantineTest is SlotTestBase {
         assertEq(Slot(slot).balance(), 0);
     }
 
-    /// FIX FOR CRITICAL: resolveQuarantine can also replace feeRecipient
-    /// when the feeRecipient was the blacklisted address.
+    /// Critical fix: resolveQuarantine can also replace feeRecipient.
     function test_ResolveQuarantineThenSweepSucceeds_FeeRecipientBlacklisted() public {
-        // Slot with 5% fee; feeRecipient gets blacklisted.
-        address slot           = _slotFunded(500, 5_000_000);
+        address slot            = _slotFunded(500, 5_000_000);
         address newFeeRecipient = makeAddr("newFeeRecipient");
 
         usdc.setBlacklisted(feeRecipient, true);
-        Slot(slot).sweep(); // quarantine: feeRecipient is blacklisted
+        Slot(slot).sweep();
 
         assertTrue(Slot(slot).quarantined(), "not quarantined");
 
-        // Merchant resolves by supplying a clean feeRecipient.
         vm.prank(merchant);
         Slot(slot).resolveQuarantine(merchant, newFeeRecipient, 500);
 
@@ -503,21 +501,17 @@ contract QuarantineTest is SlotTestBase {
         uint256 fBefore = usdc.balanceOf(newFeeRecipient);
         uint256 mBefore = usdc.balanceOf(merchant);
         Slot(slot).sweep();
-        uint256 fGot = usdc.balanceOf(newFeeRecipient) - fBefore;
-        uint256 mGot = usdc.balanceOf(merchant)        - mBefore;
-        assertGt(fGot, 0, "new feeRecipient got nothing");
-        assertGt(mGot, 0, "merchant got nothing");
+        assertGt(usdc.balanceOf(newFeeRecipient) - fBefore, 0, "new feeRecipient got nothing");
+        assertGt(usdc.balanceOf(merchant)        - mBefore, 0, "merchant got nothing");
         assertEq(Slot(slot).balance(), 0);
     }
 
-    /// resolveQuarantine can also zero out the fee (feeBps=0) to bypass a
-    /// permanently problematic feeRecipient without providing a new one.
+    /// resolveQuarantine can zero out the fee to bypass a bad feeRecipient.
     function test_ResolveQuarantineCanZeroOutFee() public {
         address slot = _slotFunded(500, 5_000_000);
         usdc.setBlacklisted(feeRecipient, true);
-        Slot(slot).sweep(); // quarantine
+        Slot(slot).sweep();
 
-        // Disable the fee path entirely.
         vm.prank(merchant);
         Slot(slot).resolveQuarantine(merchant, address(0), 0);
 
@@ -525,19 +519,17 @@ contract QuarantineTest is SlotTestBase {
 
         uint256 fBefore = usdc.balanceOf(feeRecipient);
         Slot(slot).sweep();
-        // feeRecipient receives nothing because fee is now 0.
         assertEq(usdc.balanceOf(feeRecipient) - fBefore, 0, "feeRecipient received fee after zeroing");
         assertEq(Slot(slot).balance(), 0);
     }
 
-    /// resolveQuarantine is the ONLY function that may change merchant/feeRecipient
-    /// (and only from quarantine).
+    /// resolveQuarantine is the ONLY path to change merchant/feeRecipient.
     function test_MerchantOnlyChangedViaResolveQuarantine() public {
         address slot = factory.createSlot(merchant, ref1, 0, address(0));
         assertEq(Slot(slot).merchant(), merchant);
 
         vm.expectRevert(Slot.AlreadyInitialised.selector);
-        Slot(slot).initialize(makeAddr("x"), ref1, 0, address(0));
+        Slot(slot).initialize(ARC_USDC, TIP, MIN_SWEEP, makeAddr("x"), ref1, 0, address(0));
 
         vm.prank(merchant);
         vm.expectRevert(Slot.NotQuarantined.selector);
@@ -546,29 +538,26 @@ contract QuarantineTest is SlotTestBase {
         assertEq(Slot(slot).merchant(), merchant, "merchant changed without quarantine");
     }
 
-    /// FIX FOR HIGH: if isBlacklisted staticcall fails, sweep quarantines
-    /// (fail-closed) and emits QuarantinedCheckFailed.
+    /// High fix: if isBlacklisted staticcall fails, sweep quarantines fail-closed.
     function test_BlacklistCallFailureQuarantinesFailClosed() public {
-        // Re-etch ARC_USDC with a stripped mock that has no isBlacklisted.
         StrippedMockUSDC stripped = new StrippedMockUSDC();
         vm.etch(ARC_USDC, address(stripped).code);
 
-        factory = new SlotFactory();
-        address slot = factory.createSlot(merchant, ref1, 0, address(0));
+        Slot  impl2    = new Slot();
+        SlotFactory f2 = new SlotFactory(address(impl2), ARC_USDC, TIP, MIN_SWEEP);
+        address slot   = f2.createSlot(merchant, ref1, 0, address(0));
         StrippedMockUSDC(ARC_USDC).mint(slot, 1_000_000);
 
-        // sweep() must quarantine (fail-closed) and emit QuarantinedCheckFailed.
         vm.expectEmit(true, true, false, false);
         emit Slot.QuarantinedCheckFailed(slot, ref1);
-        Slot(slot).sweep(); // must NOT revert
+        Slot(slot).sweep();
 
-        // Funds untouched, slot is quarantined.
         assertTrue(Slot(slot).quarantined(), "not quarantined on probe failure");
         assertEq(StrippedMockUSDC(ARC_USDC).balanceOf(slot), 1_000_000, "funds moved");
     }
 }
 
-/// @dev USDC mock without isBlacklisted — used to test fail-open staticcall.
+/// @dev USDC mock without isBlacklisted -- used to test fail-closed staticcall.
 contract StrippedMockUSDC {
     mapping(address => uint256) public balanceOf;
 
@@ -589,28 +578,18 @@ contract StrippedMockUSDC {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 contract ReentrancyTest is SlotTestBase {
-    /// A reentrant call from inside transfer() must be blocked by
-    /// ReentrancyGuard.  The outer sweep completes; the inner one reverts
-    /// (caught inside the mock hook) — so the slot ends up fully drained
-    /// (not double-drained).
     function test_ReentrancyOnSweepFails() public {
         address slot = _slotFunded(0, 10_000_000);
 
-        // Point the mock at this slot so transfer() tries to re-enter sweep().
         usdc.setReentrantTarget(slot);
 
         uint256 mBefore = usdc.balanceOf(merchant);
-        Slot(slot).sweep(); // must not revert
+        Slot(slot).sweep();
         uint256 mAfter  = usdc.balanceOf(merchant);
 
-        // Slot is drained exactly once.
         assertEq(Slot(slot).balance(), 0, "slot not empty");
-
-        // Merchant received some amount (reimbursement may reduce it).
         assertGt(mAfter, mBefore, "merchant received nothing");
 
-        // Total outflow == initial deposit (no double-drain).
-        // strangerBefore = 0 since no stranger involved in this test (address(this) sweeps)
         uint256 totalOut = (mAfter - mBefore) + usdc.balanceOf(address(this));
         assertLe(totalOut, 10_000_000, "double-drained");
     }
@@ -621,13 +600,12 @@ contract ReentrancyTest is SlotTestBase {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 contract SweepManyTest is SlotTestBase {
-    /// sweepMany skips a slot that reverts (NothingToSweep) and settles the rest.
     function test_SweepManySkipsFailingSlot() public {
         address s1 = factory.createSlot(merchant, ref1, 0, address(0));
         address s2 = factory.createSlot(merchant, ref2, 0, address(0));
 
-        // Only fund s1; s2 is empty and will revert NothingToSweep.
         _fund(s1, 3_000_000);
+        // s2 empty -- will revert NothingToSweep, which sweepMany swallows.
 
         address[] memory arr = new address[](2);
         arr[0] = s1;
@@ -636,15 +614,11 @@ contract SweepManyTest is SlotTestBase {
         uint256 mBefore = usdc.balanceOf(merchant);
         factory.sweepMany(arr);
 
-        // s1 was swept.
         assertEq(Slot(s1).balance(), 0, "s1 not swept");
-        // s2 still empty (no revert propagated).
         assertEq(Slot(s2).balance(), 0, "s2 had balance somehow");
-        // Merchant received s1's funds.
         assertGt(usdc.balanceOf(merchant) - mBefore, 0, "merchant got nothing");
     }
 
-    /// sweepMany with all funded slots sweeps all.
     function test_SweepManyAllFunded() public {
         address s1 = factory.createSlot(merchant, ref1, 0, address(0));
         address s2 = factory.createSlot(merchant, ref2, 0, address(0));
@@ -662,13 +636,11 @@ contract SweepManyTest is SlotTestBase {
         assertEq(Slot(s2).balance(), 0);
     }
 
-    /// sweepMany with an empty array is a no-op (does not revert).
     function test_SweepManyEmptyArray() public {
         address[] memory arr = new address[](0);
-        factory.sweepMany(arr); // must not revert
+        factory.sweepMany(arr);
     }
 
-    /// sweepMany skips zero-address entries without reverting.
     function test_SweepManySkipsZeroAddress() public {
         address s1 = factory.createSlot(merchant, ref1, 0, address(0));
         _fund(s1, 1_000_000);
@@ -677,37 +649,49 @@ contract SweepManyTest is SlotTestBase {
         arr[0] = address(0);
         arr[1] = s1;
 
-        factory.sweepMany(arr); // must not revert
+        factory.sweepMany(arr);
         assertEq(Slot(s1).balance(), 0);
     }
 
-    /// sweepMany: one blacklisted slot quarantines but does not block others.
-    function test_SweepManyBlacklistedSlotDoesNotBlockOthers() public {
+    function test_SweepManyBelowMinSweepSlotDoesNotBlockOthers() public {
         address s1 = factory.createSlot(merchant, ref1, 0, address(0));
         address s2 = factory.createSlot(merchant, ref2, 0, address(0));
 
-        _fund(s1, 5_000_000);
+        // s1 below MIN_SWEEP -- will revert BelowMinSweep
+        _fund(s1, MIN_SWEEP - 1);
         _fund(s2, 4_000_000);
 
-        // Blacklist merchant only for s1's perspective — same merchant, so
-        // s2 will also quarantine.  Use a different merchant for s2.
-        address m2   = makeAddr("m2");
-        address slot3 = factory.createSlot(m2, ref1, 0, address(0));
-        _fund(slot3, 3_000_000);
-        usdc.setBlacklisted(merchant, true);
-
-        address[] memory arr = new address[](3);
+        address[] memory arr = new address[](2);
         arr[0] = s1;
         arr[1] = s2;
-        arr[2] = slot3;
+
+        uint256 mBefore = usdc.balanceOf(merchant);
+        factory.sweepMany(arr);
+
+        // s2 swept, s1 still holds its dust.
+        assertEq(Slot(s2).balance(), 0, "s2 not swept");
+        assertGt(Slot(s1).balance(), 0, "s1 unexpectedly swept");
+        assertGt(usdc.balanceOf(merchant) - mBefore, 0, "merchant got nothing");
+    }
+
+    function test_SweepManyBlacklistedSlotDoesNotBlockOthers() public {
+        address s1    = factory.createSlot(merchant, ref1, 0, address(0));
+        address m2    = makeAddr("m2");
+        address slot3 = factory.createSlot(m2, ref1, 0, address(0));
+
+        _fund(s1,    5_000_000);
+        _fund(slot3, 3_000_000);
+
+        usdc.setBlacklisted(merchant, true);
+
+        address[] memory arr = new address[](2);
+        arr[0] = s1;
+        arr[1] = slot3;
 
         uint256 m2Before = usdc.balanceOf(m2);
         factory.sweepMany(arr);
 
-        // s1 and s2 quarantined (merchant blacklisted).
         assertTrue(Slot(s1).quarantined(), "s1 not quarantined");
-        assertTrue(Slot(s2).quarantined(), "s2 not quarantined");
-        // slot3 was swept successfully.
         assertEq(Slot(slot3).balance(), 0, "slot3 not swept");
         assertGt(usdc.balanceOf(m2) - m2Before, 0, "m2 got nothing");
     }
