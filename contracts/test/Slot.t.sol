@@ -391,7 +391,6 @@ contract QuarantineTest is SlotTestBase {
         emit Slot.Quarantined(slot, ref1, merchant);
         Slot(slot).sweep(); // must NOT revert
 
-        // Slot balance unchanged — funds not moved.
         assertEq(usdc.balanceOf(slot), sBefore, "funds moved on quarantine");
         assertEq(usdc.balanceOf(merchant), mBefore, "merchant received on quarantine");
         assertTrue(Slot(slot).quarantined(), "quarantined flag not set");
@@ -414,11 +413,11 @@ contract QuarantineTest is SlotTestBase {
     function test_ResolveQuarantineOnlyMerchant() public {
         address slot = _slotFunded(0, 5_000_000);
         usdc.setBlacklisted(merchant, true);
-        Slot(slot).sweep(); // quarantine
+        Slot(slot).sweep();
 
         vm.prank(stranger);
         vm.expectRevert(Slot.NotMerchant.selector);
-        Slot(slot).resolveQuarantine(makeAddr("newMerchant"));
+        Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 0);
     }
 
     /// resolveQuarantine on a non-quarantined slot reverts NotQuarantined.
@@ -426,79 +425,146 @@ contract QuarantineTest is SlotTestBase {
         address slot = _slot(0);
         vm.prank(merchant);
         vm.expectRevert(Slot.NotQuarantined.selector);
-        Slot(slot).resolveQuarantine(makeAddr("newMerchant"));
+        Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 0);
     }
 
-    /// resolveQuarantine rejects zero address.
-    function test_ResolveQuarantineRejectsZeroAddress() public {
+    /// resolveQuarantine rejects zero newMerchant.
+    function test_ResolveQuarantineRejectsZeroMerchant() public {
         address slot = _slotFunded(0, 5_000_000);
         usdc.setBlacklisted(merchant, true);
         Slot(slot).sweep();
 
         vm.prank(merchant);
         vm.expectRevert(Slot.ZeroMerchant.selector);
-        Slot(slot).resolveQuarantine(address(0));
+        Slot(slot).resolveQuarantine(address(0), address(0), 0);
     }
 
-    /// resolveQuarantine then sweep succeeds and delivers to new merchant.
-    function test_ResolveQuarantineThenSweepSucceeds() public {
-        address slot       = _slotFunded(0, 5_000_000);
+    /// resolveQuarantine rejects feeBps > 1000.
+    function test_ResolveQuarantineRejectsHighFeeBps() public {
+        address slot = _slotFunded(0, 5_000_000);
+        usdc.setBlacklisted(merchant, true);
+        Slot(slot).sweep();
+
+        vm.prank(merchant);
+        vm.expectRevert(Slot.FeeBpsTooHigh.selector);
+        Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 1001);
+    }
+
+    /// resolveQuarantine rejects zero feeRecipient when newFeeBps > 0.
+    function test_ResolveQuarantineRejectsZeroFeeRecipientWithFee() public {
+        address slot = _slotFunded(0, 5_000_000);
+        usdc.setBlacklisted(merchant, true);
+        Slot(slot).sweep();
+
+        vm.prank(merchant);
+        vm.expectRevert(Slot.ZeroFeeRecipient.selector);
+        Slot(slot).resolveQuarantine(makeAddr("newMerchant"), address(0), 500);
+    }
+
+    /// resolveQuarantine then sweep: blacklisted merchant -> new merchant, no fee.
+    function test_ResolveQuarantineThenSweepSucceeds_MerchantBlacklisted() public {
+        address slot        = _slotFunded(0, 5_000_000);
         address newMerchant = makeAddr("newMerchant");
 
         usdc.setBlacklisted(merchant, true);
-        Slot(slot).sweep(); // quarantine
+        Slot(slot).sweep();
 
-        // Un-blacklist the original merchant is NOT needed; we supply newMerchant.
         vm.prank(merchant);
-        Slot(slot).resolveQuarantine(newMerchant);
+        Slot(slot).resolveQuarantine(newMerchant, address(0), 0);
 
-        assertFalse(Slot(slot).quarantined(), "still quarantined after resolve");
+        assertFalse(Slot(slot).quarantined(), "still quarantined");
         assertEq(Slot(slot).merchant(), newMerchant, "merchant not updated");
 
-        // Slot still holds the original funds; now sweep to newMerchant.
         uint256 before = usdc.balanceOf(newMerchant);
         Slot(slot).sweep();
         assertGt(usdc.balanceOf(newMerchant) - before, 0, "newMerchant got nothing");
-        assertEq(Slot(slot).balance(), 0, "slot not drained");
+        assertEq(Slot(slot).balance(), 0);
     }
 
-    /// resolveQuarantine is the ONLY function that may change merchant
-    /// (and only from quarantine).  The original merchant cannot call it on an
-    /// unquarantined slot.
+    /// FIX FOR CRITICAL: resolveQuarantine can also replace feeRecipient
+    /// when the feeRecipient was the blacklisted address.
+    function test_ResolveQuarantineThenSweepSucceeds_FeeRecipientBlacklisted() public {
+        // Slot with 5% fee; feeRecipient gets blacklisted.
+        address slot           = _slotFunded(500, 5_000_000);
+        address newFeeRecipient = makeAddr("newFeeRecipient");
+
+        usdc.setBlacklisted(feeRecipient, true);
+        Slot(slot).sweep(); // quarantine: feeRecipient is blacklisted
+
+        assertTrue(Slot(slot).quarantined(), "not quarantined");
+
+        // Merchant resolves by supplying a clean feeRecipient.
+        vm.prank(merchant);
+        Slot(slot).resolveQuarantine(merchant, newFeeRecipient, 500);
+
+        assertFalse(Slot(slot).quarantined(), "still quarantined");
+        assertEq(Slot(slot).feeRecipient(), newFeeRecipient, "feeRecipient not updated");
+
+        uint256 fBefore = usdc.balanceOf(newFeeRecipient);
+        uint256 mBefore = usdc.balanceOf(merchant);
+        Slot(slot).sweep();
+        uint256 fGot = usdc.balanceOf(newFeeRecipient) - fBefore;
+        uint256 mGot = usdc.balanceOf(merchant)        - mBefore;
+        assertGt(fGot, 0, "new feeRecipient got nothing");
+        assertGt(mGot, 0, "merchant got nothing");
+        assertEq(Slot(slot).balance(), 0);
+    }
+
+    /// resolveQuarantine can also zero out the fee (feeBps=0) to bypass a
+    /// permanently problematic feeRecipient without providing a new one.
+    function test_ResolveQuarantineCanZeroOutFee() public {
+        address slot = _slotFunded(500, 5_000_000);
+        usdc.setBlacklisted(feeRecipient, true);
+        Slot(slot).sweep(); // quarantine
+
+        // Disable the fee path entirely.
+        vm.prank(merchant);
+        Slot(slot).resolveQuarantine(merchant, address(0), 0);
+
+        assertEq(Slot(slot).feeBps(), 0, "feeBps not zeroed");
+
+        uint256 fBefore = usdc.balanceOf(feeRecipient);
+        Slot(slot).sweep();
+        // feeRecipient receives nothing because fee is now 0.
+        assertEq(usdc.balanceOf(feeRecipient) - fBefore, 0, "feeRecipient received fee after zeroing");
+        assertEq(Slot(slot).balance(), 0);
+    }
+
+    /// resolveQuarantine is the ONLY function that may change merchant/feeRecipient
+    /// (and only from quarantine).
     function test_MerchantOnlyChangedViaResolveQuarantine() public {
         address slot = factory.createSlot(merchant, ref1, 0, address(0));
         assertEq(Slot(slot).merchant(), merchant);
 
-        // initialize is blocked.
         vm.expectRevert(Slot.AlreadyInitialised.selector);
         Slot(slot).initialize(makeAddr("x"), ref1, 0, address(0));
 
-        // resolveQuarantine is blocked (not quarantined).
         vm.prank(merchant);
         vm.expectRevert(Slot.NotQuarantined.selector);
-        Slot(slot).resolveQuarantine(makeAddr("x"));
+        Slot(slot).resolveQuarantine(makeAddr("x"), address(0), 0);
 
         assertEq(Slot(slot).merchant(), merchant, "merchant changed without quarantine");
     }
 
-    /// If isBlacklisted staticcall reverts, sweep treats address as clear and proceeds.
-    function test_BlacklistCallFailureTreatedAsClear() public {
-        // Deploy a token mock that has NO isBlacklisted function.
-        // Re-etch ARC_USDC with a stripped mock.
+    /// FIX FOR HIGH: if isBlacklisted staticcall fails, sweep quarantines
+    /// (fail-closed) and emits QuarantinedCheckFailed.
+    function test_BlacklistCallFailureQuarantinesFailClosed() public {
+        // Re-etch ARC_USDC with a stripped mock that has no isBlacklisted.
         StrippedMockUSDC stripped = new StrippedMockUSDC();
         vm.etch(ARC_USDC, address(stripped).code);
-        MockUSDC strippedAtAddr = MockUSDC(ARC_USDC);
-        strippedAtAddr.mint(address(0), 0); // just to call through the new etch
 
-        // Re-deploy factory so implementation references the new etch.
         factory = new SlotFactory();
         address slot = factory.createSlot(merchant, ref1, 0, address(0));
-        // Fund through the new etch.
         StrippedMockUSDC(ARC_USDC).mint(slot, 1_000_000);
 
-        // sweep() must not revert even though isBlacklisted is absent.
-        Slot(slot).sweep();
-        assertEq(Slot(slot).balance(), 0);
+        // sweep() must quarantine (fail-closed) and emit QuarantinedCheckFailed.
+        vm.expectEmit(true, true, false, false);
+        emit Slot.QuarantinedCheckFailed(slot, ref1);
+        Slot(slot).sweep(); // must NOT revert
+
+        // Funds untouched, slot is quarantined.
+        assertTrue(Slot(slot).quarantined(), "not quarantined on probe failure");
+        assertEq(StrippedMockUSDC(ARC_USDC).balanceOf(slot), 1_000_000, "funds moved");
     }
 }
 
