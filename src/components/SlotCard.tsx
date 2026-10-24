@@ -128,17 +128,14 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
         style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         {/* Top row: ref + status */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--subtle)' }}>
-              Reference
-            </p>
-            <p className="mono text-sm font-medium" style={{ color: 'var(--ink-2)' }}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="mono text-xs font-medium truncate" style={{ color: 'var(--muted)' }}>
               {refLabel}
             </p>
           </div>
           <span
-            className="px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap mt-0.5"
+            className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap"
             style={statusStyle(status)}
           >
             {statusLabel(status)}
@@ -178,17 +175,22 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
           </a>
         </div>
 
-        {/* Balance */}
-        <div className="flex items-baseline gap-1.5 mb-4">
-          <span className="display text-2xl font-bold tabular-nums" style={{ color: 'var(--ink)' }}>
-            {balanceRaw !== undefined ? formatUsdc6(balanceRaw) : '...'}
-          </span>
-          <span className="text-sm font-medium" style={{ color: 'var(--subtle)' }}>USDC</span>
-          {feeBps !== undefined && feeBps > 0 && (
-            <span className="text-xs ml-auto" style={{ color: 'var(--subtle)' }}>
-              {(feeBps / 100).toFixed(2)}% fee
+        {/* Balance — dominant object */}
+        <div className="mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--subtle)' }}>
+            Balance
+          </p>
+          <div className="flex items-baseline gap-2">
+            <span className="display text-3xl font-bold tabular-nums" style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+              {balanceRaw !== undefined ? formatUsdc6(balanceRaw) : '—'}
             </span>
-          )}
+            <span className="text-base font-semibold" style={{ color: 'var(--muted)' }}>USDC</span>
+            {feeBps !== undefined && feeBps > 0 && (
+              <span className="text-xs ml-auto" style={{ color: 'var(--subtle)' }}>
+                {(feeBps / 100).toFixed(2)}% fee
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Receipt panel — shown when swept */}
@@ -261,10 +263,11 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
           <button
             disabled={status === 'awaiting' || status === 'loading' || isPending || isConfirming}
             onClick={handleSweep}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
               background: status === 'funded' ? 'var(--accent)' : 'var(--surface-muted)',
               color: status === 'funded' ? '#0d1b2f' : 'var(--subtle)',
+              minHeight: '44px',
             }}
           >
             {isPending ? (

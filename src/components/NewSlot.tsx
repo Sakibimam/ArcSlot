@@ -113,7 +113,7 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
             onChange={(e) => setMerchant(e.target.value)}
             placeholder="0x..."
             spellCheck={false}
-            className="w-full rounded-xl px-4 py-3 text-sm mono outline-none transition-all"
+            className="w-full rounded-xl px-4 py-3 text-sm mono transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0"
             style={{
               background: 'var(--surface-muted)',
               color: 'var(--ink)',
@@ -131,7 +131,7 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
             value={refStr}
             onChange={(e) => setRefStr(e.target.value)}
             placeholder="e.g. order-001, invoice-42"
-            className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+            className="w-full rounded-xl px-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0"
             style={{
               background: 'var(--surface-muted)',
               color: 'var(--ink)',
@@ -154,7 +154,7 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
             value={feeBps}
             onChange={(e) => setFeeBps(e.target.value.replace(/[^0-9]/g, ''))}
             placeholder="0  (= no fee)"
-            className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+            className="w-full rounded-xl px-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0"
             style={{
               background: 'var(--surface-muted)',
               color: 'var(--ink)',
@@ -179,7 +179,7 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
               onChange={(e) => setFeeRecipient(e.target.value)}
               placeholder="0x..."
               spellCheck={false}
-              className="w-full rounded-xl px-4 py-3 text-sm mono outline-none transition-all"
+              className="w-full rounded-xl px-4 py-3 text-sm mono transition-all focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-0"
               style={{
                 background: 'var(--surface-muted)',
                 color: 'var(--ink)',

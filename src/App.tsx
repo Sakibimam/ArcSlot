@@ -55,12 +55,12 @@ export default function App() {
         {/* Two-panel layout on desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8">
           {/* Left / New slot form — always visible on desktop, tab-gated on mobile */}
-          <div className={activeTab === 'new' || window.innerWidth >= 1024 ? '' : 'hidden lg:block'}>
+          <div className={activeTab === 'new' ? 'block' : 'hidden lg:block'}>
             <NewSlot chainId={chainId} onSlotCreated={handleSlotCreated} />
           </div>
 
           {/* Right / Slots list — always visible on desktop, tab-gated on mobile */}
-          <div className={activeTab === 'list' || window.innerWidth >= 1024 ? '' : 'hidden lg:block'}>
+          <div className={activeTab === 'list' ? 'block' : 'hidden lg:block'}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="display text-lg font-semibold" style={{ color: 'var(--ink)' }}>
                 Slots
