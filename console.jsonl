@@ -1,0 +1,22 @@
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792808647492}
+{"level":"debug","message":"[vite] connected.","timestamp":1792808652239}
+{"level":"debug","message":"[vite] connected.","timestamp":1792808652892}
+{"level":"debug","message":"[vite] connected.","timestamp":1792808686294}
+{"level":"debug","message":"[vite] connected.","timestamp":1792808687210}
+{"level":"error","message":"Warning: You are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.","timestamp":1792808703550}
+{"level":"debug","message":"[vite] invalidate /src/main.tsx: Could not Fast Refresh (\"true\" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports","timestamp":1792808703558}
+{"level":"debug","message":"[vite] hot updated: /src/main.tsx","timestamp":1792808703558}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792808703558}
+{"level":"error","message":"Warning: You are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.","timestamp":1792808703697}
+{"level":"debug","message":"[vite] invalidate /src/main.tsx: Could not Fast Refresh (\"true\" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports","timestamp":1792808703698}
+{"level":"debug","message":"[vite] hot updated: /src/main.tsx","timestamp":1792808703698}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792808703698}
+{"level":"debug","message":"(previous line repeated 2× more)","timestamp":1792808717318}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792808717317}
+{"level":"debug","message":"(previous line repeated 2× more)","timestamp":1792808717319}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1792808717319}
+{"level":"debug","message":"[vite] connected.","timestamp":1792808741087}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792808778182}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792808778182}
+{"level":"debug","message":"[vite] hot updated: /src/App.tsx","timestamp":1792808778209}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1792808778209}

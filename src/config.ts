@@ -4,19 +4,20 @@
  */
 
 import { http, createConfig } from 'wagmi'
-import { mainnet } from 'wagmi/chains'
-import { arcTestnet } from 'viem/chains'
+import { mainnet, arc, arcTestnet } from 'viem/chains'
 import { injected } from 'wagmi/connectors'
 import { registerChain } from './tracing'
 
 // Pre-register chain RPC URLs so trace events show correct chain names immediately
+registerChain(arc.id, arc.rpcUrls.default.http[0])
 registerChain(arcTestnet.id, arcTestnet.rpcUrls.default.http[0])
 
 export const config = createConfig({
-  chains: [arcTestnet, mainnet], // mainnet needed for ENS resolution
+  chains: [arc, arcTestnet, mainnet], // mainnet needed for ENS resolution
   connectors: [injected()],
   transports: {
-    [arcTestnet.id]: http(),
+    [arc.id]: http('https://rpc.mainnet.arc.io'),
+    [arcTestnet.id]: http('https://rpc.testnet.arc.io'),
     [mainnet.id]: http(), // ENS resolution uses mainnet
   },
 })
