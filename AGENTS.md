@@ -33,8 +33,17 @@ SlotFactory(
 
 | Network | Contract | Address |
 |---|---|---|
-| Arc Testnet | `Slot` (implementation) | `0x5825d935aa33a6bc0213d43c1c15c887fec8a990` |
-| Arc Testnet | `SlotFactory` | `0x34163d378498caca5cfedd06995f5cee02a14a45` |
+| Arc Testnet | `Slot` (implementation) | `0xdefA7372c2376A7F79609355a97FC97369316Da7` |
+| Arc Testnet | `SlotFactory` | `0x387eA56c76Ea72320b32C540eCf1cb74AA95474c` |
+
+Old testnet factory `0x34163d…4a45` predates `maxReimbursement` / base-fee pricing — do not use.
+
+## Testing (TDD — write the failing test first)
+
+- `bun run contracts:test` — unit + fuzz (mock USDC)
+- `bun run contracts:test:fork` — Arc mainnet fork integration (needs `arc-forge`)
+- `bun run test` — Vitest logic + component tests (wagmi mocked via `src/test/wagmi-mock.ts`)
+- `bun run test:all` — all of the above + typecheck + build
 
 `Slot` is the EIP-1167 clone template — do not call it directly. All deposit addresses are created through `SlotFactory`.
 

@@ -52,6 +52,7 @@ contract SlotFactory {
     error ZeroFeeRecipient();
     error FeeBpsTooHigh();
     error ReferenceAlreadyUsed();
+    error MaxReimbursementBelowTip();
 
     // ─── Constructor ───────────────────────────────────────────────────────────
 
@@ -81,16 +82,20 @@ contract SlotFactory {
     /// @param payRef        Off-chain payment reference; unique per merchant.
     /// @param feeBps        Fee in basis points (0-1000, i.e. 0-10%).
     /// @param feeRecipient  Receives the fee portion; must be non-zero when feeBps > 0.
+    /// @param maxReimbursement Cap on a stranger sweeper's gas refund + tip
+    ///                      (6-decimal USDC); must be >= tip.
     /// @return slot         Address of the newly-deployed Slot clone.
     function createSlot(
         address merchant,
         bytes32 payRef,
         uint16  feeBps,
-        address feeRecipient
+        address feeRecipient,
+        uint256 maxReimbursement
     ) external returns (address slot) {
         if (merchant == address(0))                   revert ZeroMerchant();
         if (feeBps > 1000)                            revert FeeBpsTooHigh();
         if (feeBps > 0 && feeRecipient == address(0)) revert ZeroFeeRecipient();
+        if (maxReimbursement < tip)                   revert MaxReimbursementBelowTip();
         if (slots[merchant][payRef] != address(0))    revert ReferenceAlreadyUsed();
 
         bytes32 salt_ = _salt(merchant, payRef);
@@ -103,6 +108,7 @@ contract SlotFactory {
             usdc,
             tip,
             minSweep,
+            maxReimbursement,
             merchant,
             payRef,
             feeBps,

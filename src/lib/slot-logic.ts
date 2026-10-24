@@ -1,0 +1,108 @@
+// Pure slot logic, kept out of components so it can be unit tested.
+
+import { decodeEventLog, isAddressEqual, type Hex } from 'viem'
+import { SLOT_ABI } from './abis'
+
+export interface ReceiptData {
+  gross: bigint
+  net: bigint
+  fee: bigint
+  reimbursement: bigint
+  sweeper: string
+  txHash: string
+}
+
+export type SlotStatus = 'loading' | 'awaiting' | 'below-minimum' | 'funded' | 'swept' | 'quarantined'
+
+export function deriveSlotStatus(s: {
+  loading: boolean
+  quarantined: boolean | undefined
+  balance: bigint | undefined
+  minSweep: bigint | undefined
+  receipt: ReceiptData | undefined
+}): SlotStatus {
+  if (s.loading || s.balance === undefined || s.minSweep === undefined) return 'loading'
+  if (s.quarantined) return 'quarantined'
+  if (s.balance === 0n) return s.receipt ? 'swept' : 'awaiting'
+  return s.balance < s.minSweep ? 'below-minimum' : 'funded'
+}
+
+export function canSweep(status: SlotStatus): boolean {
+  return status === 'funded'
+}
+
+/** Parse a user-entered USDC amount ("0.05") into 6-decimal units. */
+export function parseUsdc6(input: string): bigint | null {
+  const m = /^(\d+)(?:\.(\d{1,6}))?$/.exec(input.trim())
+  if (!m) return null
+  return BigInt(m[1]) * 1_000_000n + BigInt((m[2] ?? '').padEnd(6, '0'))
+}
+
+/** Format 6-decimal USDC units: at least 2 decimals, up to 6, trailing zeros trimmed. */
+export function formatUsdc6(raw: bigint): string {
+  const whole = raw / 1_000_000n
+  let frac = (raw % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '')
+  if (frac.length < 2) frac = frac.padEnd(2, '0')
+  return `${whole}.${frac}`
+}
+
+/** Extract the sweep result from the sweep tx's own receipt logs (no eth_getLogs). */
+export function decodeSweepReceipt(
+  logs: readonly { address: string; topics: readonly Hex[]; data: Hex }[],
+  slotAddress: string,
+  txHash: string,
+): ReceiptData | null {
+  for (const log of logs) {
+    if (!isAddressEqual(log.address as Hex, slotAddress as Hex)) continue
+    try {
+      const ev = decodeEventLog({
+        abi: SLOT_ABI,
+        eventName: 'Received',
+        topics: log.topics as [Hex, ...Hex[]],
+        data: log.data,
+      })
+      const { gross, net, fee, reimbursement, sweeper } = ev.args
+      return { gross, net, fee, reimbursement, sweeper, txHash }
+    } catch {
+      // not a Received log
+    }
+  }
+  return null
+}
+
+// ─── Persistence ─────────────────────────────────────────────────────────────
+// Slots the user created or swept are remembered locally so they survive a
+// refresh. Live state is always re-read from view functions.
+
+export interface StoredSlot {
+  address: string
+  chainId: number
+  receipt?: ReceiptData
+}
+
+const STORAGE_KEY = 'arc-slot:slots:v1'
+
+export function saveSlots(slots: StoredSlot[]): void {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(slots, (_k, v: unknown) => (typeof v === 'bigint' ? { $big: v.toString() } : v)),
+    )
+  } catch {
+    // storage unavailable (private mode) — slots stay in memory only
+  }
+}
+
+export function loadSlots(): StoredSlot[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw, (_k, v: unknown) => {
+      const big = v && typeof v === 'object' ? (v as { $big?: unknown }).$big : undefined
+      return typeof big === 'string' ? BigInt(big) : v
+    })
+    return Array.isArray(parsed) ? (parsed as StoredSlot[]) : []
+  } catch {
+    return []
+  }
+}

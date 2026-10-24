@@ -1,0 +1,11 @@
+# dependencies
+node_modules/*
+!node_modules/.vite
+!node_modules/.tmp
+
+# secrets — never commit
+.env
+.env.*
+!.env.example
+
+.DS_Store

@@ -1,28 +1,32 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Header } from '@/components/Header'
 import { NewSlot } from '@/components/NewSlot'
 import { SlotsList } from '@/components/SlotsList'
 import { ARC_MAINNET_ID, type SupportedChainId } from '@/lib/chains'
-
-interface SlotEntry {
-  address: string
-  chainId: SupportedChainId
-}
+import { type ReceiptData, type StoredSlot, loadSlots, saveSlots } from '@/lib/slot-logic'
 
 export default function App() {
   // Default to Arc mainnet
   const [chainId, setChainId] = useState<SupportedChainId>(ARC_MAINNET_ID)
-  const [slots, setSlots] = useState<SlotEntry[]>([])
+  const [slots, setSlots] = useState<StoredSlot[]>(loadSlots)
   const [activeTab, setActiveTab] = useState<'new' | 'list'>('new')
 
-  const handleSlotCreated = (address: string) => {
+  useEffect(() => saveSlots(slots), [slots])
+
+  const handleSlotCreated = useCallback((address: string) => {
     setSlots((prev) => {
       // Avoid duplicates
       if (prev.some((s) => s.address === address && s.chainId === chainId)) return prev
       return [{ address, chainId }, ...prev]
     })
     setActiveTab('list')
-  }
+  }, [chainId])
+
+  const handleSwept = useCallback((address: string, receipt: ReceiptData) => {
+    setSlots((prev) =>
+      prev.map((s) => (s.address === address && s.chainId === chainId ? { ...s, receipt } : s)),
+    )
+  }, [chainId])
 
   const slotsForChain = slots.filter((s) => s.chainId === chainId)
 
@@ -71,7 +75,7 @@ export default function App() {
                 </span>
               )}
             </div>
-            <SlotsList slots={slotsForChain} chainId={chainId} />
+            <SlotsList slots={slotsForChain} chainId={chainId} onSwept={handleSwept} />
           </div>
         </div>
       </main>

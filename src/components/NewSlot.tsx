@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { isAddress, keccak256, toHex, toBytes } from 'viem'
 import { Loader2, Eye, Plus } from 'lucide-react'
 import { SLOT_FACTORY_ABI } from '@/lib/abis'
 import { type SupportedChainId, getFactoryAddress } from '@/lib/chains'
+import { parseUsdc6 } from '@/lib/slot-logic'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { toast } from 'sonner'
 
@@ -25,6 +26,7 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
   const [refStr, setRefStr] = useState('')
   const [feeBps, setFeeBps] = useState('')
   const [feeRecipient, setFeeRecipient] = useState('')
+  const [maxReimb, setMaxReimb] = useState('0.05')
 
   const payRef = refStr.trim() ? refToBytes32(refStr.trim()) : undefined
 
@@ -34,6 +36,8 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
   const isValidRef = refStr.trim().length > 0
   const isValidFeeBps = !isNaN(feeBpsNum) && feeBpsNum >= 0 && feeBpsNum <= 1000
   const isValidFeeRecipient = feeBpsNum === 0 || isAddress(feeRecipient)
+  const maxReimbRaw = parseUsdc6(maxReimb)
+  const isValidMaxReimb = maxReimbRaw !== null && maxReimbRaw > 0n
   const canPredict = !!factoryAddress && isValidMerchant && isValidRef && payRef !== undefined
 
   // Predict address
@@ -48,7 +52,7 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
 
   // createSlot write
   const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash, chainId })
 
   const wrongChain = walletChain !== chainId
   const canSubmit =
@@ -59,12 +63,19 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
     isValidRef &&
     isValidFeeBps &&
     isValidFeeRecipient &&
+    isValidMaxReimb &&
     payRef !== undefined &&
+    !!predictedAddress &&
     !isPending &&
     !isConfirming
 
+  // The slot address this submission will create, frozen at submit time.
+  const pendingSlot = useRef<string | undefined>(undefined)
+  const handledHash = useRef<string | undefined>(undefined)
+
   const handleCreate = () => {
-    if (!canSubmit || !factoryAddress || !payRef) return
+    if (!canSubmit || !factoryAddress || !payRef || maxReimbRaw === null) return
+    pendingSlot.current = predictedAddress
     writeContract({
       address: factoryAddress,
       abi: SLOT_FACTORY_ABI,
@@ -74,16 +85,21 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
         payRef,
         feeBpsNum,
         (feeBpsNum > 0 ? feeRecipient : '0x0000000000000000000000000000000000000000') as `0x${string}`,
+        maxReimbRaw,
       ],
       chainId,
     })
   }
 
-  // After success
-  if (isSuccess && predictedAddress) {
+  // After success: report once per tx (one receipt is final on Arc).
+  useEffect(() => {
+    if (!isSuccess || !txHash || handledHash.current === txHash) return
+    const slot = pendingSlot.current ?? predictedAddress
+    if (!slot) return
+    handledHash.current = txHash
     toast.success('Slot created')
-    onSlotCreated(predictedAddress)
-  }
+    onSlotCreated(slot)
+  }, [isSuccess, txHash, predictedAddress, onSlotCreated])
 
   const txUrl = txHash ? buildTxExplorerUrl(chainId, txHash) : null
 
@@ -105,10 +121,11 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
       <div className="space-y-4">
         {/* Merchant */}
         <div>
-          <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
+          <label htmlFor="ns-merchant" className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
             Merchant address
           </label>
           <input
+            id="ns-merchant"
             value={merchant}
             onChange={(e) => setMerchant(e.target.value)}
             placeholder="0x..."
@@ -124,10 +141,11 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
 
         {/* Reference */}
         <div>
-          <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
+          <label htmlFor="ns-ref" className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
             Payment reference
           </label>
           <input
+            id="ns-ref"
             value={refStr}
             onChange={(e) => setRefStr(e.target.value)}
             placeholder="e.g. order-001, invoice-42"
@@ -147,10 +165,11 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
 
         {/* Fee bps */}
         <div>
-          <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
+          <label htmlFor="ns-fee" className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
             Fee (basis points, 0–1000)
           </label>
           <input
+            id="ns-fee"
             value={feeBps}
             onChange={(e) => setFeeBps(e.target.value.replace(/[^0-9]/g, ''))}
             placeholder="0  (= no fee)"
@@ -171,10 +190,11 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
         {/* Fee recipient — only shown when fee > 0 */}
         {feeBpsNum > 0 && (
           <div>
-            <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
+            <label htmlFor="ns-fee-recipient" className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
               Fee recipient
             </label>
             <input
+              id="ns-fee-recipient"
               value={feeRecipient}
               onChange={(e) => setFeeRecipient(e.target.value)}
               placeholder="0x..."
@@ -189,8 +209,30 @@ export function NewSlot({ chainId, onSlotCreated }: NewSlotProps) {
           </div>
         )}
 
-        {/* Predicted address preview */}
-        {predictedAddress && (
+        {/* Max sweeper reimbursement — caps gas refund + tip for stranger sweeps */}
+        <div>
+          <label htmlFor="ns-max-reimb" className="block text-xs font-semibold mb-1.5 uppercase tracking-wider" style={{ color: 'var(--subtle)' }}>
+            Max sweeper reimbursement (USDC)
+          </label>
+          <input
+            id="ns-max-reimb"
+            value={maxReimb}
+            onChange={(e) => setMaxReimb(e.target.value)}
+            inputMode="decimal"
+            className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+            style={{
+              background: 'var(--surface-muted)',
+              color: 'var(--ink)',
+              border: `1px solid ${!isValidMaxReimb ? 'var(--danger)' : 'var(--border)'}`,
+            }}
+          />
+          <p className="mt-1 text-xs" style={{ color: 'var(--subtle)' }}>
+            If gas spikes above this, stranger sweeps wait instead of eating the payment. The merchant can always sweep.
+          </p>
+        </div>
+
+        {/* Predicted address preview — only from a deployed factory */}
+        {factoryAddress && predictedAddress && (
           <div
             className="rounded-2xl p-4"
             style={{ background: 'rgba(172,198,233,0.08)', border: '1px solid rgba(172,198,233,0.2)' }}

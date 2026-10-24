@@ -16,6 +16,8 @@ import {ReentrancyGuard}  from "@openzeppelin/contracts/utils/ReentrancyGuard.so
 ///         - No SELFDESTRUCT anywhere (would drain the contract's native
 ///           balance and leave a broken address).
 ///         - Nothing is payable.
+///         - Stranger reimbursement is capped per slot (maxReimbursement);
+///           Arc gas can swing 1000x, so above the cap sweep() reverts.
 ///
 ///         The implementation is deployed once; SlotFactory deploys EIP-1167
 ///         minimal proxies and calls initialize() on each clone.  USDC, TIP,
@@ -27,10 +29,14 @@ contract Slot is ReentrancyGuard {
 
     // ─── Constants ─────────────────────────────────────────────────────────────
 
-    /// @dev Covers intrinsic gas (21 000) + calldata + the bookkeeping inside
-    ///      sweep() that runs before and after the gasleft() snapshot.
-    ///      Calibrated conservatively high so callers are never under-paid.
-    uint256 internal constant FIXED_OVERHEAD = 80_000;
+    /// @dev Gas sweep() spends outside the measured window: intrinsic 21 000,
+    ///      calldata, proxy hop, and the payout transfers that run after the
+    ///      reimbursement is computed. Arc USDC transfers go through the native
+    ///      precompile and cost ~40k each to a fresh recipient, so the overhead
+    ///      scales with the number of transfers. Calibrated on an Arc mainnet
+    ///      fork (contracts/test-integration), worst case = fresh recipients.
+    uint256 internal constant GAS_BASE_OVERHEAD = 55_000;
+    uint256 internal constant GAS_PER_TRANSFER  = 42_000;
 
     // ─── Initialisation-time configuration ────────────────────────────────────
     //
@@ -47,6 +53,11 @@ contract Slot is ReentrancyGuard {
     /// @notice Minimum gross balance (6-decimal USDC) required before
     ///         sweep() will distribute funds.  Prevents dust sweeps.
     uint256 public minSweep;
+
+    /// @notice Hard cap (6-decimal USDC) on what a stranger sweeper may be
+    ///         reimbursed. If gas + tip exceeds it, sweep() reverts GasTooHigh
+    ///         rather than letting a ceiling-gas sweep eat the payment.
+    uint256 public maxReimbursement;
 
     // ─── Slot storage ──────────────────────────────────────────────────────────
 
@@ -110,6 +121,7 @@ contract Slot is ReentrancyGuard {
     error BelowMinSweep();
     error NotMerchant();
     error NotQuarantined();
+    error GasTooHigh();
 
     // ─── Initialiser ───────────────────────────────────────────────────────────
 
@@ -117,6 +129,7 @@ contract Slot is ReentrancyGuard {
     /// @param _usdc         ERC-20 USDC token address (non-zero).
     /// @param _tip          Flat caller bonus in 6-decimal USDC units.
     /// @param _minSweep     Minimum gross balance required to trigger a sweep.
+    /// @param _maxReimbursement Cap on a stranger sweeper's reimbursement.
     /// @param _merchant     Merchant payout address (non-zero).
     /// @param _payRef       Off-chain payment reference (bytes32).
     /// @param _feeBps       Fee in basis points (0-1000).
@@ -125,6 +138,7 @@ contract Slot is ReentrancyGuard {
         address _usdc,
         uint256 _tip,
         uint256 _minSweep,
+        uint256 _maxReimbursement,
         address _merchant,
         bytes32 _payRef,
         uint16  _feeBps,
@@ -140,6 +154,7 @@ contract Slot is ReentrancyGuard {
         usdc          = IERC20(_usdc);
         tip           = _tip;
         minSweep      = _minSweep;
+        maxReimbursement = _maxReimbursement;
         merchant      = _merchant;
         payRef        = _payRef;
         feeBps        = _feeBps;
@@ -200,15 +215,20 @@ contract Slot is ReentrancyGuard {
         uint256 net = gross - fee;
 
         // ── Step 5: caller reimbursement ───────────────────────────────────────
-        uint256 _tip          = tip;
-        uint256 gasCost18     = (g0 - gasleft() + FIXED_OVERHEAD) * tx.gasprice;
-        uint256 reimbursement = gasCost18 / 1e12 + _tip;
+        //    The merchant sweeping their own slot is not reimbursed (it would
+        //    only pay themselves), so they can always sweep — even at ceiling
+        //    gas — and funds can never be locked by GasTooHigh.
+        uint256 reimbursement;
+        if (msg.sender != _merchant) {
+            reimbursement = _gasRefund6(g0, fee > 0 ? 3 : 2) + tip;
 
-        // Cap: reimbursement cannot exceed the gross balance.
-        // Taken from net (never from fee), so fee integrity is preserved.
-        if (reimbursement > gross) reimbursement = gross;
-        if (reimbursement > net)   reimbursement = net;
-        net -= reimbursement;
+            // Never pay out short: refuse the sweep until gas drops.
+            if (reimbursement > maxReimbursement) revert GasTooHigh();
+
+            // Taken from net (never from fee), so fee integrity is preserved.
+            if (reimbursement > net) reimbursement = net;
+            net -= reimbursement;
+        }
 
         // ── Step 6: SafeERC20 transfers (Interactions) ─────────────────────────
         if (reimbursement > 0) {
@@ -260,6 +280,16 @@ contract Slot is ReentrancyGuard {
     }
 
     // ─── Internal helpers ──────────────────────────────────────────────────────
+
+    /// @dev Gas spent so far plus the unmeasured overhead, in 6-decimal USDC.
+    ///      Priced at the network base fee, not the sweeper's chosen priority
+    ///      tip — otherwise an overpaying wallet trips GasTooHigh and the
+    ///      merchant funds the sweeper's tip. TIP covers a normal priority fee.
+    function _gasRefund6(uint256 g0, uint256 transfers) internal view returns (uint256) {
+        uint256 price    = tx.gasprice < block.basefee ? tx.gasprice : block.basefee;
+        uint256 overhead = GAS_BASE_OVERHEAD + GAS_PER_TRANSFER * transfers;
+        return ((g0 - gasleft() + overhead) * price) / 1e12;
+    }
 
     /// @dev Returns (true, who) if a blacklisted address is found.
     ///      Returns (true, address(0)) if the isBlacklisted probe failed

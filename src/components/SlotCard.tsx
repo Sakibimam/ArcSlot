@@ -1,36 +1,35 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { erc20Abi } from 'viem'
 import { Copy, Check, QrCode, Zap, Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { SLOT_ABI } from '@/lib/abis'
-import { type SupportedChainId, formatUsdc6, shortenAddress } from '@/lib/chains'
-import { buildAddressExplorerUrl, buildTxExplorerUrl, requireChain } from '@/onchain-facts'
+import { type SupportedChainId, shortenAddress } from '@/lib/chains'
+import {
+  type ReceiptData,
+  type SlotStatus,
+  canSweep,
+  decodeSweepReceipt,
+  deriveSlotStatus,
+  formatUsdc6,
+} from '@/lib/slot-logic'
+import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { QrModal } from './QrModal'
 import { toast } from 'sonner'
 
 const USDC_ADDRESS = '0x3600000000000000000000000000000000000000' as const
 
-interface ReceiptData {
-  gross: bigint
-  net: bigint
-  fee: bigint
-  reimbursement: bigint
-  sweeper: string
-  txHash: string
-}
-
 interface SlotCardProps {
   slotAddress: string
   chainId: SupportedChainId
-  // Receipt data if already swept — parent passes this in when available
+  // Receipt from this slot's last sweep, remembered by the parent
   receipt?: ReceiptData
+  onSwept: (slotAddress: string, receipt: ReceiptData) => void
 }
 
-type SlotStatus = 'loading' | 'awaiting' | 'funded' | 'swept' | 'quarantined'
-
-function statusLabel(s: SlotStatus): string {
+function statusLabel(s: SlotStatus, minSweep: bigint | undefined): string {
   switch (s) {
     case 'awaiting': return 'Awaiting payment'
+    case 'below-minimum': return `Below minimum (${minSweep !== undefined ? formatUsdc6(minSweep) : '...'} USDC)`
     case 'funded':   return 'Funded'
     case 'swept':    return 'Swept'
     case 'quarantined': return 'Quarantined'
@@ -46,17 +45,18 @@ function statusStyle(s: SlotStatus): React.CSSProperties {
       return { background: 'rgba(172,198,233,0.12)', color: 'var(--accent)' }
     case 'quarantined':
       return { background: 'rgba(232,109,122,0.12)', color: 'var(--danger)' }
+    case 'below-minimum':
+      return { background: 'rgba(245,201,122,0.12)', color: 'var(--warning)' }
     default:
       return { background: 'var(--surface-muted)', color: 'var(--subtle)' }
   }
 }
 
-export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
+export function SlotCard({ slotAddress, chainId, receipt, onSwept }: SlotCardProps) {
   const [copied, setCopied] = useState(false)
   const [qrOpen, setQrOpen] = useState(false)
 
   const addr = slotAddress as `0x${string}`
-  const explorerBase = requireChain(chainId).explorerBase
 
   // Read all slot state via view calls only
   const { data, isLoading, refetch } = useReadContracts({
@@ -64,6 +64,7 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
       { address: addr, abi: SLOT_ABI, functionName: 'payRef', chainId },
       { address: addr, abi: SLOT_ABI, functionName: 'feeBps', chainId },
       { address: addr, abi: SLOT_ABI, functionName: 'quarantined', chainId },
+      { address: addr, abi: SLOT_ABI, functionName: 'minSweep', chainId },
       // Read balance via USDC ERC-20 balanceOf — do NOT use balance() + native balance
       {
         address: USDC_ADDRESS,
@@ -79,30 +80,36 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
   const payRef = data?.[0].result
   const feeBps = data?.[1].result
   const isQuarantined = data?.[2].result
-  const balanceRaw = data?.[3].result
+  const minSweep = data?.[3].result
+  const balanceRaw = data?.[4].result
 
-  // Determine status
-  let status: SlotStatus = 'loading'
-  if (!isLoading) {
-    if (receipt) {
-      status = 'swept'
-    } else if (isQuarantined) {
-      status = 'quarantined'
-    } else if (balanceRaw !== undefined && balanceRaw > 0n) {
-      status = 'funded'
-    } else {
-      status = 'awaiting'
-    }
-  }
+  const status = deriveSlotStatus({
+    loading: isLoading,
+    quarantined: isQuarantined,
+    balance: balanceRaw,
+    minSweep,
+    receipt,
+  })
 
-  // sweep() write
+  // sweep() write. One receipt is final on Arc — no confirmation counting.
   const { writeContract, data: sweepHash, isPending, error: sweepError } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess: sweepSuccess } = useWaitForTransactionReceipt({ hash: sweepHash })
+  const { data: sweepReceipt, isLoading: isConfirming, isSuccess: sweepSuccess } =
+    useWaitForTransactionReceipt({ hash: sweepHash, chainId })
 
-  if (sweepSuccess && sweepHash) {
-    toast.success(`Slot swept — tx: ${shortenAddress(sweepHash)}`)
+  // Report each sweep tx exactly once (not on every render).
+  const handledHash = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    if (!sweepSuccess || !sweepHash || !sweepReceipt || handledHash.current === sweepHash) return
+    handledHash.current = sweepHash
+    const decoded = decodeSweepReceipt(sweepReceipt.logs, slotAddress, sweepHash)
+    if (decoded) {
+      onSwept(slotAddress, decoded)
+      toast.success(`Slot swept — ${formatUsdc6(decoded.net)} USDC to merchant`)
+    } else {
+      toast.error('Sweep did not pay out — slot was quarantined')
+    }
     void refetch()
-  }
+  }, [sweepSuccess, sweepHash, sweepReceipt, slotAddress, onSwept, refetch])
 
   const handleSweep = () => {
     writeContract({ address: addr, abi: SLOT_ABI, functionName: 'sweep', chainId })
@@ -138,7 +145,7 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
             className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap"
             style={statusStyle(status)}
           >
-            {statusLabel(status)}
+            {statusLabel(status, minSweep)}
           </span>
         </div>
 
@@ -194,7 +201,7 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
         </div>
 
         {/* Receipt panel — shown when swept */}
-        {receipt && status === 'swept' && (
+        {receipt && (
           <div
             className="rounded-2xl p-4 mb-4 space-y-1.5"
             style={{ background: 'rgba(172,198,233,0.07)', border: '1px solid rgba(172,198,233,0.15)' }}
@@ -216,7 +223,7 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
             ))}
             {receipt.txHash && (
               <a
-                href={`${explorerBase}/tx/${receipt.txHash}`}
+                href={buildTxExplorerUrl(chainId, receipt.txHash)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1 text-xs mt-2"
@@ -246,7 +253,7 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
           </div>
         )}
 
-        {sweepTxUrl && !sweepError && (
+        {sweepTxUrl && sweepSuccess && !sweepError && (
           <a
             href={sweepTxUrl}
             target="_blank"
@@ -259,14 +266,14 @@ export function SlotCard({ slotAddress, chainId, receipt }: SlotCardProps) {
         )}
 
         {/* Sweep button — anyone can sweep */}
-        {status !== 'swept' && (
+        {(
           <button
-            disabled={status === 'awaiting' || status === 'loading' || isPending || isConfirming}
+            disabled={!canSweep(status) || isPending || isConfirming}
             onClick={handleSweep}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed"
             style={{
-              background: status === 'funded' ? 'var(--accent)' : 'var(--surface-muted)',
-              color: status === 'funded' ? '#0d1b2f' : 'var(--subtle)',
+              background: canSweep(status) ? 'var(--accent)' : 'var(--surface-muted)',
+              color: canSweep(status) ? '#0d1b2f' : 'var(--subtle)',
               minHeight: '44px',
             }}
           >

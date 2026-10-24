@@ -23,7 +23,7 @@ export function getChainMeta(chainId: SupportedChainId) {
 // Replace these with real addresses once createSlot is deployed on each chain.
 export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
   [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000', // not yet deployed
-  [ARC_TESTNET_ID]: '0x34163d378498caca5cfedd06995f5cee02a14a45',
+  [ARC_TESTNET_ID]: '0x387eA56c76Ea72320b32C540eCf1cb74AA95474c',
 };
 
 export function getFactoryAddress(chainId: SupportedChainId): `0x${string}` | null {
@@ -31,13 +31,7 @@ export function getFactoryAddress(chainId: SupportedChainId): `0x${string}` | nu
   return addr === '0x0000000000000000000000000000000000000000' ? null : addr;
 }
 
-// Format a 6-decimal USDC raw bigint to a 2-dp display string.
-export function formatUsdc6(raw: bigint): string {
-  const whole = raw / 1_000_000n;
-  const frac = raw % 1_000_000n;
-  const fracStr = frac.toString().padStart(6, '0').slice(0, 2);
-  return `${whole}.${fracStr}`;
-}
+export { formatUsdc6 } from './slot-logic'
 
 export function shortenAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;

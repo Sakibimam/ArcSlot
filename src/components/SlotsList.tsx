@@ -1,17 +1,15 @@
 import { Inbox } from 'lucide-react'
 import { SlotCard } from './SlotCard'
 import { type SupportedChainId } from '@/lib/chains'
-
-interface SlotEntry {
-  address: string
-}
+import { type ReceiptData, type StoredSlot } from '@/lib/slot-logic'
 
 interface SlotsListProps {
-  slots: SlotEntry[]
+  slots: StoredSlot[]
   chainId: SupportedChainId
+  onSwept: (slotAddress: string, receipt: ReceiptData) => void
 }
 
-export function SlotsList({ slots, chainId }: SlotsListProps) {
+export function SlotsList({ slots, chainId, onSwept }: SlotsListProps) {
   if (slots.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -38,6 +36,8 @@ export function SlotsList({ slots, chainId }: SlotsListProps) {
           key={slot.address}
           slotAddress={slot.address}
           chainId={chainId}
+          receipt={slot.receipt}
+          onSwept={onSwept}
         />
       ))}
     </div>

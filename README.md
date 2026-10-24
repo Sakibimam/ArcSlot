@@ -26,6 +26,10 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 ### Key design decisions
 
 - **Permissionless sweep** — anyone can sweep any funded slot; the caller receives a gas reimbursement (USDC) plus a flat tip so they are always net-positive.
+- **Per-slot reimbursement cap** — each slot stores `maxReimbursement` (default 0.05 USDC). Arc gas can swing ~1000x (20 → 20,000 gwei); if gas + tip exceeds the cap, a stranger's `sweep()` reverts `GasTooHigh` instead of eating the payment.
+- **Base-fee pricing** — gas is reimbursed at `min(tx.gasprice, block.basefee)`, so a sweeper's priority tip can't inflate what the merchant pays (found live on testnet, where tooling sent a 575 gwei tip). The flat tip covers a normal priority fee.
+- **Merchant can always sweep** — the merchant sweeping their own slot takes no reimbursement and bypasses the cap, so funds can never be locked by a gas spike (verified live on testnet at ~530 gwei).
+- **Calibrated gas overhead** — Arc USDC transfers run through the native-coin precompile (~40k gas each), so the unmeasured overhead is `55k + 42k × transfers`, calibrated on an Arc mainnet fork and asserted to cover real cost within +15%.
 - **No `msg.value`** — all amounts use the USDC ERC-20 interface exclusively. Arc's native balance and ERC-20 balance represent the same pool but differ by 1e12; the contracts only ever touch the 6-decimal ERC-20 view.
 - **Fail-closed blacklist check** — before sweeping, `Slot` probes `isBlacklisted(address)` on the USDC contract via staticcall. A probe failure quarantines the slot rather than proceeding, preventing accidental transfers to blacklisted addresses.
 - **Quarantine resolution** — the merchant can call `resolveQuarantine(newMerchant, newFeeRecipient, newFeeBps)` to replace either payout address and re-enable sweeping.
@@ -42,16 +46,24 @@ SlotFactory(
   uint256 _tip,              // flat caller bonus in 6-decimal USDC (e.g. 2000 = 0.002 USDC)
   uint256 _minSweep          // minimum gross balance before sweep pays out (e.g. 100000 = 0.1 USDC)
 )
+
+SlotFactory.createSlot(merchant, payRef, feeBps, feeRecipient, maxReimbursement)
+  // maxReimbursement must be >= tip (else MaxReimbursementBelowTip)
 ```
 
 ## Deployments
 
 | Network | Contract | Address |
 |---|---|---|
-| Arc Testnet | `Slot` (implementation) | [`0x5825d935aa33a6bc0213d43c1c15c887fec8a990`](https://explorer.testnet.arc.io/address/0x5825d935aa33a6bc0213d43c1c15c887fec8a990) |
-| Arc Testnet | `SlotFactory` | [`0x34163d378498caca5cfedd06995f5cee02a14a45`](https://explorer.testnet.arc.io/address/0x34163d378498caca5cfedd06995f5cee02a14a45) |
+| Arc Testnet | `Slot` (implementation) | [`0xdefA7372c2376A7F79609355a97FC97369316Da7`](https://explorer.testnet.arc.io/address/0xdefA7372c2376A7F79609355a97FC97369316Da7) |
+| Arc Testnet | `SlotFactory` | [`0x387eA56c76Ea72320b32C540eCf1cb74AA95474c`](https://explorer.testnet.arc.io/address/0x387eA56c76Ea72320b32C540eCf1cb74AA95474c) |
+| Arc Mainnet | — | not yet deployed |
 
-The `SlotFactory` testnet deployment uses `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC).
+Both use `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC). Deploy with `contracts/script/DeploySlot.s.sol`.
+
+Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0x636ab3e055171daf3cf49e0741b0975dec7c4841f9f593a1ff850242abd03436) — merchant +0.144646 USDC, sweeper reimbursed 0.005354 USDC vs 0.002388 USDC real gas.
+
+> Earlier testnet factory `0x34163d…4a45` predates the reimbursement cap and base-fee pricing — do not use it.
 
 ## Development
 
@@ -84,9 +96,20 @@ bun run build        # Vite production build → dist/
 ### Contracts
 
 ```bash
-forge build          # compile
-forge test           # run all 48 unit + fuzz tests
-forge test -vv       # verbose output
+bun run contracts:test        # 59 Foundry unit + fuzz tests (mock USDC)
+bun run contracts:test:fork   # 9 integration tests on an Arc mainnet fork (real USDC + blocklist)
+bun run test                  # 31 Vitest unit + component integration tests
+bun run test:all              # everything above + typecheck + build
+bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
+```
+
+Fork tests need [Arc Foundry](https://docs.arc.io/arc/tutorials/install-arc-foundry.md) (`arc-forge`): stock Foundry can't execute Arc's native-coin precompile that USDC transfers go through.
+
+Live end-to-end check against a deployed factory (signs with `PRIVATE_KEY` from `.env`):
+
+```bash
+RPC=https://rpc.testnet.arc.io FACTORY=0x387eA56c76Ea72320b32C540eCf1cb74AA95474c \
+  MERCHANT=<another address> bash scripts/e2e-live.sh
 ```
 
 ## Environment variables
@@ -108,7 +131,9 @@ Never commit `.env`. It is listed in `.gitignore`.
 contracts/
   Slot.sol                  EIP-1167 implementation
   SlotFactory.sol           Clone factory
-  test/Slot.t.sol           48 Foundry unit + fuzz tests
+  test/Slot.t.sol           Foundry unit + fuzz tests
+  test-integration/         Arc mainnet fork integration tests
+  script/DeploySlot.s.sol   Deploy implementation + factory
   contract-metadata/        Deployment metadata (addresses, ABIs)
 src/
   App.tsx                   App shell — chain toggle, tab navigation
