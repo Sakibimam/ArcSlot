@@ -4,6 +4,9 @@ A deposit-address system built on [Arc](https://arc.io) — the blockchain where
 
 Built with [Arc Studio](https://studio.arc.io)
 
+
+**Live app (Arc testnet):** https://arc-slot-three.vercel.app
+
 ## What it does
 
 Arc Slot lets you generate unique, deterministic USDC deposit addresses for merchants. Each address is a minimal proxy clone deployed by `SlotFactory`. Anyone can call `sweep()` on a funded slot — the caller is reimbursed for gas in USDC, an optional protocol fee goes to `feeRecipient`, and the remainder lands with the merchant. A blacklist-quarantine path handles Circle USDC compliance edge cases automatically.
