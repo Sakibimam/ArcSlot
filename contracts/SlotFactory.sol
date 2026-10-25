@@ -53,6 +53,34 @@ contract SlotFactory {
     error FeeBpsTooHigh();
     error ReferenceAlreadyUsed();
     error MaxReimbursementBelowTip();
+    error LabelTooLong();
+    error BadExpiry();
+
+    // ─── Requests (on-chain amount, label, expiry, creator) ───────────────────
+
+    uint256 public constant MAX_LABEL_BYTES = 80;
+
+    struct Request {
+        bool    exists;
+        address creator;
+        address merchant;
+        uint256 amount;     // requested amount, 6-decimal USDC (0 = payer chooses)
+        uint64  createdAt;
+        uint64  expiresAt;  // 0 = never
+        string  label;
+    }
+
+    mapping(address => Request)   internal _requests;   // slot => request
+    mapping(address => address[]) internal _byCreator;  // creator => slots
+
+    event RequestCreated(
+        address indexed slot,
+        address indexed creator,
+        address indexed merchant,
+        uint256 amount,
+        string  label,
+        uint64  expiresAt
+    );
 
     // ─── Constructor ───────────────────────────────────────────────────────────
 
@@ -92,6 +120,64 @@ contract SlotFactory {
         address feeRecipient,
         uint256 maxReimbursement
     ) external returns (address slot) {
+        slot = _deploy(merchant, payRef, feeBps, feeRecipient, maxReimbursement);
+    }
+
+    /// @notice Create a payment request: deploy the Slot and record the amount,
+    ///         label and expiry on-chain, attributed to msg.sender. Payment links
+    ///         then only need the slot address, so they can't be edited.
+    function createRequest(
+        address merchant,
+        bytes32 payRef,
+        uint16  feeBps,
+        address feeRecipient,
+        uint256 maxReimbursement,
+        uint256 amount,
+        string calldata label,
+        uint64  expiresAt
+    ) external returns (address slot) {
+        if (bytes(label).length > MAX_LABEL_BYTES)               revert LabelTooLong();
+        if (expiresAt != 0 && expiresAt <= block.timestamp)      revert BadExpiry();
+        slot = _deploy(merchant, payRef, feeBps, feeRecipient, maxReimbursement);
+        _requests[slot] = Request({
+            exists:    true,
+            creator:   msg.sender,
+            merchant:  merchant,
+            amount:    amount,
+            createdAt: uint64(block.timestamp),
+            expiresAt: expiresAt,
+            label:     label
+        });
+        _byCreator[msg.sender].push(slot);
+        emit RequestCreated(slot, msg.sender, merchant, amount, label, expiresAt);
+    }
+
+    function requestOf(address slot) external view returns (Request memory) {
+        return _requests[slot];
+    }
+
+    function requestCount(address creator) external view returns (uint256) {
+        return _byCreator[creator].length;
+    }
+
+    /// @notice Slots created by `creator`, oldest first, paginated.
+    function requestsOf(address creator, uint256 offset, uint256 limit)
+        external view returns (address[] memory page)
+    {
+        address[] storage all = _byCreator[creator];
+        if (offset >= all.length) return new address[](0);
+        uint256 end = offset + limit > all.length ? all.length : offset + limit;
+        page = new address[](end - offset);
+        for (uint256 i = offset; i < end; ++i) page[i - offset] = all[i];
+    }
+
+    function _deploy(
+        address merchant,
+        bytes32 payRef,
+        uint16  feeBps,
+        address feeRecipient,
+        uint256 maxReimbursement
+    ) internal returns (address slot) {
         if (merchant == address(0))                   revert ZeroMerchant();
         if (feeBps > 1000)                            revert FeeBpsTooHigh();
         if (feeBps > 0 && feeRecipient == address(0)) revert ZeroFeeRecipient();

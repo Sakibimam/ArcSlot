@@ -41,6 +41,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
   const [feePct, setFeePct] = useState('')
   const [feeTo, setFeeTo] = useState('')
   const [maxReward, setMaxReward] = useState('0.05')
+  const [expiry, setExpiry] = useState<'none' | '1d' | '7d' | '30d'>('none')
   const [salt, setSalt] = useState(newSalt)
 
   const toVault = !!vault && !preferWallet && customPayout === null
@@ -48,6 +49,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
   const amountRaw = amount.trim() === '' ? undefined : parseUsdc6(amount)
   const amountInvalid = amountRaw === null || amountRaw === 0n
   const cleanLabel = label.trim() || 'Payment request'
+  const labelTooLong = new TextEncoder().encode(cleanLabel).length > 80 // SlotFactory.MAX_LABEL_BYTES
   const payRef = makePayRef(cleanLabel, salt)
   const feeBps = percentToBps(feePct)
   const feeToInvalid = (feeBps ?? 0) > 0 && !isAddress(feeTo)
@@ -91,7 +93,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
   }, [isSuccess, txHash, onCreated])
 
   const valid =
-    !!factory && !payoutInvalid && !amountInvalid && feeBps !== null && !feeToInvalid && !maxRewardInvalid && !!predicted
+    !!factory && !labelTooLong && !payoutInvalid && !amountInvalid && feeBps !== null && !feeToInvalid && !maxRewardInvalid && !!predicted
 
   const handleCreate = () => {
     if (!valid || !factory || feeBps === null || maxRewardRaw === null || !predicted) return
@@ -101,17 +103,23 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
       label: cleanLabel,
       amount: amountRaw ?? undefined,
       createdAt: Date.now(),
+      onchain: true,
     }
+    const days = { none: 0, '1d': 1, '7d': 7, '30d': 30 }[expiry]
+    const expiresAt = days === 0 ? 0n : BigInt(Math.floor(Date.now() / 1000) + days * 86_400)
     writeContract({
       address: factory,
       abi: SLOT_FACTORY_ABI,
-      functionName: 'createSlot',
+      functionName: 'createRequest',
       args: [
         payout,
         payRef,
         feeBps,
         feeBps > 0 ? (feeTo as `0x${string}`) : zeroAddress,
         maxRewardRaw,
+        amountRaw ?? 0n,
+        cleanLabel,
+        expiresAt,
       ],
       chainId,
     })
@@ -137,7 +145,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
         <p className="text-sm mb-5" style={{ color: 'var(--subtle)' }}>
           Send this link or show the QR code. Your payer can pay from any wallet{created.amount ? <> — <b style={{ color: 'var(--ink)' }}>{formatUsdc6(created.amount)} USDC</b></> : null} for <b style={{ color: 'var(--ink)' }}>{created.label}</b>.
         </p>
-        <SharePanel target={{ chainId, slot: created.address, amount: created.amount, label: created.label }} />
+        <SharePanel target={{ chainId, slot: created.address, amount: created.amount, label: created.label, onchain: true }} />
         <Button variant="ghost" className="w-full mt-3" onClick={startOver}>Create another request</Button>
       </Card>
     )
@@ -181,7 +189,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
             </div>
           </Field>
 
-          <Field id="cr-label" label="What is it for?" hint="Shown to your payer. e.g. Invoice #42, Coffee, Design work">
+          <Field id="cr-label" label="What is it for?" hint="Shown to your payer. e.g. Invoice #42, Coffee, Design work" error={labelTooLong ? 'Too long — keep it under 80 bytes (emoji count as 4)' : undefined}>
             <input
               id="cr-label"
               maxLength={80}
@@ -191,6 +199,21 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
               className={inputClass}
               style={inputStyle()}
             />
+          </Field>
+
+          <Field id="cr-expiry" label="Expires" hint="After this, the payment page stops accepting payments.">
+            <select
+              id="cr-expiry"
+              value={expiry}
+              onChange={(e) => setExpiry(e.target.value as typeof expiry)}
+              className={inputClass}
+              style={inputStyle()}
+            >
+              <option value="none">Never</option>
+              <option value="1d">In 1 day</option>
+              <option value="7d">In 7 days</option>
+              <option value="30d">In 30 days</option>
+            </select>
           </Field>
 
           <div className="rounded-2xl px-4 py-3" style={{ background: 'var(--surface-muted)' }}>

@@ -13,6 +13,8 @@ import {
   canCollect,
   makePayRef,
   pickDefaultChain,
+  isRequestPaid,
+  requestTrust,
 } from './slot-logic'
 
 const MIN = 100_000n
@@ -179,5 +181,48 @@ describe('pickDefaultChain', () => {
   })
   it('falls back to testnet while mainnet is not deployed', () => {
     expect(pickDefaultChain({ 5042: null, 5042002: '0xdef' })).toBe(5042002)
+  })
+})
+
+describe('collected requests (any device)', () => {
+  const base = { loading: false, quarantined: false, minSweep: MIN, receipt: undefined, amount: 1_000_000n }
+
+  it('is collected when the slot is empty but has paid out before, even without a local receipt', () => {
+    expect(deriveRequestStatus({ ...base, balance: 0n, collected: 1_000_000n })).toBe('collected')
+  })
+  it('counts collected money toward the requested amount', () => {
+    expect(deriveRequestStatus({ ...base, balance: 600_000n, collected: 400_000n })).toBe('paid')
+    expect(deriveRequestStatus({ ...base, balance: 300_000n, collected: 400_000n })).toBe('partial')
+  })
+})
+
+describe('isRequestPaid', () => {
+  it('is paid once balance plus collected reaches the amount', () => {
+    expect(isRequestPaid(1_000_000n, 0n, 1_000_000n)).toBe(true)
+    expect(isRequestPaid(1_000_000n, 400_000n, 600_000n)).toBe(true)
+    expect(isRequestPaid(1_000_000n, 400_000n, 0n)).toBe(false)
+  })
+  it('without an amount, anything received counts', () => {
+    expect(isRequestPaid(undefined, 0n, 1n)).toBe(true)
+    expect(isRequestPaid(undefined, 0n, 0n)).toBe(false)
+  })
+})
+
+describe('requestTrust', () => {
+  const PAYEE = '0x00000000000000000000000000000000000000aa'
+  const OWNER = '0x00000000000000000000000000000000000000bb'
+  const OTHER = '0x00000000000000000000000000000000000000cc'
+
+  it('is verified when the payee created it', () => {
+    expect(requestTrust({ creator: PAYEE, merchant: PAYEE, vaultOwner: undefined })).toBe('verified')
+  })
+  it('is verified when the owner of the payee vault created it', () => {
+    expect(requestTrust({ creator: OWNER, merchant: PAYEE, vaultOwner: OWNER })).toBe('verified')
+  })
+  it('is unverified when someone else created it', () => {
+    expect(requestTrust({ creator: OTHER, merchant: PAYEE, vaultOwner: OWNER })).toBe('unverified')
+  })
+  it('compares addresses case-insensitively', () => {
+    expect(requestTrust({ creator: PAYEE.toUpperCase().replace('0X', '0x'), merchant: PAYEE, vaultOwner: undefined })).toBe('verified')
   })
 })

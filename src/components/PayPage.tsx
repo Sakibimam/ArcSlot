@@ -1,19 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAccount, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { erc20Abi } from 'viem'
+import { erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
-import { AlertTriangle, Atom, CircleCheck, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
-import { SLOT_ABI, SLOT_VAULT_ABI } from '@/lib/abis'
+import { AlertTriangle, Atom, BadgeCheck, CircleCheck, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
+import { SLOT_ABI, SLOT_FACTORY_ABI, SLOT_VAULT_ABI } from '@/lib/abis'
+import type { ChainRequest } from '@/lib/use-chain-requests'
 import {
   ARC_TESTNET_ID,
   type SupportedChainId,
   TESTNET_FAUCET_URL,
   USDC_ADDRESS,
+  getFactoryAddress,
   networkName,
   shortAddr,
 } from '@/lib/chains'
-import { formatUsdc6, parseUsdc6 } from '@/lib/slot-logic'
+import { formatUsdc6, isRequestPaid, parseUsdc6, requestTrust } from '@/lib/slot-logic'
 import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, NetworkBadge, inputClass, inputStyle } from './ui'
 
@@ -24,7 +26,7 @@ interface PayPageProps {
   label: string | undefined
 }
 
-export function PayPage({ chainId, slot, amount: requested, label }: PayPageProps) {
+export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }: PayPageProps) {
   const testnet = chainId === ARC_TESTNET_ID
   const network = networkName(chainId)
   const addr = slot as `0x${string}`
@@ -33,17 +35,31 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
   const [mode, setMode] = useState<'wallet' | 'manual'>('wallet')
   const [typed, setTyped] = useState('')
 
-  // The slot itself tells us who gets paid — don't trust the link for that.
+  // Everything that matters comes from the chain, never from the link: who gets
+  // paid (the slot), what was received and collected, and the request itself.
+  const factory = getFactoryAddress(chainId)
   const { data, isError, isLoading } = useReadContracts({
     contracts: [
       { address: addr, abi: SLOT_ABI, functionName: 'merchant', chainId },
       { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [addr], chainId },
+      { address: addr, abi: SLOT_ABI, functionName: 'totalCollected', chainId },
+      // No factory on this network: the read fails harmlessly and links fall back to their own values.
+      { address: factory ?? zeroAddress, abi: SLOT_FACTORY_ABI, functionName: 'requestOf', args: [addr], chainId },
     ],
     query: { refetchInterval: 4_000 },
   })
-  const merchant = data?.[0].result as string | undefined
-  const slotBalance = data?.[1].result
+  const merchant = data?.[0]?.result as string | undefined
+  const slotBalance = data?.[1]?.result
+  const collected = (data?.[2]?.result) ?? 0n
+  const chainReq = data?.[3]?.result as ChainRequest | undefined
+  const request = chainReq?.exists ? chainReq : undefined
   const invalid = isError || (!isLoading && data !== undefined && !merchant)
+
+  // On-chain request data wins; link values are only a fallback for older links.
+  const requested = request ? (request.amount > 0n ? request.amount : undefined) : linkAmount
+  const label = request ? request.label : linkLabel
+  const now = useNow(30_000)
+  const expired = !!request && request.expiresAt > 0n && now / 1000 > Number(request.expiresAt)
 
   // A payee that answers pqKey() is a SlotVault: show the protection to the payer.
   const { data: payeeKey } = useReadContract({
@@ -54,6 +70,17 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
     query: { enabled: !!merchant },
   })
   const payeeIsVault = typeof payeeKey === 'string' && /^0x(?!0+$)[0-9a-f]{64}$/i.test(payeeKey)
+  const { data: vaultOwner } = useReadContract({
+    address: merchant as `0x${string}` | undefined,
+    abi: SLOT_VAULT_ABI,
+    functionName: 'owner',
+    chainId,
+    query: { enabled: !!merchant && payeeIsVault },
+  })
+  const trust =
+    request && merchant
+      ? requestTrust({ creator: request.creator, merchant, vaultOwner: payeeIsVault ? (vaultOwner) : undefined })
+      : undefined
 
   const { data: myBalance } = useReadContract({
     address: USDC_ADDRESS,
@@ -71,7 +98,7 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
   const { writeContract, data: txHash, isPending, error } = useWriteContract()
   const { isLoading: confirming, isSuccess: sent } = useWaitForTransactionReceipt({ hash: txHash, chainId })
 
-  const fullyPaid = requested !== undefined && slotBalance !== undefined && slotBalance >= requested
+  const fullyPaid = requested !== undefined && slotBalance !== undefined && isRequestPaid(requested, slotBalance, collected)
 
   if (invalid) {
     return (
@@ -121,6 +148,18 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
             {' '}— verified on-chain
           </span>
         </div>
+        {trust === 'verified' && (
+          <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--success)' }}>
+            <BadgeCheck className="size-4 shrink-0" />
+            <span>Verified request · created by the payee</span>
+          </div>
+        )}
+        {trust === 'unverified' && (
+          <p className="mt-3 flex gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(245,201,122,0.1)', color: 'var(--warning)' }}>
+            <AlertTriangle className="size-4 shrink-0" />
+            <span>This request was created by someone other than the payee. Only pay if you trust whoever sent you this link.</span>
+          </p>
+        )}
         {payeeIsVault && (
           <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--success)' }}>
             <Atom className="size-4 shrink-0" />
@@ -129,7 +168,15 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
         )}
       </Card>
 
-      {fullyPaid || sent ? (
+      {!(fullyPaid || sent) && expired ? (
+        <Card className="text-center">
+          <AlertTriangle className="size-8 mx-auto mb-2" style={{ color: 'var(--warning)' }} />
+          <h2 className="display text-xl font-semibold">This request expired</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--subtle)' }}>
+            It stopped accepting payments on {new Date(Number(request.expiresAt) * 1000).toLocaleString()}. Ask the merchant for a new link.
+          </p>
+        </Card>
+      ) : fullyPaid || sent ? (
         <Card className="text-center">
           <CircleCheck className="size-10 mx-auto mb-2" style={{ color: 'var(--success)' }} />
           <h2 className="display text-xl font-semibold">{sent ? 'Payment sent' : 'Payment received'}</h2>
@@ -241,4 +288,14 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
       )}
     </div>
   )
+}
+
+/** Current time, refreshed every `ms`, so expiry flips without a reload. */
+function useNow(ms: number): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), ms)
+    return () => clearInterval(id)
+  }, [ms])
+  return now
 }

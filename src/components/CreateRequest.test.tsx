@@ -43,12 +43,15 @@ describe('CreateRequest', () => {
     fill(/what is it for/i, 'Invoice #42')
     fireEvent.click(createBtn())
     const call = wagmiState.writeContract.mock.calls[0][0] as { functionName: string; address: string; args: unknown[] }
-    expect(call.functionName).toBe('createSlot')
+    expect(call.functionName).toBe('createRequest')
     expect(call.address).toBe(FACTORY)
     expect(call.args[0]).toBe(ME)
     expect(call.args[1]).toMatch(/^0x[0-9a-f]{64}$/)
     expect(call.args[2]).toBe(0)
     expect(call.args[4]).toBe(50_000n)
+    expect(call.args[5]).toBe(1_500_000n)
+    expect(call.args[6]).toBe('Invoice #42')
+    expect(call.args[7]).toBe(0n)
   })
 
   it('can send payouts to a different address', () => {
@@ -114,7 +117,7 @@ describe('CreateRequest', () => {
       address: PREDICTED, chainId: 5042002, label: 'Invoice #42', amount: 1_500_000n,
     }))
     expect(screen.getByText(/payment link ready/i)).toBeInTheDocument()
-    expect(screen.getByTestId('pay-link')).toHaveTextContent(`#/pay/5042002/${PREDICTED}?amount=1.5&for=Invoice+%2342`)
+    expect(screen.getByTestId('pay-link').textContent).toMatch(new RegExp(`#/pay/5042002/${PREDICTED}$`))
   })
 })
 
@@ -135,5 +138,35 @@ describe('CreateRequest — quantum-safe vault payouts', () => {
     fireEvent.click(createBtn())
     const call = wagmiState.writeContract.mock.calls[0][0] as { args: unknown[] }
     expect(call.args[0]).toBe(ME)
+  })
+})
+
+describe('CreateRequest — on-chain request data', () => {
+  it('stores an optional expiry', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-11-01T00:00:00Z'))
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fireEvent.change(screen.getByLabelText(/expires/i), { target: { value: '7d' } })
+    fireEvent.click(createBtn())
+    const call = wagmiState.writeContract.mock.calls[0][0] as { args: unknown[] }
+    expect(call.args[7]).toBe(BigInt(Math.floor(Date.parse('2026-11-08T00:00:00Z') / 1000)))
+    vi.useRealTimers()
+  })
+
+  it('uses "Payment request" when no description is given', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fireEvent.click(createBtn())
+    const call = wagmiState.writeContract.mock.calls[0][0] as { args: unknown[] }
+    expect(call.args[6]).toBe('Payment request')
+    expect(call.args[5]).toBe(0n)
+  })
+})
+
+describe('CreateRequest — description limit', () => {
+  it('blocks descriptions over 80 bytes (emoji count as 4)', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fill(/what is it for/i, '☕'.repeat(27) + '🍰'.repeat(1)) // 81 bytes, 28 characters
+    expect(screen.getByText(/too long/i)).toBeInTheDocument()
+    expect(createBtn()).toBeDisabled()
   })
 })

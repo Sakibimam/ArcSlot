@@ -11,6 +11,8 @@ export interface ShareTarget {
   slot: string
   amount?: bigint
   label?: string
+  /** Request details live on-chain, so the link carries only the slot address. */
+  onchain?: boolean
 }
 
 const localBase = () => window.location.origin + window.location.pathname
@@ -23,7 +25,7 @@ export function usePayLink(target: ShareTarget): string {
     void getShareBase().then((b) => live && setBase(b))
     return () => { live = false }
   }, [])
-  return payUrl(base, target)
+  return payUrl(base, target.onchain ? { chainId: target.chainId, slot: target.slot } : target)
 }
 
 /** QR + link + copy/share actions. Used inline after creating and in the modal. */

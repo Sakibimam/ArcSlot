@@ -42,11 +42,14 @@ try {
   await merchant.page.getByText(/payment link ready/i).waitFor({ timeout: 60_000 })
   const link = (await merchant.page.getByTestId('pay-link').textContent()).trim()
   console.log('pay link', link)
+  if (/[?&](amount|for)=/.test(link)) throw new Error('link should carry only the slot address; details live on-chain')
   await shot(merchant.page, '1-link-ready')
 
   step('payer opens the link and pays')
   await payer.page.goto(link)
   await payer.page.getByRole('heading', { name: LABEL }).waitFor({ timeout: 20_000 })
+  await payer.page.getByText(/verified request/i).waitFor({ timeout: 20_000 })
+  console.log('payer sees label + amount from chain, verified')
   await shot(payer.page, '2-pay-page')
   await connect(payer.page)
   await payer.page.getByRole('button', { name: new RegExp(`pay ${AMOUNT}0? usdc`, 'i') }).click()
@@ -64,6 +67,21 @@ try {
   await shot(merchant.page, '5-collected')
   console.log(received)
   if (!/0\.15 USDC/.test(received)) throw new Error(`expected merchant to receive 0.15 USDC, got: ${received}`)
+
+  step('payer reloads after collection: still paid')
+  await payer.page.goto('about:blank')
+  await payer.page.goto(link)
+  await payer.page.getByText(/payment received/i).waitFor({ timeout: 30_000 })
+  console.log('payer still sees "Payment received" after the merchant collected')
+
+  step('merchant on a new device sees the request from the chain')
+  const device2 = await walletPage(browser, env.PRIVATE_KEY, 'merchant-device-2')
+  await device2.page.goto(APP_URL)
+  await connect(device2.page)
+  const card2 = device2.page.locator('article', { hasText: LABEL })
+  await card2.getByText('Collected', { exact: true }).waitFor({ timeout: 30_000 })
+  await shot(device2.page, '6-new-device')
+  console.log('new device shows the request as Collected (no local data)')
 
   console.log('\nPASS  UI end-to-end on Arc testnet')
 } finally {

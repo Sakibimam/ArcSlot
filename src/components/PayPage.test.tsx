@@ -13,12 +13,16 @@ const MERCHANT = '0x6192176de4b9f8Ac224521d13fc3979F7275E63b'
 const ME = '0x1111111111111111111111111111111111111111'
 const USDC = '0x3600000000000000000000000000000000000000'
 
-function slotReads({ balance = 0n, merchant = MERCHANT, isError = false } = {}) {
+type ChainRequest = { exists: boolean; creator: string; merchant: string; amount: bigint; createdAt: bigint; expiresAt: bigint; label: string }
+function slotReads({ balance = 0n, merchant = MERCHANT, isError = false, collected = 0n, request = undefined as ChainRequest | undefined } = {}) {
   wagmiState.readContracts = {
     isLoading: false, isError,
-    data: isError ? undefined : [{ result: merchant }, { result: balance }],
+    data: isError ? undefined : [{ result: merchant }, { result: balance }, { result: collected }, { result: request }],
   }
 }
+const chainRequest = (over: Partial<ChainRequest> = {}): ChainRequest => ({
+  exists: true, creator: MERCHANT, merchant: MERCHANT, amount: 2_000_000n, createdAt: 1n, expiresAt: 0n, label: 'Real label', ...over,
+})
 const props = { chainId: 5042002 as const, slot: SLOT, amount: 1_500_000n, label: 'Invoice #42' }
 
 beforeEach(() => {
@@ -117,5 +121,57 @@ describe('PayPage — vault badge', () => {
     wagmiState.readByFn = { pqKey: undefined }
     render(<PayPage {...props} />)
     expect(screen.queryByText(/quantum-safe vault/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('PayPage — on-chain request', () => {
+  it('trusts the chain over an edited link', () => {
+    slotReads({ request: chainRequest() })
+    render(<PayPage {...props} />)
+    expect(screen.getByRole('heading', { name: 'Real label' })).toBeInTheDocument()
+    expect(screen.getByTestId('pay-amount')).toHaveTextContent('2.00 USDC')
+    expect(screen.queryByText('Invoice #42')).not.toBeInTheDocument()
+  })
+
+  it('marks a request created by the payee as verified', () => {
+    slotReads({ request: chainRequest() })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/verified request/i)).toBeInTheDocument()
+  })
+
+  it('verifies a request created by the owner of the payee vault', () => {
+    const OWNER = '0x2222222222222222222222222222222222222222'
+    slotReads({ request: chainRequest({ creator: OWNER }) })
+    wagmiState.readByFn = { pqKey: `0x${'ab'.repeat(32)}`, owner: OWNER }
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/verified request/i)).toBeInTheDocument()
+  })
+
+  it('warns when someone other than the payee created the request', () => {
+    slotReads({ request: chainRequest({ creator: '0x3333333333333333333333333333333333333333' }) })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/created by someone other than the payee/i)).toBeInTheDocument()
+  })
+
+  it('works from a short link with no amount in it', () => {
+    wagmiState.account = { address: ME, chainId: 5042002 }
+    wagmiState.readByFn = { balanceOf: 5_000_000n }
+    slotReads({ request: chainRequest() })
+    render(<PayPage chainId={5042002} slot={SLOT} amount={undefined} label={undefined} />)
+    fireEvent.click(screen.getByRole('button', { name: /pay 2\.00 usdc/i }))
+    expect(wagmiState.writeContract).toHaveBeenCalledWith(expect.objectContaining({ args: [SLOT, 2_000_000n] }))
+  })
+
+  it('refuses payment after the request expires', () => {
+    slotReads({ request: chainRequest({ expiresAt: 1_000n }) })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/this request expired/i)).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /pay with wallet/i })).not.toBeInTheDocument()
+  })
+
+  it('still shows paid after the merchant collected the money', () => {
+    slotReads({ balance: 0n, collected: 2_000_000n, request: chainRequest() })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/payment received/i)).toBeInTheDocument()
   })
 })

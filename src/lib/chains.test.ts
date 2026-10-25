@@ -3,7 +3,7 @@ import { getFactoryAddress, getVaultFactoryAddress, ARC_MAINNET_ID, ARC_TESTNET_
 
 describe('getFactoryAddress', () => {
   it('returns the deployed testnet SlotFactory', () => {
-    expect(getFactoryAddress(ARC_TESTNET_ID)).toBe('0x387eA56c76Ea72320b32C540eCf1cb74AA95474c')
+    expect(getFactoryAddress(ARC_TESTNET_ID)).toBe('0x05104Dfe747f820097A8A6C46f7c282Ef9c6d7F9')
   })
   it('returns null for mainnet until it is deployed', () => {
     expect(getFactoryAddress(ARC_MAINNET_ID)).toBeNull()

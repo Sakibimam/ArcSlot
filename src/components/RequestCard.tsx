@@ -34,14 +34,16 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
       { address: addr, abi: SLOT_ABI, functionName: 'quarantined', chainId },
       { address: addr, abi: SLOT_ABI, functionName: 'minSweep', chainId },
       { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [addr], chainId },
+      { address: addr, abi: SLOT_ABI, functionName: 'totalCollected', chainId },
     ],
     query: { refetchInterval: 5_000 },
   })
-  const quarantined = data?.[0].result
-  const minSweep = data?.[1].result
-  const balance = data?.[2].result
+  const quarantined = data?.[0]?.result
+  const minSweep = data?.[1]?.result
+  const balance = data?.[2]?.result
 
-  const status = deriveRequestStatus({ loading: isLoading, quarantined, balance, minSweep, receipt, amount })
+  const collected = data?.[3]?.result
+  const status = deriveRequestStatus({ loading: isLoading, quarantined, balance, minSweep, receipt, amount, collected })
   const collectable = canCollect(status, balance, minSweep)
 
   const { writeContract, data: sweepHash, isPending, error } = useWriteContract()
@@ -116,6 +118,10 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
             </dl>
           )}
         </div>
+      ) : status === 'collected' ? (
+        <p data-testid="collected" className="mt-4 text-sm" style={{ color: 'var(--muted)' }}>
+          <span className="display text-lg font-semibold" style={{ color: 'var(--ink)' }}>{formatUsdc6(collected ?? 0n)}</span> USDC collected
+        </p>
       ) : (
         <div className="mt-4">
           <p data-testid="received" className="text-sm" style={{ color: 'var(--muted)' }}>
@@ -163,7 +169,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
       )}
 
       {sharing && (
-        <ShareSheet target={{ chainId, slot: address, amount, label }} onClose={() => setSharing(false)} />
+        <ShareSheet target={{ chainId, slot: address, amount, label, onchain: request.onchain }} onClose={() => setSharing(false)} />
       )}
     </article>
   )

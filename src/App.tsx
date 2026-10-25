@@ -5,6 +5,7 @@ import { CreateRequest } from '@/components/CreateRequest'
 import { VaultCard } from '@/components/VaultCard'
 import { useAccount } from 'wagmi'
 import { loadVault } from '@/lib/vault-store'
+import { useChainRequests } from '@/lib/use-chain-requests'
 import { RequestCard } from '@/components/RequestCard'
 import { PayPage } from '@/components/PayPage'
 import { Card } from '@/components/ui'
@@ -39,6 +40,7 @@ export default function App() {
   const [reportedVault, setReportedVault] = useState<{ key: string; vault: string | null } | null>(null)
   const vault =
     reportedVault?.key === vaultKey ? reportedVault.vault : wallet ? loadVault(chainId, wallet)?.vault ?? null : null
+  const chainRequests = useChainRequests(chainId, wallet)
   const handleVaultChange = useCallback((v: string | null) => setReportedVault({ key: vaultKey, vault: v }), [vaultKey])
 
   useEffect(() => saveSlots(requests), [requests])
@@ -74,7 +76,10 @@ export default function App() {
     )
   }
 
-  const visible = requests.filter((r) => r.chainId === chainId)
+  const visible = mergeRequests(
+    requests.filter((r) => r.chainId === chainId),
+    chainRequests,
+  )
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -129,4 +134,16 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+/** Local requests (with receipts) plus ones found on-chain from other devices, newest first. */
+function mergeRequests(local: StoredSlot[], chain: StoredSlot[]): StoredSlot[] {
+  const byAddr = new Map<string, StoredSlot>()
+  for (const r of local) byAddr.set(r.address.toLowerCase(), r)
+  for (const c of chain) {
+    const key = c.address.toLowerCase()
+    const l = byAddr.get(key)
+    byAddr.set(key, l ? { ...c, ...l, label: l.label ?? c.label, amount: l.amount ?? c.amount, onchain: true } : { ...c, onchain: true })
+  }
+  return [...byAddr.values()].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
 }

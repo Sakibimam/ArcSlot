@@ -32,6 +32,15 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 - **Payer:** open the link → see the amount, what it's for, and the payee address read from the contract (not from the link) → **Pay with wallet** in one click, or **Send manually** to the address/QR from any exchange or wallet. The page confirms live when the payment lands. On testnet it links to the Circle faucet.
 - Links are hash routes (`/#/pay/<chainId>/<slot>?amount=&for=`) so they work on any static host.
 
+### On-chain requests
+
+`SlotFactory.createRequest` stores each request's amount, description (≤ 80 bytes) and optional expiry on-chain, attributed to whoever created it. Payment links carry only the slot address, so nobody can edit the amount or description in a link.
+
+- The payer page reads everything from the chain and shows **Verified request** only when the payee (or the owner of the payee's vault) created it; otherwise it warns.
+- Expired requests stop accepting payments on the payer page.
+- Each Slot records `totalCollected`, so a request still reads as paid after the merchant collects, and as collected on any device.
+- The factory indexes requests by creator (`requestsOf`), so the dashboard loads from the chain on any device.
+
 ### Quantum-safe vault
 
 Merchants can route payouts into a `SlotVault` that only releases funds with a **post-quantum SLH-DSA-SHA2-128s signature** (FIPS 205), verified by Arc's PQ precompile at `0x1800…0004`, plus the owner wallet's signature in two-key mode. A stolen wallet key alone can't move funds.
@@ -75,8 +84,8 @@ SlotFactory.createSlot(merchant, payRef, feeBps, feeRecipient, maxReimbursement)
 
 | Network | Contract | Address |
 |---|---|---|
-| Arc Testnet | `Slot` (implementation) | [`0xdefA7372c2376A7F79609355a97FC97369316Da7`](https://explorer.testnet.arc.io/address/0xdefA7372c2376A7F79609355a97FC97369316Da7) |
-| Arc Testnet | `SlotFactory` | [`0x387eA56c76Ea72320b32C540eCf1cb74AA95474c`](https://explorer.testnet.arc.io/address/0x387eA56c76Ea72320b32C540eCf1cb74AA95474c) |
+| Arc Testnet | `Slot` (implementation) | [`0x69D8F7E5Dcd38103bcbC4322868c265dAe387f2f`](https://explorer.testnet.arc.io/address/0x69D8F7E5Dcd38103bcbC4322868c265dAe387f2f) |
+| Arc Testnet | `SlotFactory` | [`0x05104Dfe747f820097A8A6C46f7c282Ef9c6d7F9`](https://explorer.testnet.arc.io/address/0x05104Dfe747f820097A8A6C46f7c282Ef9c6d7F9) |
 | Arc Testnet | `SlotVault` (implementation) | [`0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7`](https://explorer.testnet.arc.io/address/0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7) |
 | Arc Testnet | `VaultFactory` | [`0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986`](https://explorer.testnet.arc.io/address/0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986) |
 | Arc Mainnet | — | not yet deployed |
@@ -85,7 +94,7 @@ Both use `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC). Deploy wi
 
 Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0x636ab3e055171daf3cf49e0741b0975dec7c4841f9f593a1ff850242abd03436) — merchant +0.144646 USDC, sweeper reimbursed 0.005354 USDC vs 0.002388 USDC real gas.
 
-> Earlier testnet factory `0x34163d…4a45` predates the reimbursement cap and base-fee pricing — do not use it.
+> Earlier testnet factories `0x387eA5…474c` (no on-chain requests) and `0x34163d…4a45` predate newer features; `0x34163d…4a45` predates the reimbursement cap and base-fee pricing — do not use it.
 
 ## Development
 
@@ -118,9 +127,9 @@ bun run build        # Vite production build → dist/
 ### Contracts
 
 ```bash
-bun run contracts:test        # 91 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
+bun run contracts:test        # 103 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
 bun run contracts:test:fork   # 15 tests on an Arc mainnet fork (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; uses --ffi)
-bun run test                  # 106 Vitest unit + component integration tests
+bun run test                  # 128 Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```

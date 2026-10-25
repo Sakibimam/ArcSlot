@@ -79,3 +79,17 @@ describe('App — vault', () => {
     expect(screen.getByText(/your quantum-safe vault/i)).toBeInTheDocument()
   })
 })
+
+describe('App — requests from the chain', () => {
+  it('shows requests created on another device', () => {
+    const ME = '0x1111111111111111111111111111111111111111'
+    wagmiState.account = { address: ME, chainId: 5042002 }
+    wagmiState.readByFn = { requestsOf: ['0x00000000000000000000000000000000000000a1'] }
+    wagmiState.readContracts = {
+      isLoading: false, isError: false,
+      data: [{ result: { exists: true, creator: ME, merchant: ME, amount: 1_000_000n, createdAt: 100n, expiresAt: 0n, label: 'From my phone' } }],
+    }
+    render(<App />)
+    expect(screen.getByText('From my phone')).toBeInTheDocument()
+  })
+})

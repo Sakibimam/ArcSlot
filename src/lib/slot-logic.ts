@@ -35,16 +35,41 @@ export function canSweep(status: SlotStatus): boolean {
 
 export type RequestStatus = 'loading' | 'waiting' | 'partial' | 'paid' | 'below-minimum' | 'collected' | 'on-hold'
 
-/** Status of a payment request, given the (off-chain) requested amount. */
-export function deriveRequestStatus(s: Parameters<typeof deriveSlotStatus>[0] & { amount: bigint | undefined }): RequestStatus {
-  const base = deriveSlotStatus(s)
+/**
+ * Status of a payment request. `collected` is the slot's on-chain totalCollected,
+ * so a request reads as collected on any device, not only where it was swept.
+ */
+export function deriveRequestStatus(
+  s: Parameters<typeof deriveSlotStatus>[0] & { amount: bigint | undefined; collected?: bigint },
+): RequestStatus {
+  const collected = s.collected ?? 0n
+  const base = deriveSlotStatus({ ...s, receipt: s.receipt ?? (collected > 0n ? COLLECTED_MARKER : undefined) })
   if (base === 'loading') return 'loading'
   if (base === 'quarantined') return 'on-hold'
   if (base === 'swept') return 'collected'
   if (base === 'awaiting') return 'waiting'
   const balance = s.balance ?? 0n
-  if (s.amount !== undefined) return balance >= s.amount ? 'paid' : 'partial'
+  if (s.amount !== undefined) return isRequestPaid(s.amount, balance, collected) ? 'paid' : 'partial'
   return base === 'funded' ? 'paid' : 'below-minimum'
+}
+
+const COLLECTED_MARKER: ReceiptData = { gross: 0n, net: 0n, fee: 0n, reimbursement: 0n, sweeper: '', txHash: '' }
+
+/** Paid once what's waiting plus what was already collected covers the amount. */
+export function isRequestPaid(amount: bigint | undefined, balance: bigint, collected: bigint): boolean {
+  const total = balance + collected
+  return amount === undefined ? total > 0n : total >= amount
+}
+
+/**
+ * Anyone can create a request naming any payee, so a request is only "verified"
+ * when the payee itself, or the owner of the payee's vault, created it.
+ */
+export function requestTrust(r: { creator: string; merchant: string; vaultOwner: string | undefined }): 'verified' | 'unverified' {
+  const c = r.creator.toLowerCase()
+  if (c === r.merchant.toLowerCase()) return 'verified'
+  if (r.vaultOwner && c === r.vaultOwner.toLowerCase()) return 'verified'
+  return 'unverified'
 }
 
 /** The contract accepts a sweep once the balance reaches minSweep. */
@@ -115,6 +140,8 @@ export interface StoredSlot {
   /** Requested amount (6-dec). Off-chain; the contract accepts any amount. */
   amount?: bigint
   createdAt?: number
+  /** Amount, label and expiry are stored on-chain (SlotFactory.createRequest). */
+  onchain?: boolean
 }
 
 const STORAGE_KEY = 'arc-slot:slots:v1'

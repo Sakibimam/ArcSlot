@@ -15,10 +15,10 @@ const SLOT = '0x00000000000000000000000000000000000000aa'
 const payRef = keccak256(toHex('order-1'))
 const request = { address: SLOT, chainId: 5042002, label: 'Invoice #42', amount: 1_000_000n }
 
-function reads({ balance, quarantined = false, minSweep = 100_000n }: { balance: bigint; quarantined?: boolean; minSweep?: bigint }) {
+function reads({ balance, quarantined = false, minSweep = 100_000n, collected = 0n }: { balance: bigint; quarantined?: boolean; minSweep?: bigint; collected?: bigint }) {
   wagmiState.readContracts = {
     isLoading: false, isError: false,
-    data: [{ result: quarantined }, { result: minSweep }, { result: balance }],
+    data: [{ result: quarantined }, { result: minSweep }, { result: balance }, { result: collected }],
   }
 }
 const collectBtn = () => screen.getByRole('button', { name: /collect/i })
@@ -109,5 +109,14 @@ describe('RequestCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /details/i }))
     expect(screen.getByText('0.003')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /view transaction/i })).toHaveAttribute('href', expect.stringContaining('/tx/0xfeed'))
+  })
+})
+
+describe('RequestCard — collected on another device', () => {
+  it('shows collected from on-chain data without a local receipt', () => {
+    reads({ balance: 0n, collected: 1_000_000n })
+    render(<RequestCard request={request} onSwept={vi.fn()} />)
+    expect(screen.getByText('Collected')).toBeInTheDocument()
+    expect(screen.getByTestId('collected')).toHaveTextContent('1.00 USDC collected')
   })
 })

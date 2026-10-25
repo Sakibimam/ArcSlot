@@ -33,8 +33,8 @@ SlotFactory(
 
 | Network | Contract | Address |
 |---|---|---|
-| Arc Testnet | `Slot` (implementation) | `0xdefA7372c2376A7F79609355a97FC97369316Da7` |
-| Arc Testnet | `SlotFactory` | `0x387eA56c76Ea72320b32C540eCf1cb74AA95474c` |
+| Arc Testnet | `Slot` (implementation, v3) | `0x69D8F7E5Dcd38103bcbC4322868c265dAe387f2f` |
+| Arc Testnet | `SlotFactory` (v3, on-chain requests) | `0x05104Dfe747f820097A8A6C46f7c282Ef9c6d7F9` |
 | Arc Testnet | `SlotVault` (implementation) | `0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7` |
 | Arc Testnet | `VaultFactory` | `0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986` |
 

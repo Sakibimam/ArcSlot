@@ -72,6 +72,13 @@ contract Slot is ReentrancyGuard {
     ///      failed isBlacklisted probe. Cleared by resolveQuarantine().
     bool public quarantined;
 
+    /// @notice Gross USDC this slot has paid out across all sweeps (6-decimal).
+    ///         Lets a payer or merchant see a request was paid even after the
+    ///         balance has been collected.
+    uint256 public totalCollected;
+    /// @notice Timestamp of the last successful sweep.
+    uint64  public lastCollectedAt;
+
     // ─── Events ────────────────────────────────────────────────────────────────
 
     /// @param payRef_        Payment reference for this slot.
@@ -213,6 +220,11 @@ contract Slot is ReentrancyGuard {
         // ── Step 4: fee split ──────────────────────────────────────────────────
         uint256 fee = (gross * _feeBps) / 10_000;
         uint256 net = gross - fee;
+
+        // Effects before interactions, and before the gas snapshot below so the
+        // collector is refunded for these storage writes too.
+        totalCollected  += gross;
+        lastCollectedAt  = uint64(block.timestamp);
 
         // ── Step 5: caller reimbursement ───────────────────────────────────────
         //    The merchant sweeping their own slot is not reimbursed (it would
