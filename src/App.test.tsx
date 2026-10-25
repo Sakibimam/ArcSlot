@@ -42,7 +42,7 @@ describe('App', () => {
 
   it('renders the payer page for a pay link', () => {
     window.location.hash = `#/pay/5042002/${SLOT}?amount=1&for=Coffee`
-    wagmiState.readContracts = { data: [{ result: '0x6192176de4b9f8Ac224521d13fc3979F7275E63b' }, { result: 0n }], isLoading: false, isError: false }
+    wagmiState.readContracts = { data: [{ result: '0x6192176de4b9f8Ac224521d13fc3979F7275E63b' }, { result: 0n }, { result: 0n }, { result: undefined }, { result: true }], isLoading: false, isError: false }
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Coffee' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /request a payment/i })).not.toBeInTheDocument()
@@ -50,7 +50,7 @@ describe('App', () => {
 
   it('follows hash changes', () => {
     render(<App />)
-    wagmiState.readContracts = { data: [{ result: '0x6192176de4b9f8Ac224521d13fc3979F7275E63b' }, { result: 0n }], isLoading: false, isError: false }
+    wagmiState.readContracts = { data: [{ result: '0x6192176de4b9f8Ac224521d13fc3979F7275E63b' }, { result: 0n }, { result: 0n }, { result: undefined }, { result: true }], isLoading: false, isError: false }
     act(() => {
       window.location.hash = `#/pay/5042002/${SLOT}?for=Tea`
       window.dispatchEvent(new HashChangeEvent('hashchange'))

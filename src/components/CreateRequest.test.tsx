@@ -63,6 +63,17 @@ describe('CreateRequest', () => {
     expect(call.args[0]).toBe(OTHER)
   })
 
+  // Circle blacklists some addresses, even the USDC contract itself; a slot
+  // paying out to one would quarantine and could lock the payment for good.
+  it('refuses a payout address that USDC has blacklisted', () => {
+    wagmiState.readByFn = { predict: PREDICTED, isBlacklisted: true }
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /change/i }))
+    fill(/payout address/i, '0x3600000000000000000000000000000000000000')
+    expect(screen.getByText(/can.t receive usdc/i)).toBeInTheDocument()
+    expect(createBtn()).toBeDisabled()
+  })
+
   // The slot address commits to its creator (audit H-1), so predict must ask
   // for the address the connected wallet will get — not anyone's.
   it('predicts the slot address for the connected wallet as creator', () => {

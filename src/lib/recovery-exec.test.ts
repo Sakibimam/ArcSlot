@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { executeRecovery, probeRecovery, type ChainIO } from './recovery-exec'
 
-const FACTORY = '0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151'
+const FACTORY = '0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A'
 const VAULT_FACTORY = '0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97'
 const SLOT = '0x00000000000000000000000000000000000000a1'
 const WALLET = '0x1111111111111111111111111111111111111111'

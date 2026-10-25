@@ -623,6 +623,11 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "error",
+    "name": "BlacklistedPayout",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "FailedDeployment",
     "inputs": []
   },
@@ -1082,6 +1087,11 @@ export const SLOT_ABI = [
   {
     "type": "error",
     "name": "AlreadyInitialised",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BadPayout",
     "inputs": []
   },
   {

@@ -7,6 +7,8 @@ vi.mock('connectkit', () => connectkitModule)
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { PayPage } from './PayPage'
+import { SLOT_VAULT_IMPL } from '@/lib/chains'
+import { minimalProxyCode } from '@/lib/slot-logic'
 
 const SLOT = '0x10C2D81E0197F64Bd3e4c460a516eaDB0C348b7F'
 const MERCHANT = '0x6192176de4b9f8Ac224521d13fc3979F7275E63b'
@@ -14,12 +16,14 @@ const ME = '0x1111111111111111111111111111111111111111'
 const USDC = '0x3600000000000000000000000000000000000000'
 
 type ChainRequest = { exists: boolean; creator: string; merchant: string; amount: bigint; createdAt: bigint; expiresAt: bigint; label: string }
-function slotReads({ balance = 0n, merchant = MERCHANT, isError = false, collected = 0n, request = undefined as ChainRequest | undefined } = {}) {
+function slotReads({ balance = 0n, merchant = MERCHANT, isError = false, collected = 0n, request = undefined as ChainRequest | undefined, isSlot = true } = {}) {
   wagmiState.readContracts = {
     isLoading: false, isError,
-    data: isError ? undefined : [{ result: merchant }, { result: balance }, { result: collected }, { result: request }],
+    data: isError ? undefined : [{ result: merchant }, { result: balance }, { result: collected }, { result: request }, { result: isSlot }],
   }
 }
+/** Make MERCHANT a genuine SlotVault clone on-chain. */
+const merchantIsRealVault = () => { wagmiState.bytecode[MERCHANT.toLowerCase()] = minimalProxyCode(SLOT_VAULT_IMPL) }
 const chainRequest = (over: Partial<ChainRequest> = {}): ChainRequest => ({
   exists: true, creator: MERCHANT, merchant: MERCHANT, amount: 2_000_000n, createdAt: 1n, expiresAt: 0n, label: 'Real label', ...over,
 })
@@ -108,10 +112,21 @@ describe('PayPage', () => {
     expect(screen.getByText(/this payment link is not valid/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument()
   })
+
+  // White-hat PoC (contracts/test/WhiteHat.t.sol): any contract can answer
+  // merchant() with a famous payee and keep the money. Only factory slots pass.
+  it('rejects a look-alike contract the factory did not deploy', () => {
+    slotReads({ isSlot: false })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/this payment link is not valid/i)).toBeInTheDocument()
+    expect(screen.queryByText(/verified on-chain/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument()
+  })
 })
 
 describe('PayPage — vault badge', () => {
   it('shows that the payee is a quantum-safe vault', () => {
+    merchantIsRealVault()
     wagmiState.readByFn = { pqKey: `0x${'ab'.repeat(32)}` }
     render(<PayPage {...props} />)
     expect(screen.getByText(/pays into a quantum-safe vault/i)).toBeInTheDocument()
@@ -142,9 +157,22 @@ describe('PayPage — on-chain request', () => {
   it('verifies a request created by the owner of the payee vault', () => {
     const OWNER = '0x2222222222222222222222222222222222222222'
     slotReads({ request: chainRequest({ creator: OWNER }) })
+    merchantIsRealVault()
     wagmiState.readByFn = { pqKey: `0x${'ab'.repeat(32)}`, owner: OWNER }
     render(<PayPage {...props} />)
     expect(screen.getByText(/verified request/i)).toBeInTheDocument()
+  })
+
+  // White-hat PoC: a contract that merely answers pqKey()/owner() is not a vault.
+  it('does not trust a fake vault that only answers pqKey() and owner()', () => {
+    const OWNER = '0x2222222222222222222222222222222222222222'
+    slotReads({ request: chainRequest({ creator: OWNER }) })
+    wagmiState.bytecode[MERCHANT.toLowerCase()] = '0x6080604052'
+    wagmiState.readByFn = { pqKey: `0x${'ab'.repeat(32)}`, owner: OWNER }
+    render(<PayPage {...props} />)
+    expect(screen.queryByText(/quantum-safe vault/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/verified request/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/created by someone other than the payee/i)).toBeInTheDocument()
   })
 
   it('warns when someone other than the payee created the request', () => {

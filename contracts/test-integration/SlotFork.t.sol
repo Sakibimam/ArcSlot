@@ -30,6 +30,45 @@ contract SlotForkTest is Test {
         assertTrue(USDC.transfer(slot, amount6), "USDC transfer failed");
     }
 
+    /// White-hat: starve the real USDC blacklist probe of gas (63/64 rule) so
+    /// it "fails" and fail-closed quarantine freezes a clean slot. Must not work.
+    function testFuzz_Fork_GasStarvedProbeCannotQuarantine(uint256 gasLimit) public {
+        address slot = factory.createSlot(merchant, keccak256("fork-grief"), 0, address(0), MAX_R);
+        _pay(slot, 1_000_000);
+        gasLimit = bound(gasLimit, 5_000, 400_000);
+        vm.prank(stranger);
+        (bool ok,) = slot.call{gas: gasLimit}(abi.encodeCall(Slot.sweepFor, (stranger)));
+        assertFalse(Slot(slot).quarantined(), "clean slot quarantined by gas griefing");
+        if (!ok) assertEq(USDC.balanceOf(slot), 1_000_000, "failed sweep moved funds");
+    }
+
+    /// White-hat (re Studio AUDIT-v6 C-1): real Arc USDC is a plain ERC-20 with
+    /// no receiver hooks, so contracts, precompiles and fresh addresses all
+    /// receive sweeps fine. What it does refuse is blacklisted addresses — and
+    /// Circle blacklists the USDC contract itself, which as a payout would lock
+    /// the slot in quarantine forever. The factory now rejects that up front.
+    function test_Fork_RealUsdcAcceptsAnyNonBlacklistedPayout() public {
+        address[3] memory payouts = [
+            address(new RevertingFallback()),            // contract that rejects every call
+            0x1800000000000000000000000000000000000004, // Arc PQ precompile
+            makeAddr("fresh-eoa")
+        ];
+        for (uint256 i; i < payouts.length; ++i) {
+            address slot = factory.createSlot(payouts[i], keccak256(abi.encode("payout", i)), 0, address(0), MAX_R);
+            _pay(slot, 1_000_000);
+            uint256 before = USDC.balanceOf(payouts[i]);
+            vm.prank(stranger);
+            Slot(slot).sweep();
+            assertEq(USDC.balanceOf(slot), 0, "slot not emptied");
+            assertGt(USDC.balanceOf(payouts[i]), before, "payout not credited");
+        }
+    }
+
+    function test_Fork_RejectsUsdcContractAsPayout() public {
+        vm.expectRevert(SlotFactory.BlacklistedPayout.selector);
+        factory.createSlot(address(USDC), keccak256("usdc-payout"), 0, address(0), MAX_R);
+    }
+
     function test_Fork_UsdcIsSixDecimals() public view {
         (bool ok, bytes memory ret) = address(USDC).staticcall(abi.encodeWithSignature("decimals()"));
         assertTrue(ok);
@@ -134,4 +173,8 @@ contract SlotForkTest is Test {
     function test_Fork_GasRefundCoversRealCost_WithFee() public {
         _assertGasCovered(250, makeAddr("fork-fee2"), keccak256("fork-gas-2"));
     }
+}
+
+contract RevertingFallback {
+    fallback() external payable { revert("no"); }
 }

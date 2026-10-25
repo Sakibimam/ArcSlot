@@ -49,6 +49,7 @@ contract SlotFactory {
     error MaxReimbursementBelowTip();
     error FeeNotAllowedOffArc();
     error NotSlot();
+    error BlacklistedPayout();
 
     // ─── Registry and collector leaderboard ───────────────────────────────────
 
@@ -246,6 +247,10 @@ contract SlotFactory {
         if (feeBps > 1000)                            revert FeeBpsTooHigh();
         if (feeBps > 0 && feeRecipient == address(0)) revert ZeroFeeRecipient();
         if (maxReimbursement < tip)                   revert MaxReimbursementBelowTip();
+        // A blacklisted payout (Circle blacklists even the USDC contract itself)
+        // would quarantine on the first sweep; if it can't call resolveQuarantine
+        // the funds are stuck for good.
+        if (_isBlacklisted(merchant) || (feeBps > 0 && _isBlacklisted(feeRecipient))) revert BlacklistedPayout();
 
         bytes32 salt_ = _salt(msg.sender, merchant, payRef);
         if (isSlot[implementation.predictDeterministicAddress(salt_)]) revert ReferenceAlreadyUsed();
@@ -299,6 +304,13 @@ contract SlotFactory {
     }
 
     // ─── Internal ──────────────────────────────────────────────────────────────
+
+    /// @dev True only on a confirmed blacklisting; a failed probe does not block
+    ///      creation (the slot's own fail-closed check still guards every sweep).
+    function _isBlacklisted(address who) internal view returns (bool) {
+        (bool ok, bytes memory ret) = ChainConfig.usdc().staticcall(abi.encodeWithSignature("isBlacklisted(address)", who));
+        return ok && ret.length >= 32 && abi.decode(ret, (bool));
+    }
 
     function _salt(address creator, address merchant, bytes32 payRef) internal pure returns (bytes32) {
         return keccak256(abi.encode(creator, merchant, payRef));

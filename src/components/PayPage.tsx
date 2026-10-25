@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAccount, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { useAccount, useBytecode, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import { erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
@@ -9,13 +9,14 @@ import type { ChainRequest } from '@/lib/use-chain-requests'
 import {
   ARC_TESTNET_ID,
   type SupportedChainId,
+  SLOT_VAULT_IMPL,
   TESTNET_FAUCET_URL,
   USDC_ADDRESS,
   getFactoryAddress,
   networkName,
   shortAddr,
 } from '@/lib/chains'
-import { formatUsdc6, isRequestPaid, parseUsdc6, requestTrust } from '@/lib/slot-logic'
+import { formatUsdc6, isMinimalProxyTo, isRequestPaid, parseUsdc6, requestTrust } from '@/lib/slot-logic'
 import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, NetworkBadge, inputClass, inputStyle } from './ui'
 import { CrossChainPay } from './CrossChainPay'
@@ -46,6 +47,9 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
       { address: addr, abi: SLOT_ABI, functionName: 'totalCollected', chainId },
       // No factory on this network: the read fails harmlessly and links fall back to their own values.
       { address: factory ?? zeroAddress, abi: SLOT_FACTORY_ABI, functionName: 'requestOf', args: [addr], chainId },
+      // Anyone can deploy a contract that answers merchant() with a famous payee
+      // and keeps the money; only slots this factory deployed are payable.
+      { address: factory ?? zeroAddress, abi: SLOT_FACTORY_ABI, functionName: 'isSlot', args: [addr], chainId },
     ],
     query: { refetchInterval: 4_000 },
   })
@@ -54,7 +58,8 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
   const collected = (data?.[2]?.result) ?? 0n
   const chainReq = data?.[3]?.result as ChainRequest | undefined
   const request = chainReq?.exists ? chainReq : undefined
-  const invalid = isError || (!isLoading && data !== undefined && !merchant)
+  const isFactorySlot = data?.[4]?.result === true
+  const invalid = isError || (!isLoading && data !== undefined && (!merchant || !isFactorySlot))
 
   // On-chain request data wins; link values are only a fallback for older links.
   const requested = request ? (request.amount > 0n ? request.amount : undefined) : linkAmount
@@ -70,7 +75,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
     chainId,
     query: { enabled: !!merchant },
   })
-  const payeeIsVault = typeof payeeKey === 'string' && /^0x(?!0+$)[0-9a-f]{64}$/i.test(payeeKey)
+  // pqKey() alone can be faked; a real vault is a clone of the SlotVault implementation.
+  const { data: payeeCode } = useBytecode({ address: merchant as `0x${string}` | undefined, chainId, query: { enabled: !!merchant } })
+  const payeeIsVault =
+    typeof payeeKey === 'string' && /^0x(?!0+$)[0-9a-f]{64}$/i.test(payeeKey) && isMinimalProxyTo(payeeCode, SLOT_VAULT_IMPL)
   const { data: vaultOwner } = useReadContract({
     address: merchant as `0x${string}` | undefined,
     abi: SLOT_VAULT_ABI,

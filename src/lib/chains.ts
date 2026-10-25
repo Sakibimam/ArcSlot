@@ -23,8 +23,11 @@ export function getChainMeta(chainId: SupportedChainId) {
 // Replace these with real addresses once createSlot is deployed on each chain.
 export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
   [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000', // not yet deployed
-  [ARC_TESTNET_ID]: '0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151',
+  [ARC_TESTNET_ID]: '0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A',
 };
+
+/** SlotVault implementation (CREATE2, same address on every chain); vaults are its EIP-1167 clones. */
+export const SLOT_VAULT_IMPL = '0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0' as const
 
 // Quantum-safe vault factory (SlotVault clones). Zero address = not yet deployed.
 export const VAULT_FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {

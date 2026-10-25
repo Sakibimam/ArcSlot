@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAccount, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { isAddress, zeroAddress } from 'viem'
+import { isAddress, parseAbi, zeroAddress } from 'viem'
 import { ChevronDown, CircleCheck, Link2, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { SLOT_FACTORY_ABI } from '@/lib/abis'
-import { type SupportedChainId, getFactoryAddress, networkName, shortAddr } from '@/lib/chains'
+import { type SupportedChainId, USDC_ADDRESS, getFactoryAddress, networkName, shortAddr } from '@/lib/chains'
 import { type StoredSlot, formatUsdc6, makePayRef, parseUsdc6 } from '@/lib/slot-logic'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, Field, inputClass, inputStyle } from './ui'
 import { SharePanel } from './ShareSheet'
+
+const BLACKLIST_ABI = parseAbi(['function isBlacklisted(address) view returns (bool)'])
 
 interface CreateRequestProps {
   chainId: SupportedChainId
@@ -54,7 +56,17 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
   const feeBps = percentToBps(feePct)
   const feeToInvalid = (feeBps ?? 0) > 0 && !isAddress(feeTo)
   const maxRewardRaw = parseUsdc6(maxReward)
-  const payoutInvalid = !isAddress(payout)
+  // Circle blacklists some addresses (even the USDC contract itself); the
+  // factory refuses them, so say why before the wallet is asked to sign.
+  const { data: payoutBlacklisted } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: BLACKLIST_ABI,
+    functionName: 'isBlacklisted',
+    args: isAddress(payout) ? [payout] : undefined,
+    chainId,
+    query: { enabled: isAddress(payout) },
+  })
+  const payoutInvalid = !isAddress(payout) || payoutBlacklisted === true
 
   const { data: factoryTip } = useReadContract({
     address: factory ?? undefined,
@@ -240,7 +252,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
                 </div>
               </div>
             ) : (
-              <Field id="cr-payout" label="Payout address" error={customPayout && payoutInvalid ? 'Not a valid address' : undefined}>
+              <Field id="cr-payout" label="Payout address" error={customPayout && payoutInvalid ? (payoutBlacklisted === true ? "This address can't receive USDC" : 'Not a valid address') : undefined}>
                 <div className="flex gap-2">
                   <input
                     id="cr-payout"

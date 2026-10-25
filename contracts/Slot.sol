@@ -147,6 +147,7 @@ contract Slot is ReentrancyGuard {
     error NotQuarantined();
     error ZeroRewardTo();
     error GasTooHigh();
+    error BadPayout();
 
     // ─── Initialiser ───────────────────────────────────────────────────────────
 
@@ -320,6 +321,9 @@ contract Slot is ReentrancyGuard {
         if (newMerchant == address(0))                       revert ZeroMerchant();
         if (newFeeBps > 1000)                                revert FeeBpsTooHigh();
         if (newFeeBps > 0 && newFeeRecipient == address(0)) revert ZeroFeeRecipient();
+        // Never resolve onto a payout that would quarantine again with nobody
+        // able to resolve it (e.g. the USDC contract, which Circle blacklists).
+        if (_isPayoutBlocked(newMerchant) || (newFeeBps > 0 && _isPayoutBlocked(newFeeRecipient))) revert BadPayout();
 
         quarantined   = false;
         merchant      = newMerchant;
@@ -338,6 +342,12 @@ contract Slot is ReentrancyGuard {
         uint256 price    = tx.gasprice < block.basefee ? tx.gasprice : block.basefee;
         uint256 overhead = GAS_BASE_OVERHEAD + GAS_PER_TRANSFER * transfers;
         return ((g0 - gasleft() + overhead) * price) / 1e12;
+    }
+
+    function _isPayoutBlocked(address who) internal view returns (bool) {
+        if (who == address(usdc)) return true;
+        (BlacklistResult r,) = _probeBlacklist(address(usdc), who);
+        return r == BlacklistResult.Blacklisted;
     }
 
     /// @dev Returns (true, who) if a blacklisted address is found.

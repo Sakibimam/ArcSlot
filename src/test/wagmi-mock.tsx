@@ -10,6 +10,8 @@ export const wagmiState = {
   readContract: { data: undefined as unknown },
   /** Per-functionName overrides for useReadContract. */
   readByFn: {} as Record<string, unknown>,
+  /** useBytecode results, keyed by lower-case address. */
+  bytecode: {} as Record<string, string>,
   /** Every useReadContract call made while rendering, for asserting args. */
   readCalls: [] as ReadArgs[],
   write: { data: undefined as string | undefined, isPending: false, error: null as Error | null },
@@ -32,6 +34,7 @@ export function resetWagmi() {
   wagmiState.readContract = { data: undefined }
   wagmiState.readByFn = {}
   wagmiState.readCalls = []
+  wagmiState.bytecode = {}
   wagmiState.write = { data: undefined, isPending: false, error: null }
   wagmiState.waitReceipt = { data: undefined, isLoading: false, isSuccess: false }
   wagmiState.writeContract = vi.fn()
@@ -56,6 +59,7 @@ export const wagmiModule = {
     const data = fn in wagmiState.readByFn ? wagmiState.readByFn[fn] : wagmiState.readContract.data
     return { data, refetch: wagmiState.refetch }
   },
+  useBytecode: (args: { address?: string }) => ({ data: args.address ? wagmiState.bytecode[args.address.toLowerCase()] : undefined }),
   useWriteContract: () => ({ ...wagmiState.write, writeContract: wagmiState.writeContract, reset: wagmiState.resetWrite }),
   useWaitForTransactionReceipt: () => wagmiState.waitReceipt,
   useSwitchChain: () => ({ switchChain: wagmiState.switchChain, switchChainAsync: wagmiState.switchChainAsync, isPending: false }),

@@ -34,12 +34,12 @@ Deterministic (same address on every chain, deployed on Arc testnet + Ethereum S
 
 | Contract | Address |
 |---|---|
-| Slot impl | `0xAF526cE35D261330efFa49E62413Ed80CEe5b82C` |
-| SlotFactory | `0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151` |
+| Slot impl | `0x5Cdd775C5D1C832f52136a20996AeE0040D299Da` |
+| SlotFactory | `0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A` |
 | SlotVault impl | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` |
 | VaultFactory | `0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97` |
 
-Old testnet factories `0xaaC460…E156` (v5, pre-audit-fix) and `0x34163d…4a45` (predates `maxReimbursement` / base-fee pricing) — do not use. Slot addresses commit to their creator: `predict(creator, merchant, payRef)`.
+Old testnet factories `0xCEc73F…1151` (v6), `0xaaC460…E156` (v5, pre-audit-fix) and `0x34163d…4a45` (predates `maxReimbursement` / base-fee pricing) — do not use. Slot addresses commit to their creator: `predict(creator, merchant, payRef)`.
 
 ## Testing (TDD — write the failing test first)
 

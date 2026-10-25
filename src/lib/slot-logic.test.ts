@@ -15,6 +15,8 @@ import {
   pickDefaultChain,
   isRequestPaid,
   requestTrust,
+  minimalProxyCode,
+  isMinimalProxyTo,
 } from './slot-logic'
 
 const MIN = 100_000n
@@ -224,5 +226,21 @@ describe('requestTrust', () => {
   })
   it('compares addresses case-insensitively', () => {
     expect(requestTrust({ creator: PAYEE.toUpperCase().replace('0X', '0x'), merchant: PAYEE, vaultOwner: undefined })).toBe('verified')
+  })
+})
+
+describe('minimalProxyCode / isMinimalProxyTo', () => {
+  const IMPL = '0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0'
+  it('builds the EIP-1167 runtime code for an implementation', () => {
+    expect(minimalProxyCode(IMPL)).toBe('0x363d3d373d3d3d363d73192c03f98e1bc1bbf6c50388a7d24ecfcb4280a05af43d82803e903d91602b57fd5bf3')
+  })
+  it('recognises a clone of exactly that implementation', () => {
+    expect(isMinimalProxyTo(minimalProxyCode(IMPL).toUpperCase().replace('0X', '0x'), IMPL)).toBe(true)
+  })
+  it('rejects other code, other implementations and missing code', () => {
+    expect(isMinimalProxyTo('0x6080604052', IMPL)).toBe(false)
+    expect(isMinimalProxyTo(minimalProxyCode('0x5154cec13C1B652FdA465D92fe74aA42FEadfC04'), IMPL)).toBe(false)
+    expect(isMinimalProxyTo(undefined, IMPL)).toBe(false)
+    expect(isMinimalProxyTo('0x', IMPL)).toBe(false)
   })
 })

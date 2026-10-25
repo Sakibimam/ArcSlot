@@ -72,6 +72,16 @@ export function requestTrust(r: { creator: string; merchant: string; vaultOwner:
   return 'unverified'
 }
 
+/** EIP-1167 runtime code of a minimal proxy (clone) pointing at `impl`. */
+export function minimalProxyCode(impl: string): string {
+  return `0x363d3d373d3d3d363d73${impl.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3`
+}
+
+/** True only for a genuine clone of `impl` — not a contract that merely mimics its views. */
+export function isMinimalProxyTo(code: string | undefined, impl: string): boolean {
+  return !!code && code.toLowerCase() === minimalProxyCode(impl)
+}
+
 /** The contract accepts a sweep once the balance reaches minSweep. */
 export function canCollect(status: RequestStatus, balance: bigint | undefined, minSweep: bigint | undefined): boolean {
   if (status !== 'paid' && status !== 'partial') return false
