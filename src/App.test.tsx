@@ -63,3 +63,19 @@ describe('App', () => {
     expect(screen.getByText(/this payment link is not valid/i)).toBeInTheDocument()
   })
 })
+
+describe('App — vault', () => {
+  it('shows the quantum-safe vault panel to a connected merchant', () => {
+    wagmiState.account = { address: '0x1111111111111111111111111111111111111111', chainId: 5042002 }
+    render(<App />)
+    expect(screen.getByRole('heading', { name: /quantum-safe vault/i })).toBeInTheDocument()
+  })
+
+  it('defaults new requests to an existing vault', () => {
+    const ME = '0x1111111111111111111111111111111111111111'
+    wagmiState.account = { address: ME, chainId: 5042002 }
+    localStorage.setItem(`arc-slot:vault:v1:5042002:${ME}`, JSON.stringify({ chainId: 5042002, owner: ME, vault: '0x00000000000000000000000000000000000000aa', box: '{}' }))
+    render(<App />)
+    expect(screen.getByText(/your quantum-safe vault/i)).toBeInTheDocument()
+  })
+})

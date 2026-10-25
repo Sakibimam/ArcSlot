@@ -105,3 +105,17 @@ describe('PayPage', () => {
     expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument()
   })
 })
+
+describe('PayPage — vault badge', () => {
+  it('shows that the payee is a quantum-safe vault', () => {
+    wagmiState.readByFn = { pqKey: `0x${'ab'.repeat(32)}` }
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/pays into a quantum-safe vault/i)).toBeInTheDocument()
+  })
+
+  it('shows no badge for a plain wallet', () => {
+    wagmiState.readByFn = { pqKey: undefined }
+    render(<PayPage {...props} />)
+    expect(screen.queryByText(/quantum-safe vault/i)).not.toBeInTheDocument()
+  })
+})

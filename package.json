@@ -17,7 +17,7 @@
     "contracts:test": "forge test --no-match-path 'contracts/test-integration/*'",
     "test": "vitest run",
     "test:watch": "vitest",
-    "contracts:test:fork": "arc-forge test --match-path 'contracts/test-integration/*' --fork-url https://rpc.mainnet.arc.io",
+    "contracts:test:fork": "arc-forge test --ffi --match-path 'contracts/test-integration/*' --fork-url https://rpc.mainnet.arc.io",
     "test:all": "bun run contracts:test && bun run contracts:test:fork && bun run test && bun run typecheck && bun run build",
     "abis": "forge build && bun run ./scripts/gen-abis.ts",
     "test:e2e:ui": "node scripts/e2e-ui.mjs",
@@ -50,6 +50,7 @@
     "viem": "2.57.5"
   },
   "devDependencies": {
+    "@noble/post-quantum": "0.7.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^24.0.0",

@@ -117,3 +117,23 @@ describe('CreateRequest', () => {
     expect(screen.getByTestId('pay-link')).toHaveTextContent(`#/pay/5042002/${PREDICTED}?amount=1.5&for=Invoice+%2342`)
   })
 })
+
+describe('CreateRequest — quantum-safe vault payouts', () => {
+  const VAULT = '0x00000000000000000000000000000000000000aa'
+
+  it('pays into the vault by default when one exists', () => {
+    render(<CreateRequest chainId={5042002} vault={VAULT} onCreated={vi.fn()} />)
+    expect(screen.getByText(/your quantum-safe vault/i)).toBeInTheDocument()
+    fireEvent.click(createBtn())
+    const call = wagmiState.writeContract.mock.calls[0][0] as { args: unknown[] }
+    expect(call.args[0]).toBe(VAULT)
+  })
+
+  it('can switch back to the plain wallet', () => {
+    render(<CreateRequest chainId={5042002} vault={VAULT} onCreated={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /use wallet/i }))
+    fireEvent.click(createBtn())
+    const call = wagmiState.writeContract.mock.calls[0][0] as { args: unknown[] }
+    expect(call.args[0]).toBe(ME)
+  })
+})

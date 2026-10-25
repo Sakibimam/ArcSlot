@@ -35,6 +35,8 @@ SlotFactory(
 |---|---|---|
 | Arc Testnet | `Slot` (implementation) | `0xdefA7372c2376A7F79609355a97FC97369316Da7` |
 | Arc Testnet | `SlotFactory` | `0x387eA56c76Ea72320b32C540eCf1cb74AA95474c` |
+| Arc Testnet | `SlotVault` (implementation) | `0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7` |
+| Arc Testnet | `VaultFactory` | `0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986` |
 
 Old testnet factory `0x34163d…4a45` predates `maxReimbursement` / base-fee pricing — do not use.
 

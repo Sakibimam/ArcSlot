@@ -16,6 +16,10 @@ export const wagmiState = {
   switchChain: vi.fn(),
   refetch: vi.fn(),
   resetWrite: vi.fn(),
+  /** usePublicClient().readContract — keyed by functionName. */
+  publicReads: {} as Record<string, unknown>,
+  publicReadContract: vi.fn(),
+  signMessageAsync: vi.fn(),
 }
 
 export function resetWagmi() {
@@ -29,6 +33,12 @@ export function resetWagmi() {
   wagmiState.switchChain = vi.fn()
   wagmiState.refetch = vi.fn()
   wagmiState.resetWrite = vi.fn()
+  wagmiState.publicReads = {}
+  wagmiState.publicReadContract = vi.fn((args: { functionName: string }) => {
+    if (!(args.functionName in wagmiState.publicReads)) return Promise.reject(new Error(`no mock for ${args.functionName}`))
+    return Promise.resolve(wagmiState.publicReads[args.functionName])
+  })
+  wagmiState.signMessageAsync = vi.fn(() => Promise.resolve(`0x${'0b'.repeat(65)}`))
 }
 
 export const wagmiModule = {
@@ -43,6 +53,8 @@ export const wagmiModule = {
   useWriteContract: () => ({ ...wagmiState.write, writeContract: wagmiState.writeContract, reset: wagmiState.resetWrite }),
   useWaitForTransactionReceipt: () => wagmiState.waitReceipt,
   useSwitchChain: () => ({ switchChain: wagmiState.switchChain, isPending: false }),
+  usePublicClient: () => ({ readContract: wagmiState.publicReadContract }),
+  useSignMessage: () => ({ signMessageAsync: wagmiState.signMessageAsync }),
 }
 
 export const connectkitModule = {

@@ -10,12 +10,9 @@
 //   PAYER_PRIVATE_KEY=0x... node scripts/e2e-ui.mjs
 import fs from 'node:fs'
 import { chromium } from 'playwright'
-import { createPublicClient, createWalletClient, http, numberToHex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
-import { arcTestnet } from 'viem/chains'
+import { walletPage, connect } from './e2e-wallet.mjs'
 
 const APP_URL = process.env.APP_URL ?? 'http://localhost:5179/'
-const RPC = 'https://rpc.testnet.arc.io'
 const SHOTS = process.env.SHOTS_DIR
 const AMOUNT = '0.15'
 const LABEL = `E2E coffee ${new Date().toISOString().slice(11, 19)}`
@@ -23,60 +20,7 @@ const LABEL = `E2E coffee ${new Date().toISOString().slice(11, 19)}`
 const env = Object.fromEntries(
   fs.readFileSync('.env', 'utf8').split('\n').filter((l) => /^\w+=/.test(l)).map((l) => [l.split('=')[0], l.slice(l.indexOf('=') + 1).trim()]),
 )
-const hexKey = (k) => (k.startsWith('0x') ? k : `0x${k}`)
 if (!env.PRIVATE_KEY || !process.env.PAYER_PRIVATE_KEY) throw new Error('need PRIVATE_KEY in .env and PAYER_PRIVATE_KEY env')
-
-const publicClient = createPublicClient({ chain: arcTestnet, transport: http(RPC) })
-
-async function walletPage(browser, key, name) {
-  const account = privateKeyToAccount(hexKey(key))
-  const wallet = createWalletClient({ account, chain: arcTestnet, transport: http(RPC) })
-  const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } })
-  const page = await ctx.newPage()
-  page.on('pageerror', (e) => console.log(`[${name}] pageerror`, e.message))
-  await page.exposeFunction('__walletRpc', async (method, params) => {
-    switch (method) {
-      case 'eth_requestAccounts':
-      case 'eth_accounts': return [account.address]
-      case 'eth_chainId': return numberToHex(arcTestnet.id)
-      case 'net_version': return String(arcTestnet.id)
-      case 'wallet_switchEthereumChain':
-        if (Number(params[0].chainId) !== arcTestnet.id) throw new Error('e2e wallet is testnet-only')
-        return null
-      case 'wallet_requestPermissions':
-      case 'wallet_getPermissions': return [{ parentCapability: 'eth_accounts' }]
-      case 'eth_sendTransaction': {
-        const tx = params[0]
-        const hash = await wallet.sendTransaction({
-          to: tx.to, data: tx.data, value: tx.value ? BigInt(tx.value) : 0n,
-          maxPriorityFeePerGas: 1_000_000_000n,
-        })
-        console.log(`[${name}] sent ${hash}`)
-        return hash
-      }
-      default: return publicClient.request({ method, params })
-    }
-  })
-  await page.addInitScript(() => {
-    const listeners = {}
-    window.ethereum = {
-      isMetaMask: true,
-      request: ({ method, params }) => window.__walletRpc(method, params ?? []),
-      on: (e, f) => { (listeners[e] ??= []).push(f) },
-      removeListener: (e, f) => { listeners[e] = (listeners[e] ?? []).filter((x) => x !== f) },
-    }
-  })
-  return { page, address: account.address }
-}
-
-async function connect(page) {
-  await page.getByRole('button', { name: /connect wallet/i }).first().click()
-  const option = page.getByRole('button', { name: /metamask|browser wallet|injected/i }).first()
-  await option.click()
-  await page.waitForTimeout(1500)
-  await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: /^connect wallet$/i }).first().waitFor({ state: 'hidden', timeout: 20_000 })
-}
 
 async function shot(page, name) {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/e2e-${name}.png`, fullPage: true })

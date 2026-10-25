@@ -13,6 +13,8 @@ import { SharePanel } from './ShareSheet'
 
 interface CreateRequestProps {
   chainId: SupportedChainId
+  /** The merchant's quantum-safe vault, if they have one; payouts default to it. */
+  vault?: string | null
   onCreated: (request: StoredSlot) => void
 }
 
@@ -26,7 +28,7 @@ function percentToBps(input: string): number | null {
   return bps <= 1000 ? bps : null
 }
 
-export function CreateRequest({ chainId, onCreated }: CreateRequestProps) {
+export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps) {
   const { address: wallet, chainId: walletChain } = useAccount()
   const { switchChain, isPending: switching } = useSwitchChain()
   const factory = getFactoryAddress(chainId)
@@ -34,13 +36,15 @@ export function CreateRequest({ chainId, onCreated }: CreateRequestProps) {
   const [amount, setAmount] = useState('')
   const [label, setLabel] = useState('')
   const [customPayout, setCustomPayout] = useState<string | null>(null)
+  const [preferWallet, setPreferWallet] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [feePct, setFeePct] = useState('')
   const [feeTo, setFeeTo] = useState('')
   const [maxReward, setMaxReward] = useState('0.05')
   const [salt, setSalt] = useState(newSalt)
 
-  const payout = customPayout ?? wallet ?? ''
+  const toVault = !!vault && !preferWallet && customPayout === null
+  const payout = customPayout ?? (toVault ? vault : wallet) ?? ''
   const amountRaw = amount.trim() === '' ? undefined : parseUsdc6(amount)
   const amountInvalid = amountRaw === null || amountRaw === 0n
   const cleanLabel = label.trim() || 'Payment request'
@@ -145,7 +149,7 @@ export function CreateRequest({ chainId, onCreated }: CreateRequestProps) {
     <Card>
       <h2 className="display text-xl font-semibold">Request a payment</h2>
       <p className="text-sm mt-1 mb-5" style={{ color: 'var(--subtle)' }}>
-        Get a link and QR code your customer can pay in USDC. Funds go straight to your wallet.
+        Get a link and QR code your customer can pay in USDC. Funds go straight to you.
       </p>
 
       {!factory && (
@@ -194,11 +198,22 @@ export function CreateRequest({ chainId, onCreated }: CreateRequestProps) {
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs" style={{ color: 'var(--subtle)' }}>Funds go to</p>
-                  <p className="text-sm font-medium truncate">Your wallet <span className="mono" style={{ color: 'var(--subtle)' }}>{shortAddr(wallet)}</span></p>
+                  {toVault ? (
+                    <p className="text-sm font-medium truncate">Your quantum-safe vault <span className="mono" style={{ color: 'var(--subtle)' }}>{shortAddr(vault)}</span></p>
+                  ) : (
+                    <p className="text-sm font-medium truncate">Your wallet <span className="mono" style={{ color: 'var(--subtle)' }}>{shortAddr(wallet)}</span></p>
+                  )}
                 </div>
-                <button type="button" onClick={() => setCustomPayout('')} className="text-sm font-semibold shrink-0" style={{ color: 'var(--accent)' }}>
-                  Change
-                </button>
+                <div className="flex gap-3 shrink-0">
+                  {vault && (
+                    <button type="button" onClick={() => setPreferWallet((v) => !v)} className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+                      {toVault ? 'Use wallet' : 'Use vault'}
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setCustomPayout('')} className="text-sm font-semibold" style={{ color: 'var(--accent)' }}>
+                    Change
+                  </button>
+                </div>
               </div>
             ) : (
               <Field id="cr-payout" label="Payout address" error={customPayout && payoutInvalid ? 'Not a valid address' : undefined}>

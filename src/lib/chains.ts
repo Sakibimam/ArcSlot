@@ -26,6 +26,17 @@ export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
   [ARC_TESTNET_ID]: '0x387eA56c76Ea72320b32C540eCf1cb74AA95474c',
 };
 
+// Quantum-safe vault factory (SlotVault clones). Zero address = not yet deployed.
+export const VAULT_FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
+  [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000', // not yet deployed
+  [ARC_TESTNET_ID]: '0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986',
+};
+
+export function getVaultFactoryAddress(chainId: SupportedChainId): `0x${string}` | null {
+  const addr = VAULT_FACTORY_ADDRESSES[chainId];
+  return addr === '0x0000000000000000000000000000000000000000' ? null : addr;
+}
+
 export function getFactoryAddress(chainId: SupportedChainId): `0x${string}` | null {
   const addr = FACTORY_ADDRESSES[chainId];
   return addr === '0x0000000000000000000000000000000000000000' ? null : addr;

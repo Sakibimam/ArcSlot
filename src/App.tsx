@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { ArrowDownToLine, Inbox, Link2, Send } from 'lucide-react'
 import { Header } from '@/components/Header'
 import { CreateRequest } from '@/components/CreateRequest'
+import { VaultCard } from '@/components/VaultCard'
+import { useAccount } from 'wagmi'
+import { loadVault } from '@/lib/vault-store'
 import { RequestCard } from '@/components/RequestCard'
 import { PayPage } from '@/components/PayPage'
 import { Card } from '@/components/ui'
@@ -29,6 +32,14 @@ export default function App() {
   const route = useRoute()
   const [chainId, setChainId] = useState<SupportedChainId>(defaultChain)
   const [requests, setRequests] = useState<StoredSlot[]>(loadSlots)
+  const { address: wallet } = useAccount()
+  // This wallet's quantum-safe vault on this network: from device storage,
+  // or just reported by VaultCard after create/restore.
+  const vaultKey = wallet ? `${chainId}:${wallet.toLowerCase()}` : ''
+  const [reportedVault, setReportedVault] = useState<{ key: string; vault: string | null } | null>(null)
+  const vault =
+    reportedVault?.key === vaultKey ? reportedVault.vault : wallet ? loadVault(chainId, wallet)?.vault ?? null : null
+  const handleVaultChange = useCallback((v: string | null) => setReportedVault({ key: vaultKey, vault: v }), [vaultKey])
 
   useEffect(() => saveSlots(requests), [requests])
 
@@ -70,7 +81,10 @@ export default function App() {
       <Header chainId={chainId} onChainChange={setChainId} />
       <main className="flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24 sm:pt-10">
         <div className="grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-6 lg:gap-8 items-start">
-          <CreateRequest chainId={chainId} onCreated={handleCreated} />
+          <div className="flex flex-col gap-6">
+            <CreateRequest key={vault ?? 'wallet'} chainId={chainId} vault={vault} onCreated={handleCreated} />
+            <VaultCard chainId={chainId} onVaultChange={handleVaultChange} />
+          </div>
 
           <section>
             <div className="flex items-baseline justify-between mb-4">

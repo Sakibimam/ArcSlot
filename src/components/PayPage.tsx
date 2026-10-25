@@ -3,8 +3,8 @@ import { useAccount, useReadContract, useReadContracts, useSwitchChain, useWaitF
 import { ConnectKitButton } from 'connectkit'
 import { erc20Abi } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
-import { AlertTriangle, CircleCheck, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
-import { SLOT_ABI } from '@/lib/abis'
+import { AlertTriangle, Atom, CircleCheck, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
+import { SLOT_ABI, SLOT_VAULT_ABI } from '@/lib/abis'
 import {
   ARC_TESTNET_ID,
   type SupportedChainId,
@@ -44,6 +44,16 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
   const merchant = data?.[0].result as string | undefined
   const slotBalance = data?.[1].result
   const invalid = isError || (!isLoading && data !== undefined && !merchant)
+
+  // A payee that answers pqKey() is a SlotVault: show the protection to the payer.
+  const { data: payeeKey } = useReadContract({
+    address: merchant as `0x${string}` | undefined,
+    abi: SLOT_VAULT_ABI,
+    functionName: 'pqKey',
+    chainId,
+    query: { enabled: !!merchant },
+  })
+  const payeeIsVault = typeof payeeKey === 'string' && /^0x(?!0+$)[0-9a-f]{64}$/i.test(payeeKey)
 
   const { data: myBalance } = useReadContract({
     address: USDC_ADDRESS,
@@ -111,6 +121,12 @@ export function PayPage({ chainId, slot, amount: requested, label }: PayPageProp
             {' '}— verified on-chain
           </span>
         </div>
+        {payeeIsVault && (
+          <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--success)' }}>
+            <Atom className="size-4 shrink-0" />
+            <span>Pays into a quantum-safe vault</span>
+          </div>
+        )}
       </Card>
 
       {fullyPaid || sent ? (

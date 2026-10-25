@@ -32,6 +32,17 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 - **Payer:** open the link → see the amount, what it's for, and the payee address read from the contract (not from the link) → **Pay with wallet** in one click, or **Send manually** to the address/QR from any exchange or wallet. The page confirms live when the payment lands. On testnet it links to the Circle faucet.
 - Links are hash routes (`/#/pay/<chainId>/<slot>?amount=&for=`) so they work on any static host.
 
+### Quantum-safe vault
+
+Merchants can route payouts into a `SlotVault` that only releases funds with a **post-quantum SLH-DSA-SHA2-128s signature** (FIPS 205), verified by Arc's PQ precompile at `0x1800…0004`, plus the owner wallet's signature in two-key mode. A stolen wallet key alone can't move funds.
+
+- The key is generated in the browser, stored encrypted (PBKDF2 + AES-GCM), and backed up to a file that is checked on restore.
+- Withdrawals are signed messages anyone can submit; the signer fixes the relayer fee. Nonce, chain ID and vault address prevent replay.
+- Lost key: the owner wallet can start a recovery that completes after 7 days; the quantum-safe key can cancel it in the meantime.
+- The vault address commits to the owner, key and settings, so nobody can pre-deploy "your" vault with their own key.
+- Payers see "Pays into a quantum-safe vault" on the payment page, read from the contract.
+- A withdrawal costs about 460k gas (~$0.01); signing takes about 1 second.
+
 ### Key design decisions
 
 - **Permissionless sweep** — anyone can sweep any funded slot; the caller receives a gas reimbursement (USDC) plus a flat tip so they are always net-positive.
@@ -66,6 +77,8 @@ SlotFactory.createSlot(merchant, payRef, feeBps, feeRecipient, maxReimbursement)
 |---|---|---|
 | Arc Testnet | `Slot` (implementation) | [`0xdefA7372c2376A7F79609355a97FC97369316Da7`](https://explorer.testnet.arc.io/address/0xdefA7372c2376A7F79609355a97FC97369316Da7) |
 | Arc Testnet | `SlotFactory` | [`0x387eA56c76Ea72320b32C540eCf1cb74AA95474c`](https://explorer.testnet.arc.io/address/0x387eA56c76Ea72320b32C540eCf1cb74AA95474c) |
+| Arc Testnet | `SlotVault` (implementation) | [`0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7`](https://explorer.testnet.arc.io/address/0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7) |
+| Arc Testnet | `VaultFactory` | [`0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986`](https://explorer.testnet.arc.io/address/0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986) |
 | Arc Mainnet | — | not yet deployed |
 
 Both use `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC). Deploy with `contracts/script/DeploySlot.s.sol`.
@@ -105,9 +118,9 @@ bun run build        # Vite production build → dist/
 ### Contracts
 
 ```bash
-bun run contracts:test        # 59 Foundry unit + fuzz tests (mock USDC)
-bun run contracts:test:fork   # 9 integration tests on an Arc mainnet fork (real USDC + blocklist)
-bun run test                  # 71 Vitest unit + component integration tests
+bun run contracts:test        # 91 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
+bun run contracts:test:fork   # 15 tests on an Arc mainnet fork (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; uses --ffi)
+bun run test                  # 106 Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```
@@ -118,6 +131,8 @@ Browser end-to-end on Arc testnet — drives the real UI with two wallets (merch
 
 ```bash
 PAYER_PRIVATE_KEY=0x... bun run test:e2e:ui
+PAYER_PRIVATE_KEY=0x... node scripts/e2e-ui-vault.mjs     # quantum-safe vault journey
+VAULT_FACTORY=0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986 node scripts/e2e-vault.mjs  # contract-level, live testnet
 ```
 
 Live end-to-end check against a deployed factory (signs with `PRIVATE_KEY` from `.env`):
