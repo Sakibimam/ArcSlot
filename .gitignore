@@ -1,7 +1,8 @@
-# dependencies
-node_modules/*
-!node_modules/.vite
-!node_modules/.tmp
+# dependencies and build output (reproducible: bun install / bun run build / forge build)
+node_modules/
+dist/
+contracts/out/
+contracts/cache/
 
 # secrets — never commit
 .env
