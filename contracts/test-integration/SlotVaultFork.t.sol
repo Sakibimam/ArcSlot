@@ -25,7 +25,7 @@ contract SlotVaultForkTest is Test {
 
     function setUp() public {
         owner  = vm.addr(ownerPk);
-        vaults = new VaultFactory(address(new SlotVault()), address(USDC));
+        vaults = new VaultFactory(address(new SlotVault()));
         pqKey  = bytes32(_ffi("vk", ""));
     }
 
@@ -93,7 +93,7 @@ contract SlotVaultForkTest is Test {
     /// End to end: payer -> Slot -> sweep into vault -> PQ-authorised withdrawal.
     function test_Fork_SlotPayoutIntoQuantumSafeVault() public {
         SlotVault v = SlotVault(vaults.createVault(owner, pqKey, true, DELAY, bytes32("fork4")));
-        SlotFactory slots = new SlotFactory(address(new Slot()), address(USDC), 2_000, 100_000);
+        SlotFactory slots = new SlotFactory(address(new Slot()), 2_000, 100_000);
         address slot = slots.createSlot(address(v), keccak256("fork-inv"), 0, address(0), 50_000);
 
         address payer = makeAddr("fork-payer");

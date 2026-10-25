@@ -68,23 +68,31 @@ export interface VaultBackup {
   vault: string
   chainId: number
   seed: Hex
+  /** Creation settings, so the vault can be recreated at the same address on another chain. */
+  salt?: string
+  twoKey?: boolean
+  recoveryDelay?: string
 }
 
 export function backupText(b: VaultBackup): string {
   return JSON.stringify(
-    { kind: 'slot-vault-backup', v: 1, vault: b.vault, chainId: b.chainId, key: vaultKeyFromSeed(b.seed), seed: b.seed },
+    {
+      kind: 'slot-vault-backup', v: 1, vault: b.vault, chainId: b.chainId, key: vaultKeyFromSeed(b.seed), seed: b.seed,
+      ...(b.salt ? { salt: b.salt, twoKey: b.twoKey, recoveryDelay: b.recoveryDelay } : {}),
+    },
     null,
     2,
   )
 }
 
 export function parseBackup(text: string): VaultBackup {
-  const j = JSON.parse(text) as Partial<{ kind: string; vault: string; chainId: number; key: string; seed: string }>
+  const j = JSON.parse(text) as Partial<{ kind: string; vault: string; chainId: number; key: string; seed: string; salt: string; twoKey: boolean; recoveryDelay: string }>
   if (j.kind !== 'slot-vault-backup' || !j.vault || !j.chainId || !j.seed || !j.key) {
     throw new Error('Not a Slot vault backup')
   }
   if (!/^0x[0-9a-f]{96}$/i.test(j.seed)) throw new Error('Backup seed is malformed')
   const seed = j.seed.toLowerCase() as Hex
   if (vaultKeyFromSeed(seed) !== j.key.toLowerCase()) throw new Error('Backup key does not match its seed')
-  return { vault: j.vault, chainId: j.chainId, seed }
+  const settings = j.salt ? { salt: j.salt, twoKey: j.twoKey, recoveryDelay: j.recoveryDelay } : {}
+  return { vault: j.vault, chainId: j.chainId, seed, ...settings }
 }

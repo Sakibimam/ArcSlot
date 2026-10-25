@@ -23,7 +23,6 @@ A deposit-address system for Arc. `SlotFactory` deploys EIP-1167 minimal proxies
 Slot            — no constructor args (implementation only)
 SlotFactory(
   address _implementation,   // deployed Slot address
-  address _usdc,             // 0x3600000000000000000000000000000000000000
   uint256 _tip,              // flat caller bonus in 6-dec USDC units  e.g. 2000 = 0.002 USDC
   uint256 _minSweep          // minimum gross before sweep pays out    e.g. 100000 = 0.1 USDC
 )
@@ -31,12 +30,14 @@ SlotFactory(
 
 ## Deployments
 
-| Network | Contract | Address |
-|---|---|---|
-| Arc Testnet | `Slot` (implementation, v3) | `0x69D8F7E5Dcd38103bcbC4322868c265dAe387f2f` |
-| Arc Testnet | `SlotFactory` (v3, on-chain requests) | `0x05104Dfe747f820097A8A6C46f7c282Ef9c6d7F9` |
-| Arc Testnet | `SlotVault` (implementation) | `0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7` |
-| Arc Testnet | `VaultFactory` | `0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986` |
+Deterministic (same address on every chain, deployed on Arc testnet + Ethereum Sepolia via `bun run deploy:deterministic`):
+
+| Contract | Address |
+|---|---|
+| Slot impl | `0x71A38b3C3A7951391e79C8849c9Eca00878f27eF` |
+| SlotFactory | `0x9A8aa8de71f26611695cD419174C3a972D317aB3` |
+| SlotVault impl | `0x525c4b333FD8855655b79D7922411cCffB2A50fa` |
+| VaultFactory | `0x16cFCACE90Be16C52F1243746626Afd3878Aeb22` |
 
 Old testnet factory `0x34163d…4a45` predates `maxReimbursement` / base-fee pricing — do not use.
 

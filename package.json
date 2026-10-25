@@ -22,7 +22,9 @@
     "abis": "forge build && bun run ./scripts/gen-abis.ts",
     "test:e2e:ui": "node scripts/e2e-ui.mjs",
     "test:e2e:chain": "bash scripts/e2e-live.sh",
-    "test:e2e:crosschain": "node scripts/e2e-ui-crosschain.mjs"
+    "test:e2e:crosschain": "node scripts/e2e-ui-crosschain.mjs",
+    "test:e2e:recovery": "node scripts/e2e-ui-recovery.mjs",
+    "deploy:deterministic": "bash scripts/deploy-deterministic.sh"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.19.2",

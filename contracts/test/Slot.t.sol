@@ -101,6 +101,7 @@ contract SlotTestBase is Test {
     bytes32 internal ref2         = keccak256("order-002");
 
     function setUp() public virtual {
+        vm.chainId(5042002); // unit tests run as Arc testnet (ChainConfig)
         usdc = new MockUSDC();
         vm.etch(ARC_USDC, address(usdc).code);
         // After etch we interact through the etched address;
@@ -109,7 +110,7 @@ contract SlotTestBase is Test {
 
         // Deploy implementation, then factory with configurable params.
         Slot impl = new Slot();
-        factory   = new SlotFactory(address(impl), ARC_USDC, TIP, MIN_SWEEP);
+        factory   = new SlotFactory(address(impl), TIP, MIN_SWEEP);
     }
 
     function _fund(address to, uint256 amount) internal {
@@ -555,7 +556,7 @@ contract QuarantineTest is SlotTestBase {
         vm.etch(ARC_USDC, address(stripped).code);
 
         Slot  impl2    = new Slot();
-        SlotFactory f2 = new SlotFactory(address(impl2), ARC_USDC, TIP, MIN_SWEEP);
+        SlotFactory f2 = new SlotFactory(address(impl2), TIP, MIN_SWEEP);
         address slot   = f2.createSlot(merchant, ref1, 0, address(0), MAX_R);
         StrippedMockUSDC(ARC_USDC).mint(slot, 1_000_000);
 
@@ -742,7 +743,7 @@ contract ReimbursementCapTest is SlotTestBase {
     function setUp() public override {
         super.setUp();
         Slot impl = new Slot();
-        factory = new SlotFactory(address(impl), ARC_USDC, PROD_TIP, PROD_MIN_SWEEP);
+        factory = new SlotFactory(address(impl), PROD_TIP, PROD_MIN_SWEEP);
     }
 
     function _sweepAs(address who, address slot) internal returns (uint256 got, uint256 gasCost6) {

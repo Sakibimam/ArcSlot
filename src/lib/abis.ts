@@ -11,11 +11,6 @@ export const SLOT_FACTORY_ABI = [
         "internalType": "address"
       },
       {
-        "name": "_usdc",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "_tip",
         "type": "uint256",
         "internalType": "uint256"
@@ -448,6 +443,11 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "error",
+    "name": "FeeNotAllowedOffArc",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InsufficientBalance",
     "inputs": [
       {
@@ -479,6 +479,11 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "error",
+    "name": "UnsupportedChain",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ZeroFeeRecipient",
     "inputs": []
   },
@@ -490,11 +495,6 @@ export const SLOT_FACTORY_ABI = [
   {
     "type": "error",
     "name": "ZeroMerchant",
-    "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "ZeroUSDC",
     "inputs": []
   }
 ] as const
@@ -897,11 +897,6 @@ export const VAULT_FACTORY_ABI = [
         "name": "_implementation",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "_usdc",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "nonpayable"
@@ -1070,12 +1065,12 @@ export const VAULT_FACTORY_ABI = [
   },
   {
     "type": "error",
-    "name": "ZeroImplementation",
+    "name": "UnsupportedChain",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "ZeroUSDC",
+    "name": "ZeroImplementation",
     "inputs": []
   }
 ] as const

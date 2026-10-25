@@ -7,6 +7,7 @@ import { wagmiState, wagmiModule, connectkitModule, resetWagmi } from '@/test/wa
 vi.mock('wagmi', () => wagmiModule)
 vi.mock('connectkit', () => connectkitModule)
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('./RecoverPanel', () => ({ RecoverPanel: ({ slot, arcChainId }: { slot: string; arcChainId: number }) => <p>recover-panel:{arcChainId}:{slot}</p> }))
 
 import { toast } from 'sonner'
 import { RequestCard } from './RequestCard'
@@ -118,5 +119,13 @@ describe('RequestCard — collected on another device', () => {
     render(<RequestCard request={request} onSwept={vi.fn()} />)
     expect(screen.getByText('Collected')).toBeInTheDocument()
     expect(screen.getByTestId('collected')).toHaveTextContent('1.00 USDC collected')
+  })
+})
+
+describe('RequestCard — wrong-network recovery', () => {
+  it('checks this request for USDC sent on other chains', () => {
+    reads({ balance: 0n })
+    render(<RequestCard request={request} onSwept={vi.fn()} />)
+    expect(screen.getByText(`recover-panel:5042002:${SLOT}`)).toBeInTheDocument()
   })
 })

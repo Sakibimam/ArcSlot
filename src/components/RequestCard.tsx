@@ -4,7 +4,7 @@ import { erc20Abi } from 'viem'
 import { ArrowDownToLine, ChevronDown, ExternalLink, Share2, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import { SLOT_ABI } from '@/lib/abis'
-import { USDC_ADDRESS, shortAddr } from '@/lib/chains'
+import { type SupportedChainId, USDC_ADDRESS, shortAddr } from '@/lib/chains'
 import {
   type ReceiptData,
   type StoredSlot,
@@ -16,6 +16,7 @@ import {
 import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, StatusPill } from './ui'
 import { ShareSheet } from './ShareSheet'
+import { RecoverPanel } from './RecoverPanel'
 
 interface RequestCardProps {
   request: StoredSlot
@@ -167,6 +168,8 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
           You can collect from {formatUsdc6(minSweep)} USDC.
         </p>
       )}
+
+      <RecoverPanel arcChainId={chainId as SupportedChainId} slot={address} />
 
       {sharing && (
         <ShareSheet target={{ chainId, slot: address, amount, label, onchain: request.onchain }} onClose={() => setSharing(false)} />

@@ -5,6 +5,7 @@ import { wagmiState, wagmiModule, connectkitModule, resetWagmi } from '@/test/wa
 vi.mock('wagmi', () => wagmiModule)
 vi.mock('connectkit', () => connectkitModule)
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('@/components/RecoverPanel', () => ({ RecoverPanel: () => null }))
 
 import App from './App'
 import { saveSlots } from '@/lib/slot-logic'

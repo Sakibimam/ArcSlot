@@ -7,6 +7,11 @@ export interface VaultRecord {
   vault: string
   /** encryptSeed() output */
   box: string
+  /** Creation settings (for recreating the vault at the same address on another chain). */
+  pqKey?: string
+  salt?: string
+  twoKey?: boolean
+  recoveryDelay?: string
 }
 
 const key = (chainId: number, owner: string) => `arc-slot:vault:v1:${chainId}:${owner.toLowerCase()}`

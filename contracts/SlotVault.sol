@@ -5,6 +5,7 @@ import {IERC20}           from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}        from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ECDSA}            from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {ChainConfig}      from "./ChainConfig.sol";
 
 interface ISlotQuarantine {
     function resolveQuarantine(address newMerchant, address newFeeRecipient, uint16 newFeeBps) external;
@@ -206,8 +207,11 @@ contract SlotVault {
     // ─── Internal ─────────────────────────────────────────────────────────────
 
     function _authorise(bytes32 digest, bytes calldata pqSig, bytes calldata ownerSig) internal view {
-        if (!_pqValid(digest, pqSig)) revert BadPQSignature();
-        if (twoKey) {
+        // Off Arc there is no PQ precompile; a vault there only holds funds
+        // recovered from a wrong-chain payment, released by the owner wallet.
+        bool onArc = ChainConfig.isArc();
+        if (onArc && !_pqValid(digest, pqSig)) revert BadPQSignature();
+        if (twoKey || !onArc) {
             (address signer, ECDSA.RecoverError err,) =
                 ECDSA.tryRecover(MessageHashUtils.toEthSignedMessageHash(digest), ownerSig);
             if (err != ECDSA.RecoverError.NoError || signer != owner) revert BadOwnerSignature();

@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20}          from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}        from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard}  from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ChainConfig}      from "./ChainConfig.sol";
 
 /// @title Slot
 /// @notice A minimal deposit-address clone in the Arc Slot system.
@@ -194,7 +195,8 @@ contract Slot is ReentrancyGuard {
         IERC20  _usdc  = usdc;
         uint256 gross  = _usdc.balanceOf(address(this));
         if (gross == 0)         revert NothingToSweep();
-        if (gross < minSweep)   revert BelowMinSweep();
+        // Off Arc a Slot only recovers wrong-chain payments: no minimum.
+        if (gross < minSweep && ChainConfig.isArc()) revert BelowMinSweep();
 
         // ── Step 3: blacklist check (fail-closed on probe failure) ─────────────
         address _merchant     = merchant;
@@ -231,7 +233,8 @@ contract Slot is ReentrancyGuard {
         //    only pay themselves), so they can always sweep — even at ceiling
         //    gas — and funds can never be locked by GasTooHigh.
         uint256 reimbursement;
-        if (msg.sender != _merchant) {
+        //    Off Arc gas is not USDC, so there is no USDC gas refund there.
+        if (msg.sender != _merchant && ChainConfig.isArc()) {
             reimbursement = _gasRefund6(g0, fee > 0 ? 3 : 2) + tip;
 
             // Never pay out short: refuse the sweep until gas drops.

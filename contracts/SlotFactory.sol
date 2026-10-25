@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Slot}   from "./Slot.sol";
+import {ChainConfig} from "./ChainConfig.sol";
 
 /// @title SlotFactory
 /// @notice Deploys EIP-1167 minimal-proxy Slot instances deterministically.
@@ -19,8 +20,6 @@ contract SlotFactory {
     /// @notice EIP-1167 implementation address.  All clones proxy to this.
     address public immutable implementation;
 
-    /// @notice ERC-20 USDC token address forwarded to every clone.
-    address public immutable usdc;
 
     /// @notice Flat caller tip (6-decimal USDC) forwarded to every clone.
     uint256 public immutable tip;
@@ -47,12 +46,12 @@ contract SlotFactory {
     // ─── Errors ────────────────────────────────────────────────────────────────
 
     error ZeroImplementation();
-    error ZeroUSDC();
     error ZeroMerchant();
     error ZeroFeeRecipient();
     error FeeBpsTooHigh();
     error ReferenceAlreadyUsed();
     error MaxReimbursementBelowTip();
+    error FeeNotAllowedOffArc();
     error LabelTooLong();
     error BadExpiry();
 
@@ -85,22 +84,26 @@ contract SlotFactory {
     // ─── Constructor ───────────────────────────────────────────────────────────
 
     /// @param _implementation  Address of the deployed Slot implementation.
-    /// @param _usdc            ERC-20 USDC token address (non-zero).
     /// @param _tip             Flat caller bonus in 6-decimal USDC units.
     /// @param _minSweep        Minimum gross balance required to trigger sweep.
+    ///         Constructor args are identical on every chain (USDC is looked up
+    ///         per chain), so a deterministic deploy yields the same factory
+    ///         address everywhere — and therefore the same Slot addresses.
     constructor(
         address _implementation,
-        address _usdc,
         uint256 _tip,
         uint256 _minSweep
     ) {
         if (_implementation == address(0)) revert ZeroImplementation();
-        if (_usdc           == address(0)) revert ZeroUSDC();
 
         implementation = _implementation;
-        usdc           = _usdc;
         tip            = _tip;
         minSweep       = _minSweep;
+    }
+
+    /// @notice Circle USDC on this chain.
+    function usdc() public view returns (address) {
+        return ChainConfig.usdc();
     }
 
     // ─── Public interface ──────────────────────────────────────────────────────
@@ -179,6 +182,9 @@ contract SlotFactory {
         uint256 maxReimbursement
     ) internal returns (address slot) {
         if (merchant == address(0))                   revert ZeroMerchant();
+        // Off Arc a Slot only recovers funds sent to the wrong chain; whoever
+        // deploys it first must not be able to skim a fee.
+        if (feeBps > 0 && !ChainConfig.isArc())       revert FeeNotAllowedOffArc();
         if (feeBps > 1000)                            revert FeeBpsTooHigh();
         if (feeBps > 0 && feeRecipient == address(0)) revert ZeroFeeRecipient();
         if (maxReimbursement < tip)                   revert MaxReimbursementBelowTip();
@@ -191,7 +197,7 @@ contract SlotFactory {
         slots[merchant][payRef] = slot;
 
         Slot(slot).initialize(
-            usdc,
+            ChainConfig.usdc(),
             tip,
             minSweep,
             maxReimbursement,

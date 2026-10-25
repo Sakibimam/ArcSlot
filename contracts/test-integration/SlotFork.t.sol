@@ -20,7 +20,7 @@ contract SlotForkTest is Test {
     address internal stranger = makeAddr("fork-stranger");
 
     function setUp() public {
-        factory = new SlotFactory(address(new Slot()), address(USDC), TIP, MIN_SWEEP);
+        factory = new SlotFactory(address(new Slot()), TIP, MIN_SWEEP);
         // On Arc, native gas balance IS USDC (18-dec native view of the 6-dec ERC-20).
         vm.deal(payer, 10 ether); // 10 USDC
     }

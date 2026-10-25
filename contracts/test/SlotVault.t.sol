@@ -43,12 +43,13 @@ contract SlotVaultTestBase is Test {
     bytes32 internal pqKey2  = keccak256("pq-key-2");
 
     function setUp() public virtual {
+        vm.chainId(5042002); // unit tests run as Arc testnet (ChainConfig)
         owner = vm.addr(ownerPk);
         vm.etch(ARC_USDC, address(new MockUSDC()).code);
         usdc = MockUSDC(ARC_USDC);
         vm.etch(PQ, address(new MockPQ()).code);
         pq = MockPQ(PQ);
-        vaults = new VaultFactory(address(new SlotVault()), ARC_USDC);
+        vaults = new VaultFactory(address(new SlotVault()));
     }
 
     // A fake-but-deterministic PQ signature over `digest` under `key`, registered as valid.
@@ -359,7 +360,7 @@ contract VaultRecoveryTest is SlotVaultTestBase {
 contract VaultAsSlotMerchantTest is SlotVaultTestBase {
     function test_SlotSweepsIntoVaultThenQuantumSafeWithdraw() public {
         SlotVault v = _vault(true);
-        SlotFactory slots = new SlotFactory(address(new Slot()), ARC_USDC, 2_000, 100_000);
+        SlotFactory slots = new SlotFactory(address(new Slot()), 2_000, 100_000);
         address slot = slots.createSlot(address(v), keccak256("inv-1"), 0, address(0), 50_000);
         usdc.mint(slot, 1_000_000);
 
@@ -383,7 +384,7 @@ contract VaultResolvesQuarantineTest is SlotVaultTestBase {
 
     function setUp() public override {
         super.setUp();
-        slots = new SlotFactory(address(new Slot()), ARC_USDC, 2_000, 100_000);
+        slots = new SlotFactory(address(new Slot()), 2_000, 100_000);
     }
 
     function _quarantinedSlot(SlotVault v) internal returns (address slot) {

@@ -24,7 +24,7 @@ import { saveVault, loadVault } from '@/lib/vault-store'
 
 const ME = '0x1111111111111111111111111111111111111111'
 const VAULT = '0x00000000000000000000000000000000000000aa'
-const FACTORY = '0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986'
+const FACTORY = '0x16cFCACE90Be16C52F1243746626Afd3878Aeb22'
 const DIGEST = `0x${'cd'.repeat(32)}`
 
 function vaultReads({ balance = 1_000_000n, pendingKey = `0x${'00'.repeat(32)}`, readyAt = 0n } = {}) {
@@ -107,7 +107,10 @@ describe('VaultCard — setup', () => {
 
     await waitFor(() => expect(onVaultChange).toHaveBeenCalledWith(VAULT))
     expect(onVaultChange).toHaveBeenCalledTimes(1)
-    expect(loadVault(5042002, ME)).toMatchObject({ vault: VAULT, box: 'box:long-enough-pw' })
+    const saved = loadVault(5042002, ME)
+    expect(saved).toMatchObject({ vault: VAULT, box: 'box:long-enough-pw', pqKey: VK, twoKey: true, recoveryDelay: '604800' })
+    // The salt is kept so the vault can be recreated at the same address on another chain.
+    expect(saved?.salt).toMatch(/^0x[0-9a-f]{64}$/)
   })
 })
 

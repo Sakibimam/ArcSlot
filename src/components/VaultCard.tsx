@@ -90,7 +90,11 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
     if (!isSuccess || !txHash || handled.current === txHash || !wallet) return
     handled.current = txHash
     if (action.current === 'create' && pendingRef.current) {
-      const r: VaultRecord = { chainId, owner: wallet, vault: pendingRef.current.predicted, box: pendingRef.current.box }
+      const p = pendingRef.current
+      const r: VaultRecord = {
+        chainId, owner: wallet, vault: p.predicted, box: p.box,
+        pqKey: p.vk, salt: p.salt, twoKey: true, recoveryDelay: RECOVERY_DELAY.toString(),
+      }
       saveVault(r)
       setLocalRecord({ key: storeKey, record: r })
       setPending(null)
@@ -231,6 +235,10 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
     })
   }
 
+  function backupFor(p: PendingVault): string {
+    return backupText({ vault: p.predicted, chainId, seed: p.seed, salt: p.salt, twoKey: true, recoveryDelay: RECOVERY_DELAY.toString() })
+  }
+
   function downloadBackup(text: string, vaultAddr: string) {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
     const a = document.createElement('a')
@@ -253,7 +261,10 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
       ])
       if (String(onchainKey).toLowerCase() !== vaultKeyFromSeed(b.seed).toLowerCase()) throw new Error('This backup no longer matches the vault key')
       if (String(owner).toLowerCase() !== wallet.toLowerCase()) throw new Error('This vault belongs to a different wallet')
-      const r: VaultRecord = { chainId, owner: wallet, vault: b.vault, box: await encryptSeed(b.seed, pw) }
+      const r: VaultRecord = {
+        chainId, owner: wallet, vault: b.vault, box: await encryptSeed(b.seed, pw),
+        pqKey: vaultKeyFromSeed(b.seed), salt: b.salt, twoKey: b.twoKey, recoveryDelay: b.recoveryDelay,
+      }
       saveVault(r)
       setRecord(r)
       onVaultChange(r.vault)
@@ -324,10 +335,10 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
               <p className="mono break-all">{pending.predicted}</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => downloadBackup(backupText({ vault: pending.predicted, chainId, seed: pending.seed }), pending.predicted)}>
+              <Button variant="secondary" onClick={() => downloadBackup(backupFor(pending), pending.predicted)}>
                 <Download className="size-4" /> Download
               </Button>
-              <CopyButton text={backupText({ vault: pending.predicted, chainId, seed: pending.seed })} label="Copy backup" />
+              <CopyButton text={backupFor(pending)} label="Copy backup" />
             </div>
             <label htmlFor="vault-saved" className="flex items-center gap-2 text-sm">
               <input id="vault-saved" type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />

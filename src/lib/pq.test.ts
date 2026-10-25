@@ -73,6 +73,12 @@ describe('backup', () => {
     expect(parseBackup(text)).toEqual({ vault, chainId: 5042002, seed: SEED })
   })
 
+  it('keeps the vault creation settings needed to recreate it on another chain', () => {
+    const settings = { salt: `0x${'12'.repeat(32)}`, twoKey: true, recoveryDelay: '604800' }
+    const text = backupText({ vault, chainId: 5042002, seed: SEED, ...settings })
+    expect(parseBackup(text)).toEqual({ vault, chainId: 5042002, seed: SEED, ...settings })
+  })
+
   it('rejects a backup whose seed does not match its key fingerprint', () => {
     const text = backupText({ vault, chainId: 5042002, seed: SEED }).replace('5e5e', '5e5f')
     expect(() => parseBackup(text)).toThrow(/does not match/i)

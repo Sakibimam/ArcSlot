@@ -41,6 +41,17 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 - Each Slot records `totalCollected`, so a request still reads as paid after the merchant collects, and as collected on any device.
 - The factory indexes requests by creator (`requestsOf`), so the dashboard loads from the chain on any device.
 
+### Wrong-network recovery
+
+If a payer sends USDC to a Slot's address on the wrong chain (say, an exchange withdrawal on Ethereum instead of Arc), the merchant can recover it.
+
+- Slot, factory and vault contracts have **identical addresses on every chain**: init code has no chain-specific arguments, and `ChainConfig` looks up each chain's USDC at runtime. So a Slot's address exists everywhere.
+- Each request card checks its address on the other chains and shows "0.05 USDC was sent on Ethereum Sepolia by mistake" with **Recover to my wallet**, which deploys the Slot there (and the vault, for vault payouts) and collects.
+- Off Arc a Slot is recovery-only: **no fee allowed** (so whoever deploys it first can't skim), no minimum, and no USDC gas refund (gas there isn't USDC). Off Arc a vault releases funds with the owner wallet's signature, because there is no PQ precompile there.
+- Vault backups now include the vault's salt and settings so it can be recreated at the same address on another chain.
+- Verified live: 0.05 USDC sent to an Arc Slot address on Ethereum Sepolia was recovered through the UI; a two-fork test (Arc testnet + Sepolia) proves the addresses match and recovers real Sepolia USDC.
+- Deploying on Ethereum: Foundry's gas estimates undershoot there now (contract storage measured at ~1,600 gas/byte on Sepolia), so `scripts/deploy-deterministic.sh` sends with explicit gas limits.
+
 ### Pay from another chain
 
 The payment page has an **Another chain** tab. The payer picks Base, Ethereum, Arbitrum, OP Mainnet, Polygon or Avalanche (Base / Ethereum / Arbitrum Sepolia on testnet). Circle's App Kit burns USDC there over CCTP and the **Forwarding Service mints it straight into the Slot on Arc**, so the payer needs no Arc wallet and no Arc gas.
@@ -81,7 +92,6 @@ Slot            — no constructor args (EIP-1167 implementation template)
 
 SlotFactory(
   address _implementation,   // deployed Slot address
-  address _usdc,             // 0x3600000000000000000000000000000000000000
   uint256 _tip,              // flat caller bonus in 6-decimal USDC (e.g. 2000 = 0.002 USDC)
   uint256 _minSweep          // minimum gross balance before sweep pays out (e.g. 100000 = 0.1 USDC)
 )
@@ -94,13 +104,17 @@ SlotFactory.createSlot(merchant, payRef, feeBps, feeRecipient, maxReimbursement)
 
 | Network | Contract | Address |
 |---|---|---|
-| Arc Testnet | `Slot` (implementation) | [`0x69D8F7E5Dcd38103bcbC4322868c265dAe387f2f`](https://explorer.testnet.arc.io/address/0x69D8F7E5Dcd38103bcbC4322868c265dAe387f2f) |
-| Arc Testnet | `SlotFactory` | [`0x05104Dfe747f820097A8A6C46f7c282Ef9c6d7F9`](https://explorer.testnet.arc.io/address/0x05104Dfe747f820097A8A6C46f7c282Ef9c6d7F9) |
-| Arc Testnet | `SlotVault` (implementation) | [`0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7`](https://explorer.testnet.arc.io/address/0xcFbEeC4d13cC8158834D6c42e9a7516CE0e174E7) |
-| Arc Testnet | `VaultFactory` | [`0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986`](https://explorer.testnet.arc.io/address/0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986) |
+All four contracts are deployed through the standard CREATE2 deployer (`0x4e59…956C`), so they have **the same address on every chain**:
+
+| Contract | Address | Live on |
+|---|---|---|
+| `Slot` (implementation) | `0x71A38b3C3A7951391e79C8849c9Eca00878f27eF` | Arc testnet, Ethereum Sepolia |
+| `SlotFactory` | [`0x9A8aa8de71f26611695cD419174C3a972D317aB3`](https://explorer.testnet.arc.io/address/0x9A8aa8de71f26611695cD419174C3a972D317aB3) | Arc testnet, Ethereum Sepolia |
+| `SlotVault` (implementation) | `0x525c4b333FD8855655b79D7922411cCffB2A50fa` | Arc testnet, Ethereum Sepolia |
+| `VaultFactory` | [`0x16cFCACE90Be16C52F1243746626Afd3878Aeb22`](https://explorer.testnet.arc.io/address/0x16cFCACE90Be16C52F1243746626Afd3878Aeb22) | Arc testnet, Ethereum Sepolia |
 | Arc Mainnet | — | not yet deployed |
 
-Both use `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC). Deploy with `contracts/script/DeploySlot.s.sol`.
+`tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… PRIVATE_KEY=… bun run deploy:deterministic` (idempotent).
 
 Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0x636ab3e055171daf3cf49e0741b0975dec7c4841f9f593a1ff850242abd03436) — merchant +0.144646 USDC, sweeper reimbursed 0.005354 USDC vs 0.002388 USDC real gas.
 
@@ -137,9 +151,9 @@ bun run build        # Vite production build → dist/
 ### Contracts
 
 ```bash
-bun run contracts:test        # 103 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
-bun run contracts:test:fork   # 15 tests on an Arc mainnet fork (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; uses --ffi)
-bun run test                  # 148 Vitest unit + component integration tests
+bun run contracts:test        # 117 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
+bun run contracts:test:fork   # 16 fork tests: Arc mainnet (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; --ffi) + a two-chain Arc testnet/Sepolia recovery test
+bun run test                  # 170 Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```
@@ -152,6 +166,7 @@ Browser end-to-end on Arc testnet — drives the real UI with two wallets (merch
 PAYER_PRIVATE_KEY=0x... bun run test:e2e:ui
 PAYER_PRIVATE_KEY=0x... node scripts/e2e-ui-vault.mjs     # quantum-safe vault journey
 MERCHANT_PRIVATE_KEY=0x... bun run test:e2e:crosschain  # pay a Slot from Ethereum Sepolia (payer needs Sepolia ETH + USDC)
+bun run test:e2e:recovery                                 # recover USDC sent on Sepolia by mistake (needs Sepolia ETH + USDC)
 VAULT_FACTORY=0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986 node scripts/e2e-vault.mjs  # contract-level, live testnet
 ```
 
