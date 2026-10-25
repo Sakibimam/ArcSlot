@@ -203,22 +203,37 @@ Never commit `.env`. It is listed in `.gitignore`.
 
 ```
 contracts/
-  Slot.sol                  EIP-1167 implementation
-  SlotFactory.sol           Clone factory
-  test/Slot.t.sol           Foundry unit + fuzz tests
-  test-integration/         Arc mainnet fork integration tests
-  script/DeploySlot.s.sol   Deploy implementation + factory
-  contract-metadata/        Deployment metadata (addresses, ABIs)
+  ChainConfig.sol           Resolves USDC per chain at runtime (chain-agnostic init code)
+  Slot.sol                  EIP-1167 implementation (one clone per deposit address)
+  SlotFactory.sol           Clone factory, on-chain requests, collector stats
+  SlotVault.sol             Quantum-safe vault (SLH-DSA via Arc precompile)
+  VaultFactory.sol          Vault clone factory
+  script/                   CREATE2 deterministic deploy scripts
+  test/                     Foundry unit + fuzz tests (mock USDC / MockPQ)
+  test-integration/         Arc fork integration tests (need arc-forge)
+scripts/
+  deploy-deterministic.sh   Same-address deploy on any chain (bun run deploy:deterministic)
+  collector.ts              Collect-to-earn bot (bun run collect)
+  gen-abis.ts               Regenerates src/lib/abis.ts (bun run abis)
+  e2e-*.mjs                 Browser E2E runs against testnet
 src/
-  App.tsx                   App shell — chain toggle, tab navigation
+  App.tsx                   Routing (merchant / pay / collectors), vault state, request merge
   components/
-    Header.tsx              Header with chain toggle + ConnectKit button
-    NewSlot.tsx             Create-slot form with live predict() preview
-    SlotCard.tsx            Per-slot card: balance, status, QR, sweep, receipt
-    SlotsList.tsx           Slot list + empty state
-    QrModal.tsx             QR code modal for deposit address
+    CreateRequest.tsx       New payment request form
+    RequestCard.tsx         Per-request card: status, QR, share, collect
+    PayPage.tsx             Payer view
+    CrossChainPay.tsx       Pay from another chain (App Kit / CCTP forwarder)
+    RecoverPanel.tsx        Wrong-network recovery
+    VaultCard.tsx           SlotVault setup + withdrawals
+    Leaderboard.tsx         Collector leaderboard
+    ShareSheet.tsx          Share link / QR sheet
+    Header.tsx, ui.tsx      Header with ConnectKit button, shared UI
   lib/
-    abis.ts                 Slot + SlotFactory ABIs
+    abis.ts                 Generated ABIs — do not hand-edit
     chains.ts               Chain config, explorer URLs, factory address registry
-    share.ts                getShareBase() helper for shareable links
+    slot-logic.ts           Request status, payRef, amount parsing, local storage
+    pq.ts, vault-store.ts   SLH-DSA keys + encrypted backup
+    crosschain*.ts          Cross-chain payment helpers
+    recovery*.ts            Wrong-network recovery logic
+    collector-logic.ts      Collector profitability logic
 ```
