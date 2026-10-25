@@ -175,3 +175,106 @@ describe('PayPage — on-chain request', () => {
     expect(screen.getByText(/payment received/i)).toBeInTheDocument()
   })
 })
+
+// ─── Pay from another chain ────────────────────────────────────────────────
+
+vi.mock('@/lib/crosschain-pay', () => ({
+  quoteCrossChainPayment: vi.fn(),
+  sendCrossChainPayment: vi.fn(),
+  retryCrossChainPayment: vi.fn(),
+}))
+import { quoteCrossChainPayment, sendCrossChainPayment, retryCrossChainPayment } from '@/lib/crosschain-pay'
+
+describe('PayPage — pay from another chain', () => {
+  const quote = { summary: { receives: 1_500_000n, fee: 159_019n, debit: 1_659_019n }, quote: '0xsigned' }
+  beforeEach(() => {
+    vi.mocked(quoteCrossChainPayment).mockReset().mockResolvedValue(quote)
+    vi.mocked(sendCrossChainPayment).mockReset()
+    vi.mocked(retryCrossChainPayment).mockReset()
+    wagmiState.account = { ...wagmiState.account, address: ME, chainId: 5042002 }
+  })
+
+  function openTab() {
+    render(<PayPage {...props} />)
+    fireEvent.click(screen.getByRole('tab', { name: /another chain/i }))
+  }
+
+  it('offers the testnet source chains', () => {
+    openTab()
+    const options = screen.getAllByRole('option').map((o) => o.textContent)
+    expect(options).toEqual(['Base Sepolia', 'Ethereum Sepolia', 'Arbitrum Sepolia'])
+  })
+
+  it('switches to the source chain and shows an exact quote', async () => {
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    expect(await screen.findByText(/merchant receives exactly 1\.50 usdc/i)).toBeInTheDocument()
+    expect(wagmiState.switchChainAsync).toHaveBeenCalledWith({ chainId: 84532 })
+    expect(vi.mocked(quoteCrossChainPayment).mock.calls[0][0]).toMatchObject({ source: 'Base_Sepolia', slot: SLOT, amount: 1_500_000n, arcChainId: 5042002 })
+    expect(screen.getByTestId('xc-debit')).toHaveTextContent('1.659019 USDC')
+    expect(screen.getByTestId('xc-fee')).toHaveTextContent('0.159019 USDC')
+  })
+
+  it('pays with the signed quote and confirms', async () => {
+    vi.mocked(sendCrossChainPayment).mockResolvedValue({ state: 'success', steps: [] } as never)
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc from base sepolia/i }))
+    expect(await screen.findByText(/on its way/i)).toBeInTheDocument()
+    expect(vi.mocked(sendCrossChainPayment).mock.calls[0][0]).toMatchObject({ source: 'Base_Sepolia', slot: SLOT, amount: 1_500_000n, quote: '0xsigned' })
+  })
+
+  it('offers a retry that resumes a stopped payment', async () => {
+    const failed = { state: 'error', steps: [{ name: 'approve', state: 'success' }, { name: 'burn', state: 'error' }] }
+    vi.mocked(sendCrossChainPayment).mockResolvedValue(failed as never)
+    vi.mocked(retryCrossChainPayment).mockResolvedValue({ state: 'success', steps: [] } as never)
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc/i }))
+    expect(await screen.findByText(/stopped at the burn step/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /resume payment/i }))
+    expect(await screen.findByText(/on its way/i)).toBeInTheDocument()
+    expect(vi.mocked(retryCrossChainPayment).mock.calls[0][0]).toBe(failed)
+  })
+
+  it('explains a failed quote', async () => {
+    vi.mocked(quoteCrossChainPayment).mockRejectedValue(new Error('route unsupported'))
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    expect(await screen.findByText(/couldn.t get a quote/i)).toBeInTheDocument()
+  })
+})
+
+describe('PayPage — cross-chain payment confirmed by the burn', () => {
+  beforeEach(() => {
+    vi.mocked(quoteCrossChainPayment).mockReset().mockResolvedValue({ summary: { receives: 1_500_000n, fee: 159_019n, debit: 1_659_019n }, quote: '0xsigned' })
+    wagmiState.account = { ...wagmiState.account, address: ME, chainId: 5042002 }
+  })
+
+  /** Found live: bridge() can keep waiting on the Arc mint through a wallet that is on the source chain. */
+  it('shows the payment on its way once the burn confirms, even if the SDK call never returns', async () => {
+    vi.mocked(sendCrossChainPayment).mockReset().mockImplementation((r: { onStep?: (s: 'approve' | 'burn') => void }) => {
+      r.onStep?.('approve')
+      r.onStep?.('burn')
+      return new Promise(() => {}) as never // never settles
+    })
+    render(<PayPage {...props} />)
+    fireEvent.click(screen.getByRole('tab', { name: /another chain/i }))
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc/i }))
+    expect(await screen.findByText(/on its way/i)).toBeInTheDocument()
+  })
+
+  it('does not claim success before the burn', async () => {
+    vi.mocked(sendCrossChainPayment).mockReset().mockImplementation((r: { onStep?: (s: 'approve') => void }) => {
+      r.onStep?.('approve')
+      return new Promise(() => {}) as never
+    })
+    render(<PayPage {...props} />)
+    fireEvent.click(screen.getByRole('tab', { name: /another chain/i }))
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc/i }))
+    expect(await screen.findByText(/sending from your chain|approving usdc/i)).toBeInTheDocument()
+    expect(screen.queryByText(/on its way/i)).not.toBeInTheDocument()
+  })
+})

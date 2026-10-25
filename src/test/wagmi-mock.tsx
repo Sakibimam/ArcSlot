@@ -4,7 +4,7 @@ import { vi } from 'vitest'
 type ReadArgs = { functionName?: string; args?: readonly unknown[]; query?: { enabled?: boolean } }
 
 export const wagmiState = {
-  account: { address: undefined as string | undefined, chainId: undefined as number | undefined },
+  account: { address: undefined, chainId: undefined } as { address: string | undefined; chainId: number | undefined; connector?: unknown },
   readContracts: { data: undefined as unknown, isLoading: false, isError: false },
   /** Default result for useReadContract. */
   readContract: { data: undefined as unknown },
@@ -20,10 +20,12 @@ export const wagmiState = {
   publicReads: {} as Record<string, unknown>,
   publicReadContract: vi.fn(),
   signMessageAsync: vi.fn(),
+  switchChainAsync: vi.fn(),
 }
 
 export function resetWagmi() {
-  wagmiState.account = { address: undefined, chainId: undefined }
+  wagmiState.account = { address: undefined, chainId: undefined, connector: { getProvider: () => Promise.resolve({ request: vi.fn() }) } }
+  wagmiState.switchChainAsync = vi.fn(() => Promise.resolve())
   wagmiState.readContracts = { data: undefined, isLoading: false, isError: false }
   wagmiState.readContract = { data: undefined }
   wagmiState.readByFn = {}
@@ -52,7 +54,7 @@ export const wagmiModule = {
   },
   useWriteContract: () => ({ ...wagmiState.write, writeContract: wagmiState.writeContract, reset: wagmiState.resetWrite }),
   useWaitForTransactionReceipt: () => wagmiState.waitReceipt,
-  useSwitchChain: () => ({ switchChain: wagmiState.switchChain, isPending: false }),
+  useSwitchChain: () => ({ switchChain: wagmiState.switchChain, switchChainAsync: wagmiState.switchChainAsync, isPending: false }),
   usePublicClient: () => ({ readContract: wagmiState.publicReadContract }),
   useSignMessage: () => ({ signMessageAsync: wagmiState.signMessageAsync }),
 }

@@ -3,15 +3,29 @@
 // page and signs in Node with a TESTNET key (keys never reach the page).
 import { createPublicClient, createWalletClient, http, numberToHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { arcTestnet } from 'viem/chains'
+import { arcTestnet, baseSepolia, sepolia } from 'viem/chains'
 
 const RPC = 'https://rpc.testnet.arc.io'
 export const publicClient = createPublicClient({ chain: arcTestnet, transport: http(RPC) })
 export const hexKey = (k) => (k.startsWith('0x') ? k : `0x${k}`)
 
+// Testnets the shim can sign on. Arc testnet is the default chain.
+const CHAINS = {
+  [arcTestnet.id]: { chain: arcTestnet, rpc: RPC },
+  [sepolia.id]: { chain: sepolia, rpc: 'https://ethereum-sepolia-rpc.publicnode.com' },
+  [baseSepolia.id]: { chain: baseSepolia, rpc: 'https://sepolia.base.org' },
+}
+
 export async function walletPage(browser, key, name) {
   const account = privateKeyToAccount(hexKey(key))
-  const wallet = createWalletClient({ account, chain: arcTestnet, transport: http(RPC) })
+  let current = arcTestnet.id
+  const clients = (id) => {
+    const { chain, rpc } = CHAINS[id]
+    return {
+      wallet: createWalletClient({ account, chain, transport: http(rpc) }),
+      pub: createPublicClient({ chain, transport: http(rpc) }),
+    }
+  }
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } })
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.log(`[${name}] pageerror`, e.message))
@@ -19,29 +33,43 @@ export async function walletPage(browser, key, name) {
     switch (method) {
       case 'eth_requestAccounts':
       case 'eth_accounts': return [account.address]
-      case 'eth_chainId': return numberToHex(arcTestnet.id)
-      case 'net_version': return String(arcTestnet.id)
-      case 'wallet_switchEthereumChain':
-        if (Number(params[0].chainId) !== arcTestnet.id) throw new Error('e2e wallet is testnet-only')
+      case 'eth_chainId': return numberToHex(current)
+      case 'net_version': return String(current)
+      case 'wallet_switchEthereumChain': {
+        const id = Number(params[0].chainId)
+        if (!CHAINS[id]) throw Object.assign(new Error(`e2e wallet does not support chain ${id}`), { code: 4902 })
+        if (id !== current) {
+          current = id
+          await page.evaluate((hex) => window.__walletEmit('chainChanged', hex), numberToHex(id))
+          console.log(`[${name}] switched to chain ${id}`)
+        }
         return null
+      }
       case 'wallet_requestPermissions':
       case 'wallet_getPermissions': return [{ parentCapability: 'eth_accounts' }]
       case 'personal_sign':
         return account.signMessage({ message: { raw: params[0] } })
+      case 'eth_signTypedData_v4': {
+        const typed = typeof params[1] === 'string' ? JSON.parse(params[1]) : params[1]
+        const { EIP712Domain: _omit, ...types } = typed.types
+        return account.signTypedData({ domain: typed.domain, types, primaryType: typed.primaryType, message: typed.message })
+      }
       case 'eth_sendTransaction': {
         const tx = params[0]
+        const { wallet } = clients(current)
         const hash = await wallet.sendTransaction({
           to: tx.to, data: tx.data, value: tx.value ? BigInt(tx.value) : 0n,
-          maxPriorityFeePerGas: 1_000_000_000n,
+          ...(tx.gas ? { gas: BigInt(tx.gas) } : {}),
         })
-        console.log(`[${name}] sent ${hash}`)
+        console.log(`[${name}] sent ${hash} on ${current}`)
         return hash
       }
-      default: return publicClient.request({ method, params })
+      default: return clients(current).pub.request({ method, params })
     }
   })
   await page.addInitScript(() => {
     const listeners = {}
+    window.__walletEmit = (e, v) => (listeners[e] ?? []).forEach((f) => f(v))
     window.ethereum = {
       isMetaMask: true,
       request: ({ method, params }) => window.__walletRpc(method, params ?? []),

@@ -41,6 +41,16 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 - Each Slot records `totalCollected`, so a request still reads as paid after the merchant collects, and as collected on any device.
 - The factory indexes requests by creator (`requestsOf`), so the dashboard loads from the chain on any device.
 
+### Pay from another chain
+
+The payment page has an **Another chain** tab. The payer picks Base, Ethereum, Arbitrum, OP Mainnet, Polygon or Avalanche (Base / Ethereum / Arbitrum Sepolia on testnet). Circle's App Kit burns USDC there over CCTP and the **Forwarding Service mints it straight into the Slot on Arc**, so the payer needs no Arc wallet and no Arc gas.
+
+- **Receive-exact:** `feePayment: 'source'` means the Slot gets exactly the requested amount; the payer sees the total and the fee before confirming.
+- The fee depends on the route. Paying *into Arc* testnet quoted about 0.16 USDC; minting on Ethereum L1 costs far more.
+- Progress is shown per step (approve, burn, attestation, mint); a payment that stops mid-way is resumed with `retryBridge`, never re-sent.
+- The payer sees "on its way" as soon as the burn confirms. Found live: `bridge()` can keep waiting on the Arc mint through a wallet that is still on the source chain, so the UI doesn't depend on that promise; the page watches the Slot's balance on Arc instead.
+- Verified live: Ethereum Sepolia → Arc testnet Slot delivered exactly the requested 0.20 USDC.
+
 ### Quantum-safe vault
 
 Merchants can route payouts into a `SlotVault` that only releases funds with a **post-quantum SLH-DSA-SHA2-128s signature** (FIPS 205), verified by Arc's PQ precompile at `0x1800…0004`, plus the owner wallet's signature in two-key mode. A stolen wallet key alone can't move funds.
@@ -129,7 +139,7 @@ bun run build        # Vite production build → dist/
 ```bash
 bun run contracts:test        # 103 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
 bun run contracts:test:fork   # 15 tests on an Arc mainnet fork (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; uses --ffi)
-bun run test                  # 128 Vitest unit + component integration tests
+bun run test                  # 148 Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```
@@ -141,6 +151,7 @@ Browser end-to-end on Arc testnet — drives the real UI with two wallets (merch
 ```bash
 PAYER_PRIVATE_KEY=0x... bun run test:e2e:ui
 PAYER_PRIVATE_KEY=0x... node scripts/e2e-ui-vault.mjs     # quantum-safe vault journey
+MERCHANT_PRIVATE_KEY=0x... bun run test:e2e:crosschain  # pay a Slot from Ethereum Sepolia (payer needs Sepolia ETH + USDC)
 VAULT_FACTORY=0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986 node scripts/e2e-vault.mjs  # contract-level, live testnet
 ```
 

@@ -3,7 +3,7 @@ import { useAccount, useReadContract, useReadContracts, useSwitchChain, useWaitF
 import { ConnectKitButton } from 'connectkit'
 import { erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
-import { AlertTriangle, Atom, BadgeCheck, CircleCheck, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
+import { AlertTriangle, Atom, BadgeCheck, CircleCheck, Shuffle, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
 import { SLOT_ABI, SLOT_FACTORY_ABI, SLOT_VAULT_ABI } from '@/lib/abis'
 import type { ChainRequest } from '@/lib/use-chain-requests'
 import {
@@ -18,6 +18,7 @@ import {
 import { formatUsdc6, isRequestPaid, parseUsdc6, requestTrust } from '@/lib/slot-logic'
 import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, NetworkBadge, inputClass, inputStyle } from './ui'
+import { CrossChainPay } from './CrossChainPay'
 
 interface PayPageProps {
   chainId: SupportedChainId
@@ -32,7 +33,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
   const addr = slot as `0x${string}`
   const { address: wallet, chainId: walletChain } = useAccount()
   const { switchChain, isPending: switching } = useSwitchChain()
-  const [mode, setMode] = useState<'wallet' | 'manual'>('wallet')
+  const [mode, setMode] = useState<'wallet' | 'crosschain' | 'manual'>('wallet')
   const [typed, setTyped] = useState('')
 
   // Everything that matters comes from the chain, never from the link: who gets
@@ -191,9 +192,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         </Card>
       ) : (
         <Card>
-          <div className="grid grid-cols-2 gap-1 rounded-2xl p-1 mb-5" style={{ background: 'var(--surface-muted)' }} role="tablist">
+          <div className="grid grid-cols-3 gap-1 rounded-2xl p-1 mb-5" style={{ background: 'var(--surface-muted)' }} role="tablist">
             {([
               ['wallet', 'Pay with wallet', Wallet],
+              ['crosschain', 'Another chain', Shuffle],
               ['manual', 'Send manually', QrCode],
             ] as const).map(([key, text, Icon]) => (
               <button
@@ -201,7 +203,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                 role="tab"
                 aria-selected={mode === key}
                 onClick={() => setMode(key)}
-                className="flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-all"
+                className="flex items-center justify-center gap-1.5 rounded-xl px-1 py-2.5 text-xs sm:text-sm font-semibold transition-all"
                 style={mode === key ? { background: 'var(--surface-strong)', color: 'var(--ink)' } : { color: 'var(--subtle)' }}
               >
                 <Icon className="size-4" /> {text}
@@ -209,7 +211,9 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
             ))}
           </div>
 
-          {mode === 'wallet' ? (
+          {mode === 'crosschain' ? (
+            <CrossChainPay arcChainId={chainId} slot={slot} amount={payAmount} />
+          ) : mode === 'wallet' ? (
             <div className="space-y-4">
               {requested === undefined && (
                 <Field id="pay-amount-input" label="Amount to pay (USDC)">
