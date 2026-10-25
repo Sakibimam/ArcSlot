@@ -25,14 +25,15 @@ describe('planRecovery', () => {
     expect(planRecovery({ factoryThere: true, slotThere: false, payout: 'vault', vaultThere: false, vault: undefined }))
       .toEqual({ ok: false, reason: 'vault-settings-missing' })
   })
-  // Slot addresses commit to their creator (audit H-1): another wallet would deploy elsewhere.
-  it('only the wallet that created the request can redeploy its slot', () => {
-    expect(planRecovery({ factoryThere: true, slotThere: false, payout: 'wallet', creatorMatches: false }))
-      .toEqual({ ok: false, reason: 'not-creator' })
+  // v8 (audit M-1): recovery no longer depends on the creator's wallet; it only
+  // refuses when the factory there would not produce the paid address.
+  it('refuses when the redeployed address would not match the paid one', () => {
+    expect(planRecovery({ factoryThere: true, slotThere: false, payout: 'wallet', addressMatches: false }))
+      .toEqual({ ok: false, reason: 'address-mismatch' })
   })
-  it('anyone with the payout can collect once the slot exists there', () => {
-    expect(planRecovery({ factoryThere: true, slotThere: true, payout: 'wallet', creatorMatches: false }))
-      .toEqual({ ok: true, steps: ['collect'] })
+  it('recovers even when someone else created the request', () => {
+    expect(planRecovery({ factoryThere: true, slotThere: false, payout: 'wallet', addressMatches: true }))
+      .toEqual({ ok: true, steps: ['createSlot', 'collect'] })
   })
   it('cannot recover for someone else', () => {
     expect(planRecovery({ factoryThere: true, slotThere: false, payout: 'other' })).toEqual({ ok: false, reason: 'not-yours' })

@@ -40,8 +40,8 @@ contract SlotFrontRunTest is SlotTestBase {
         vm.prank(creator);
         address slot = factory.createSlot(merchant, ref1, 0, address(0), MAX_R);
         assertEq(slot, expected);
-        assertEq(Slot(slot).feeBps(), 0);
-        assertEq(Slot(slot).feeRecipient(), address(0));
+        assertEq(Slot(payable(slot)).feeBps(), 0);
+        assertEq(Slot(payable(slot)).feeRecipient(), address(0));
     }
 
     function test_FrontRunCreateRequestCannotHijackTerms() public {
@@ -57,7 +57,7 @@ contract SlotFrontRunTest is SlotTestBase {
         assertEq(r.creator, creator);
         assertEq(r.amount, 25e6);
         assertEq(r.label, "Invoice 7");
-        assertEq(Slot(slot).feeBps(), 0);
+        assertEq(Slot(payable(slot)).feeBps(), 0);
     }
 
     function test_SameCreatorCannotReuseReference() public {
@@ -79,25 +79,5 @@ contract SlotFrontRunTest is SlotTestBase {
     function testFuzz_NoOtherCreatorReachesTheAddress(address other) public view {
         vm.assume(other != creator);
         assertTrue(factory.predict(other, merchant, ref1) != factory.predict(creator, merchant, ref1));
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// AUDIT L-1: resolveQuarantine is observable on-chain.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-contract QuarantineResolvedEventTest is SlotTestBase {
-    function test_ResolveQuarantineEmitsEvent() public {
-        address slot = _slot(0);
-        usdc.setBlacklisted(merchant, true);
-        _fund(slot, 1e6);
-        Slot(slot).sweep(); // quarantines: merchant is blacklisted
-        assertTrue(Slot(slot).quarantined());
-
-        address newMerchant = makeAddr("newMerchant");
-        vm.expectEmit(true, true, false, true, slot);
-        emit Slot.QuarantineResolved(slot, ref1, newMerchant, address(0), 0);
-        vm.prank(merchant);
-        Slot(slot).resolveQuarantine(newMerchant, address(0), 0);
     }
 }

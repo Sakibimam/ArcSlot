@@ -17,18 +17,19 @@ const SLOT = '0x00000000000000000000000000000000000000a1'
 const VAULT = '0x00000000000000000000000000000000000000b2'
 const REF = `0x${'77'.repeat(32)}`
 
-/** [merchant, payRef, Base Sepolia, Ethereum Sepolia, Arbitrum Sepolia] (sourceChainsFor order) */
+const CREATOR = '0x2222222222222222222222222222222222222222'
+/** [merchant, payRef, creatorOf, Base Sepolia, Ethereum Sepolia, Arbitrum Sepolia] (sourceChainsFor order) */
 function reads(merchant: string, stray: [bigint, bigint, bigint]) {
   wagmiState.readContracts = {
     isLoading: false, isError: false,
-    data: [{ result: merchant }, { result: REF }, ...stray.map((r) => ({ result: r }))],
+    data: [{ result: merchant }, { result: REF }, { result: CREATOR }, ...stray.map((r) => ({ result: r }))],
   }
 }
 
 beforeEach(() => {
   resetWagmi()
   wagmiState.account = { ...wagmiState.account, address: ME, chainId: 5042002 }
-  vi.mocked(probeRecovery).mockReset().mockResolvedValue({ factoryThere: true, slotThere: false, vaultThere: false, creatorMatches: true })
+  vi.mocked(probeRecovery).mockReset().mockResolvedValue({ factoryThere: true, slotThere: false, vaultThere: false, addressMatches: true })
   vi.mocked(executeRecovery).mockReset().mockResolvedValue({ recovered: 50_000n })
 })
 
@@ -65,7 +66,7 @@ describe('RecoverPanel', () => {
   })
 
   it('explains when recovery is not set up on that chain yet', async () => {
-    vi.mocked(probeRecovery).mockResolvedValue({ factoryThere: false, slotThere: false, vaultThere: false, creatorMatches: true })
+    vi.mocked(probeRecovery).mockResolvedValue({ factoryThere: false, slotThere: false, vaultThere: false, addressMatches: true })
     reads(ME, [0n, 0n, 50_000n])
     render(<RecoverPanel arcChainId={5042002} slot={SLOT} />)
     fireEvent.click(screen.getByRole('button', { name: /recover/i }))
@@ -73,20 +74,21 @@ describe('RecoverPanel', () => {
     expect(executeRecovery).not.toHaveBeenCalled()
   })
 
-  it('probes as the connected wallet, since slot addresses commit to their creator', async () => {
+  it('probes with the creator recorded on Arc, so any wallet can recover (v8)', async () => {
     reads(ME, [0n, 50_000n, 0n])
     render(<RecoverPanel arcChainId={5042002} slot={SLOT} />)
     fireEvent.click(screen.getByRole('button', { name: /recover/i }))
     await screen.findByText(/recovered/i)
-    expect(vi.mocked(probeRecovery).mock.calls[0][1]).toMatchObject({ slot: SLOT, wallet: ME, merchant: ME, payRef: REF })
+    expect(vi.mocked(probeRecovery).mock.calls[0][1]).toMatchObject({ slot: SLOT, creator: CREATOR, merchant: ME, payRef: REF })
+    expect(vi.mocked(executeRecovery).mock.calls[0][1]).toMatchObject({ creator: CREATOR })
   })
 
-  it('explains that only the wallet that created the request can recover it', async () => {
-    vi.mocked(probeRecovery).mockResolvedValue({ factoryThere: true, slotThere: false, vaultThere: false, creatorMatches: false })
+  it('refuses when the address there would not match the paid one', async () => {
+    vi.mocked(probeRecovery).mockResolvedValue({ factoryThere: true, slotThere: false, vaultThere: false, addressMatches: false })
     reads(ME, [0n, 50_000n, 0n])
     render(<RecoverPanel arcChainId={5042002} slot={SLOT} />)
     fireEvent.click(screen.getByRole('button', { name: /recover/i }))
-    expect(await screen.findByText(/switch to the wallet that created this request/i)).toBeInTheDocument()
+    expect(await screen.findByText(/would not match/i)).toBeInTheDocument()
     expect(executeRecovery).not.toHaveBeenCalled()
   })
 

@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { SLOT_VAULT_ABI, VAULT_FACTORY_ABI } from '@/lib/abis'
 import { type SupportedChainId, USDC_ADDRESS, getVaultFactoryAddress, shortAddr } from '@/lib/chains'
 import { formatUsdc6, parseUsdc6 } from '@/lib/slot-logic'
-import { backupText, decryptSeed, encryptSeed, newVaultSeed, parseBackup, signDigest, vaultKeyFromSeed } from '@/lib/pq'
+import { MIN_VAULT_PASSWORD, decryptSeed, encryptSeed, encryptedBackupText, newVaultSeed, openBackup, signDigest, vaultKeyFromSeed } from '@/lib/pq'
 import { type VaultRecord, loadVault, saveVault } from '@/lib/vault-store'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, inputClass, inputStyle } from './ui'
@@ -236,7 +236,8 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
   }
 
   function backupFor(p: PendingVault): string {
-    return backupText({ vault: p.predicted, chainId, seed: p.seed, salt: p.salt, twoKey: true, recoveryDelay: RECOVERY_DELAY.toString() })
+    // The file holds the password-encrypted key, never the seed itself.
+    return encryptedBackupText({ vault: p.predicted, chainId, seed: p.seed, box: p.box, salt: p.salt, twoKey: true, recoveryDelay: RECOVERY_DELAY.toString() })
   }
 
   function downloadBackup(text: string, vaultAddr: string) {
@@ -253,7 +254,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
     setErr(null)
     setBusy('Checking your backup…')
     try {
-      const b = parseBackup(restoreText)
+      const b = await openBackup(restoreText, pw)
       if (b.chainId !== chainId) throw new Error('This backup is for a different network')
       const [onchainKey, owner] = await Promise.all([
         publicClient.readContract({ address: b.vault as Hex, abi: SLOT_VAULT_ABI, functionName: 'pqKey' }),
@@ -276,7 +277,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
     }
   }
 
-  const pwOk = pw.length >= 8 && pw === pw2
+  const pwOk = pw.length >= MIN_VAULT_PASSWORD && pw === pw2
   const working = !!busy || isPending || confirming
 
   // ─── No vault yet ──────────────────────────────────────────────────────────
@@ -306,7 +307,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
                 <textarea id="vault-restore" rows={4} value={restoreText} onChange={(e) => setRestoreText(e.target.value)} className={`${inputClass} mono text-xs`} style={inputStyle()} />
               </Field>
             )}
-            <Field id="vault-pw" label="Vault password" hint="Encrypts your key on this device. At least 8 characters.">
+            <Field id="vault-pw" label="Vault password" hint={`Encrypts your key on this device and in your backup file. At least ${MIN_VAULT_PASSWORD} characters.`}>
               <input id="vault-pw" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} className={inputClass} style={inputStyle()} />
             </Field>
             <Field id="vault-pw2" label="Confirm password" error={pw2 && pw !== pw2 ? "Passwords don't match" : undefined}>

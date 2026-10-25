@@ -46,10 +46,10 @@ contract RecoveryMultiForkTest is Test {
         // Recovery: the creator redeploys the slot there; anyone collects; all of it goes to the merchant.
         assertEq(factory.createSlot(merchant, ref, 0, address(0), 50_000), slotOnSepolia);
         vm.prank(stranger);
-        Slot(slotOnSepolia).sweep();
+        Slot(payable(slotOnSepolia)).sweep();
 
         assertEq(SEPOLIA_USDC.balanceOf(merchant), amount, "merchant did not recover the funds");
         assertEq(SEPOLIA_USDC.balanceOf(stranger), 0, "no USDC refund off Arc");
-        assertFalse(Slot(slotOnSepolia).quarantined(), "real Sepolia blocklist probe failed");
+        assertFalse(Slot(payable(slotOnSepolia)).quarantined(), "real Sepolia blocklist probe failed");
     }
 }

@@ -1,7 +1,7 @@
 // Runs a recovery plan on the foreign chain. Chain access is injected so the
 // exact transaction sequence is unit-tested without a wallet or RPC.
 
-import { erc20Abi, zeroAddress } from 'viem'
+import { erc20Abi } from 'viem'
 import { SLOT_ABI, SLOT_FACTORY_ABI, SLOT_VAULT_ABI, VAULT_FACTORY_ABI } from './abis'
 import type { RecoveryStep, VaultSettings } from './recovery'
 
@@ -18,17 +18,17 @@ export interface ChainIO {
 
 const hasCode = (c: string | undefined) => !!c && c !== '0x'
 
-/** The address this wallet's createSlot would deploy; slots commit to their creator. */
-const predictFor = (io: ChainIO, p: { factory: string; wallet: string; merchant: string; payRef: string }) =>
+/** The address recoverSlot deploys there; slots commit to their original creator. */
+const predictFor = (io: ChainIO, p: { factory: string; creator: string; merchant: string; payRef: string }) =>
   io.read({
-    address: p.factory as Hex, abi: SLOT_FACTORY_ABI, functionName: 'predict', args: [p.wallet, p.merchant, p.payRef],
+    address: p.factory as Hex, abi: SLOT_FACTORY_ABI, functionName: 'predict', args: [p.creator, p.merchant, p.payRef],
   }) as Promise<string>
 
 const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 export async function probeRecovery(
   io: ChainIO,
-  p: { factory: string; slot: string; vault?: string; wallet: string; merchant: string; payRef: string },
+  p: { factory: string; slot: string; vault?: string; creator: string; merchant: string; payRef: string },
 ) {
   const [factory, slot, vault] = await Promise.all([
     io.getCode(p.factory),
@@ -36,12 +36,9 @@ export async function probeRecovery(
     p.vault ? io.getCode(p.vault) : Promise.resolve(undefined),
   ])
   const found = { factoryThere: hasCode(factory), slotThere: hasCode(slot), vaultThere: hasCode(vault) }
-  if (!found.factoryThere || found.slotThere) return { ...found, creatorMatches: true }
-  return { ...found, creatorMatches: sameAddress(await predictFor(io, p), p.slot) }
+  if (!found.factoryThere || found.slotThere) return { ...found, addressMatches: true }
+  return { ...found, addressMatches: sameAddress(await predictFor(io, p), p.slot) }
 }
-
-/** maxReimbursement for the recovery slot; must be >= the factory tip (0.002 USDC). Unused off Arc. */
-const RECOVERY_MAX_REIMBURSEMENT = 50_000n
 
 export async function executeRecovery(
   io: ChainIO,
@@ -55,6 +52,8 @@ export async function executeRecovery(
     merchant: string
     payRef: string
     wallet: string
+    /** The request's creator on Arc (SlotFactory.creatorOf); the address commits to it. */
+    creator: string
     vault?: VaultSettings & { address: string }
   },
   onStep?: (step: RecoveryStep) => void,
@@ -64,9 +63,9 @@ export async function executeRecovery(
   const balanceOf = (who: string) =>
     io.read({ address: p.usdc as Hex, abi: erc20Abi, functionName: 'balanceOf', args: [who] }) as Promise<bigint>
 
-  // Checked before any transaction: another wallet's slot would land elsewhere.
+  // Checked before any transaction: never deploy a slot at a different address.
   if (p.steps.includes('createSlot') && !sameAddress(await predictFor(io, p), p.slot)) {
-    throw new Error('Only the wallet that created this request can recover it')
+    throw new Error('The recovered address would not match the paid address')
   }
 
   let recovered = 0n
@@ -79,9 +78,10 @@ export async function executeRecovery(
         args: [v.owner, v.pqKey, v.twoKey, BigInt(v.recoveryDelay), v.salt],
       })
     } else if (step === 'createSlot') {
+      // Off Arc anyone may deploy the creator's slot (no fee, no reward to hijack).
       await send({
-        address: p.factory as Hex, abi: SLOT_FACTORY_ABI, functionName: 'createSlot', chainId: p.chainId,
-        args: [p.merchant, p.payRef, 0, zeroAddress, RECOVERY_MAX_REIMBURSEMENT],
+        address: p.factory as Hex, abi: SLOT_FACTORY_ABI, functionName: 'recoverSlot', chainId: p.chainId,
+        args: [p.creator, p.merchant, p.payRef],
       })
     } else if (step === 'collect') {
       recovered = await balanceOf(p.slot)

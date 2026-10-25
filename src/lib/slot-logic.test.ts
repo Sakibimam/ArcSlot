@@ -17,6 +17,7 @@ import {
   requestTrust,
   minimalProxyCode,
   isMinimalProxyTo,
+  sanitizeLabel,
 } from './slot-logic'
 
 const MIN = 100_000n
@@ -242,5 +243,19 @@ describe('minimalProxyCode / isMinimalProxyTo', () => {
     expect(isMinimalProxyTo(minimalProxyCode('0x5154cec13C1B652FdA465D92fe74aA42FEadfC04'), IMPL)).toBe(false)
     expect(isMinimalProxyTo(undefined, IMPL)).toBe(false)
     expect(isMinimalProxyTo('0x', IMPL)).toBe(false)
+  })
+})
+
+describe('sanitizeLabel', () => {
+  it('removes bidi controls, zero-width and control characters', () => {
+    expect(sanitizeLabel('Pay\u202Edsu 001\u202C')).toBe('Paydsu 001')
+    expect(sanitizeLabel('a\u200Bb\u200Fc\uFEFFd\u2066e\u2069')).toBe('abcde')
+    expect(sanitizeLabel('line\nbreak\ttab\u0007')).toBe('line break tab')
+  })
+  it('keeps ordinary text, emoji and other scripts', () => {
+    expect(sanitizeLabel('Café ☕ — 請求書 #4')).toBe('Café ☕ — 請求書 #4')
+  })
+  it('collapses whitespace and trims', () => {
+    expect(sanitizeLabel('  a   b  ')).toBe('a b')
   })
 })

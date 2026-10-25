@@ -50,11 +50,14 @@ contract SlotFactory {
     error FeeNotAllowedOffArc();
     error NotSlot();
     error BlacklistedPayout();
+    error OnlyOffArc();
 
     // ─── Registry and collector leaderboard ───────────────────────────────────
 
     /// @notice True for every slot this factory deployed.
     mapping(address => bool) public isSlot;
+    /// @notice Who created each slot (its address commits to them).
+    mapping(address => address) public creatorOf;
     address[] internal _allSlots;
 
     struct CollectorStats {
@@ -140,7 +143,17 @@ contract SlotFactory {
         address feeRecipient,
         uint256 maxReimbursement
     ) external returns (address slot) {
-        slot = _deploy(merchant, payRef, feeBps, feeRecipient, maxReimbursement);
+        slot = _deploy(msg.sender, merchant, payRef, feeBps, feeRecipient, maxReimbursement);
+    }
+
+    /// @notice Off Arc only: deploy `creator`'s slot for (merchant, payRef) to
+    ///         recover USDC sent to its address on the wrong chain. Anyone may
+    ///         call — the merchant no longer depends on the creator's key —
+    ///         because off-Arc slots take no fee and pay no gas reward, so
+    ///         there are no terms to hijack.
+    function recoverSlot(address creator, address merchant, bytes32 payRef) external returns (address slot) {
+        if (ChainConfig.isArc()) revert OnlyOffArc();
+        slot = _deploy(creator, merchant, payRef, 0, address(0), tip);
     }
 
     /// @notice Create a payment request: deploy the Slot and record the amount,
@@ -158,7 +171,7 @@ contract SlotFactory {
     ) external returns (address slot) {
         if (bytes(label).length > MAX_LABEL_BYTES)               revert LabelTooLong();
         if (expiresAt != 0 && expiresAt <= block.timestamp)      revert BadExpiry();
-        slot = _deploy(merchant, payRef, feeBps, feeRecipient, maxReimbursement);
+        slot = _deploy(msg.sender, merchant, payRef, feeBps, feeRecipient, maxReimbursement);
         _requests[slot] = Request({
             exists:    true,
             creator:   msg.sender,
@@ -234,6 +247,7 @@ contract SlotFactory {
     }
 
     function _deploy(
+        address creator,
         address merchant,
         bytes32 payRef,
         uint16  feeBps,
@@ -248,19 +262,19 @@ contract SlotFactory {
         if (feeBps > 0 && feeRecipient == address(0)) revert ZeroFeeRecipient();
         if (maxReimbursement < tip)                   revert MaxReimbursementBelowTip();
         // A blacklisted payout (Circle blacklists even the USDC contract itself)
-        // would quarantine on the first sweep; if it can't call resolveQuarantine
-        // the funds are stuck for good.
+        // would freeze on the first sweep, possibly for good.
         if (_isBlacklisted(merchant) || (feeBps > 0 && _isBlacklisted(feeRecipient))) revert BlacklistedPayout();
 
-        bytes32 salt_ = _salt(msg.sender, merchant, payRef);
+        bytes32 salt_ = _salt(creator, merchant, payRef);
         if (isSlot[implementation.predictDeterministicAddress(salt_)]) revert ReferenceAlreadyUsed();
         slot = implementation.cloneDeterministic(salt_);
 
         // Record before external call (CEI).
         isSlot[slot] = true;
+        creatorOf[slot] = creator;
         _allSlots.push(slot);
 
-        Slot(slot).initialize(
+        Slot(payable(slot)).initialize(
             ChainConfig.usdc(),
             tip,
             minSweep,
@@ -271,7 +285,7 @@ contract SlotFactory {
             feeRecipient
         );
 
-        emit SlotCreated(slot, merchant, payRef, msg.sender, feeBps, feeRecipient);
+        emit SlotCreated(slot, merchant, payRef, creator, feeBps, feeRecipient);
     }
 
     /// @notice Predict the deterministic address `creator` gets from
@@ -295,7 +309,7 @@ contract SlotFactory {
             if (slotAddresses[i] == address(0)) continue;
             // sweepFor: inside the slot msg.sender is this factory, so name the
             // real caller or the reward would be stuck here.
-            try Slot(slotAddresses[i]).sweepFor(msg.sender) {
+            try Slot(payable(slotAddresses[i])).sweepFor(msg.sender) {
                 // success
             } catch {
                 // swallow: one bad slot cannot block the rest

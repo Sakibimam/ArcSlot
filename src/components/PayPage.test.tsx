@@ -16,10 +16,10 @@ const ME = '0x1111111111111111111111111111111111111111'
 const USDC = '0x3600000000000000000000000000000000000000'
 
 type ChainRequest = { exists: boolean; creator: string; merchant: string; amount: bigint; createdAt: bigint; expiresAt: bigint; label: string }
-function slotReads({ balance = 0n, merchant = MERCHANT, isError = false, collected = 0n, request = undefined as ChainRequest | undefined, isSlot = true } = {}) {
+function slotReads({ balance = 0n, merchant = MERCHANT, isError = false, collected = 0n, request = undefined as ChainRequest | undefined, isSlot = true, legacySlot = false } = {}) {
   wagmiState.readContracts = {
     isLoading: false, isError,
-    data: isError ? undefined : [{ result: merchant }, { result: balance }, { result: collected }, { result: request }, { result: isSlot }],
+    data: isError ? undefined : [{ result: merchant }, { result: balance }, { result: collected }, { result: request }, { result: isSlot }, { result: legacySlot }],
   }
 }
 /** Make MERCHANT a genuine SlotVault clone on-chain. */
@@ -87,7 +87,7 @@ describe('PayPage', () => {
     render(<PayPage {...props} />)
     fireEvent.click(screen.getByRole('tab', { name: /send manually/i }))
     expect(screen.getByText(SLOT)).toBeInTheDocument()
-    expect(screen.getByText(/only send usdc on arc testnet/i)).toBeInTheDocument()
+    expect(screen.getByText(/send usdc on arc testnet \(native or token\)/i)).toBeInTheDocument()
   })
 
   it('confirms once the slot holds the requested amount', () => {
@@ -119,7 +119,7 @@ describe('PayPage', () => {
     slotReads({ isSlot: false })
     render(<PayPage {...props} />)
     expect(screen.getByText(/this payment link is not valid/i)).toBeInTheDocument()
-    expect(screen.queryByText(/verified on-chain/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/fixed in the contract/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument()
   })
 })
@@ -148,10 +148,11 @@ describe('PayPage — on-chain request', () => {
     expect(screen.queryByText('Invoice #42')).not.toBeInTheDocument()
   })
 
-  it('marks a request created by the payee as verified', () => {
+  it('says when the payee wallet itself created the request (v8: no verified claim)', () => {
     slotReads({ request: chainRequest() })
     render(<PayPage {...props} />)
-    expect(screen.getByText(/verified request/i)).toBeInTheDocument()
+    expect(screen.getByText(/created by the payee.s own wallet/i)).toBeInTheDocument()
+    expect(screen.queryByText(/verified/i)).not.toBeInTheDocument()
   })
 
   it('verifies a request created by the owner of the payee vault', () => {
@@ -160,7 +161,7 @@ describe('PayPage — on-chain request', () => {
     merchantIsRealVault()
     wagmiState.readByFn = { pqKey: `0x${'ab'.repeat(32)}`, owner: OWNER }
     render(<PayPage {...props} />)
-    expect(screen.getByText(/verified request/i)).toBeInTheDocument()
+    expect(screen.getByText(/created by the payee.s own wallet/i)).toBeInTheDocument()
   })
 
   // White-hat PoC: a contract that merely answers pqKey()/owner() is not a vault.
@@ -171,7 +172,7 @@ describe('PayPage — on-chain request', () => {
     wagmiState.readByFn = { pqKey: `0x${'ab'.repeat(32)}`, owner: OWNER }
     render(<PayPage {...props} />)
     expect(screen.queryByText(/quantum-safe vault/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/verified request/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/created by the payee.s own wallet/i)).not.toBeInTheDocument()
     expect(screen.getByText(/created by someone other than the payee/i)).toBeInTheDocument()
   })
 
@@ -304,5 +305,40 @@ describe('PayPage — cross-chain payment confirmed by the burn', () => {
     fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc/i }))
     expect(await screen.findByText(/sending from your chain|approving usdc/i)).toBeInTheDocument()
     expect(screen.queryByText(/on its way/i)).not.toBeInTheDocument()
+  })
+})
+
+// v8 (audit M-6, L-3, info): honest trust signals, clean labels, older slots.
+describe('PayPage — v8 hardening', () => {
+  it('shows the payee as fixed in the contract, without calling it verified', () => {
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/fixed in the contract/i)).toBeInTheDocument()
+    expect(screen.queryByText(/verified on-chain/i)).not.toBeInTheDocument()
+  })
+
+  it('strips bidi overrides and invisible characters from the label', () => {
+    slotReads({ request: chainRequest({ label: 'Invoice\u202E 42\u200B\u2066x' }) })
+    render(<PayPage {...props} />)
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/^Invoice 42x$/)
+  })
+
+  it('reminds the payer the description is written by the request creator', () => {
+    slotReads({ request: chainRequest() })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/written by whoever created this request/i)).toBeInTheDocument()
+  })
+
+  it('still accepts a slot from an earlier factory version, and says so', () => {
+    slotReads({ isSlot: false, legacySlot: true })
+    render(<PayPage {...props} />)
+    expect(screen.queryByText(/this payment link is not valid/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/earlier version/i)).toBeInTheDocument()
+  })
+
+  it('manual payment explains native USDC works and mistakes are recoverable', () => {
+    render(<PayPage {...props} />)
+    fireEvent.click(screen.getByRole('tab', { name: /send manually/i }))
+    expect(screen.getByText(/native or token/i)).toBeInTheDocument()
+    expect(screen.queryByText(/can.t be recovered/i)).not.toBeInTheDocument()
   })
 })

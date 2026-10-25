@@ -127,7 +127,7 @@ contract OffArcSlotTest is Test {
 
         vm.txGasPrice(50 gwei);
         vm.prank(stranger);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
 
         assertEq(usdc.balanceOf(merchant), 50_000, "merchant gets everything");
         assertEq(usdc.balanceOf(stranger), 0, "no USDC gas refund off Arc");
@@ -139,7 +139,7 @@ contract OffArcSlotTest is Test {
         vm.fee(20_000 gwei);
         vm.txGasPrice(20_000 gwei);
         vm.prank(stranger);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         assertEq(usdc.balanceOf(merchant), 1_000_000);
     }
 
@@ -153,8 +153,8 @@ contract OffArcSlotTest is Test {
         address slot = factory.createSlot(merchant, ref, 0, address(0), 50_000);
         usdc.mint(slot, 1_000_000);
         usdc.setBlacklisted(merchant, true);
-        Slot(slot).sweep();
-        assertTrue(Slot(slot).quarantined());
+        Slot(payable(slot)).sweep();
+        assertTrue(Slot(payable(slot)).quarantined());
         assertEq(usdc.balanceOf(slot), 1_000_000);
     }
 }

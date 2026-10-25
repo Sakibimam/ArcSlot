@@ -23,7 +23,18 @@ export function getChainMeta(chainId: SupportedChainId) {
 // Replace these with real addresses once createSlot is deployed on each chain.
 export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
   [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000', // not yet deployed
-  [ARC_TESTNET_ID]: '0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A',
+  [ARC_TESTNET_ID]: '0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49',
+};
+
+/** Earlier SlotFactory versions still holding live slots (newest first). Their
+ *  slots keep forwarding to the payee; the pay page accepts them with a note. */
+export const LEGACY_FACTORY_ADDRESSES: Record<SupportedChainId, readonly `0x${string}`[]> = {
+  [ARC_MAINNET_ID]: [],
+  [ARC_TESTNET_ID]: [
+    '0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A', // v7
+    '0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151', // v6
+    '0xaaC460901F37E2c250732D1e208e660F23D8E156', // v5
+  ],
 };
 
 /** SlotVault implementation (CREATE2, same address on every chain); vaults are its EIP-1167 clones. */

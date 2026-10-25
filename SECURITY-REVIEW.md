@@ -1,4 +1,56 @@
-# ArcSlot security review: white-hat pass and audit triage (2026-10-25)
+# ArcSlot security review
+
+## v8: fixes for the independent review of v7
+
+The developer's independent attack review of v7 found 2 High, 6 Medium and 10 Low issues. Each one now has a regression test that fails if the attack works again. The tests are in `contracts/test/HardeningV8.t.sol` and the frontend test files.
+
+| # | v7 issue | v8 fix | Test |
+|---|---|---|---|
+| H-1 | A blacklisted merchant redirected frozen funds through `resolveQuarantine`, including via a SlotVault relay | `resolveQuarantine` is removed and payout terms are immutable. A blacklisted merchant's funds stay frozen until Circle clears the address. | `BlacklistFreezeTest`, `VaultOwnedSlotBlacklistTest` |
+| H-2 | A native USDC send to a slot reverted on Arc | `receive()` accepts native USDC on Arc (it's the same balance) and refuses native coins elsewhere | `NativeReceiveTest`, fork `test_Fork_NativeUsdcSendPaysSlot` |
+| M-1 | Wrong-chain recovery needed the creator's key | `recoverSlot(creator, merchant, payRef)`: anyone can call it off Arc, with fees forced to 0; `creatorOf` records the creator | `RecoverSlotTest`, `recovery*.test.ts` |
+| M-2 | A quarantine let the merchant strip the platform fee | Fee terms can't be changed. A blacklisted fee wallet's fee is held and paid out later via `releaseHeldFees` | `BlacklistFreezeTest` |
+| M-3 | A small payment could lose up to 50% to a collector | The reward is capped at 10% of each payment, on top of the merchant's own cap | `RewardCapTest` (fuzzed over 1–500 gwei) |
+| M-4 | Non-USDC tokens were stuck | `rescueToken(token)` always pays the merchant | `RescueTest` |
+| M-5 | A stolen wallet key could take over a vault after 7 days, with no alert | `scripts/vault-watch.ts` alerts by console or webhook. Fixing this in-contract would move the vault addresses. | `vault-watch.test.ts` |
+| M-6 | "Verified" badges could be gamed; labels allowed bidi and invisible characters | Neutral wording ("created by the payee's own wallet", "fixed in the contract"), a note on who wrote the label, and labels sanitised | `PayPage.test.tsx`, `slot-logic.test.ts` |
+| L-1, L-2 | Collector griefing and leaderboard spoofing via `sweepFor(other)` | `sweepFor` only pays the caller (or the factory's `sweepMany` caller); the leaderboard explains what it measures | `CollectorRulesTest` |
+| L-3 | Expiry is UI-only | Plain token transfers can't be refused on-chain. The UI hides every payment option once a request expires, and late payments still reach the payee. | — |
+| L-4 | The refund overpaid real gas | Measured at +3% of measured gas on a fork, and about +8% live. The difference covers the 1 gwei priority fee, which isn't refunded. Kept, with a fork test bounding it at ≤15%. | `test_Fork_GasRefundCoversRealCost_*` |
+| L-5 | The cross-chain quote wasn't checked | Quotes that don't deliver the exact amount are refused, and fees above 25% get a warning | `crosschain.test.ts` |
+| L-6 | No security headers | CSP (`script-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`), X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy | `security-headers.test.ts` |
+| L-7 | Weak vault key storage | PBKDF2 at 600k iterations (old boxes still open), encrypted backup files, passwords of at least 12 characters | `pq.test.ts`, `VaultCard.test.tsx` |
+| L-8 | Dependency advisories | Down from 38 (2 critical) to 13 (0 critical): vitest 4, plus undici and grpc patch overrides. See below for the rest. | `bun audit` |
+| L-10 | Build output tracked in git | `node_modules`, `dist` and `contracts/out` are no longer tracked | — |
+
+### Stress tests
+
+- **1,000-actor stress suite** (`bun run contracts:test:stress`). The token mock behaves like Circle's: transfers to or from a blacklisted address revert.
+  - **Deterministic simulation.** 20,000 pseudo-random actions with all invariants checked every 500 steps: 888 requests, 6,467 collections by 821 collectors, 3,785 sweeps that hit a blacklisted merchant (funds frozen), 1,774 sweeps that held a blacklisted wallet's fee, and about 14.9M test-USDC moved.
+  - **Randomised invariant campaign.** 64 runs of 2,000 calls for each invariant.
+  - **What held throughout:** USDC is conserved; a blacklisted address is never paid; no reward exceeds 10% of a payment or the merchant's cap; held fees are always covered; leaderboard totals equal the per-collector stats.
+  - **An earlier version was mostly hollow.** Random inputs mostly hit empty slots, so few real collections ran. A coverage check caught this, and the handler now targets funded slots, realistic fees and real merchant or fee wallets.
+- **1,000-user local chain test** (`bun run stress:local`, on `arc-anvil` with Arc's native USDC and 1-second blocks):
+  - 400 merchants created 800 requests concurrently, with 0 failures. Bursts queue about 14 s because of block gas limits.
+  - 500 payers made 800 payments (40% native, 60% token), with 0 failures.
+  - 50 collector bots raced: every slot was collected exactly once, and the losers reverted harmlessly.
+  - All 48 attacker transactions failed.
+  - Accounting: 20,091.457506 USDC paid in and 20,091.457506 USDC swept out, matched to the micro-USDC against on-chain events. The largest reward was 1.66% of a payment.
+  - RPC load: 1,000 open pay pages produce about 167 requests per second. Pages stop polling once paid, and hidden tabs don't poll.
+
+### Accepted risks (not fixable in code here)
+
+- **Vault contracts are unchanged.** That keeps existing vault addresses valid. So L-4 (recovery re-initiation), relayer-fee front-running and raw-digest signing are mitigated outside the contract (the watcher script, and the app never sets a relayer fee).
+- **Remaining dependency advisories.** zod, elliptic and uuid come in through Circle's SDKs and ethers v5. elliptic has no patched release, and the app never signs with it. toml, stream-json, postcss-selector-parser and decode-uri-component are build or dev tooling that never parse untrusted input.
+- **Operations.** One hot key deploys on testnet, and deploys run from a laptop. Before mainnet, use a separate deployer, a multisig and CI deploys.
+- **Native dust.** Native sends finer than 1e-6 USDC leave sub-micro dust in a slot (the ERC-20 view has 6 decimals).
+- **Old commits.** Commits from before the history rewrite stay fetchable by SHA on GitHub until it garbage-collects them.
+
+This is not a substitute for an independent third-party audit before mainnet.
+
+---
+
+## v7 and earlier
 
 This covers the v6 → v7 security work:
 

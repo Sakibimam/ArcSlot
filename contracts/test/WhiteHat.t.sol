@@ -66,29 +66,31 @@ contract WhiteHatTest is SlotTestBase {
         address slot = _slot(0);
         vm.prank(thief);
         vm.expectRevert(Slot.AlreadyInitialised.selector);
-        Slot(slot).initialize(address(usdc), 0, 0, type(uint256).max, thief, ref1, 0, address(0));
+        Slot(payable(slot)).initialize(address(usdc), 0, 0, type(uint256).max, thief, ref1, 0, address(0));
     }
 
     /// Initialising the shared implementation directly must not affect clones.
     function test_Attack_InitialiseImplementationDoesNotTouchClones() public {
         address slot = _slotFunded(0, 1e6);
-        Slot impl = Slot(factory.implementation());
+        Slot impl = Slot(payable(factory.implementation()));
         vm.prank(thief);
         try impl.initialize(address(usdc), 0, 0, type(uint256).max, thief, ref1, 0, address(0)) {} catch {}
-        Slot(slot).sweepFor(stranger);
-        assertEq(Slot(slot).merchant(), merchant);
+        vm.prank(stranger);
+        Slot(payable(slot)).sweepFor(stranger);
+        assertEq(Slot(payable(slot)).merchant(), merchant);
         assertGt(usdc.balanceOf(merchant), 0, "merchant still paid");
         assertEq(usdc.balanceOf(thief), 0);
     }
 
-    /// Only the merchant can resolve a quarantine (i.e. change payout).
-    function test_Attack_StrangerCannotRedirectQuarantinedFunds() public {
+    /// Nobody — stranger or merchant — can redirect a frozen slot's funds (v8).
+    function test_Attack_NobodyCanRedirectQuarantinedFunds() public {
         address slot = _slotFunded(0, 1e6);
         usdc.setBlacklisted(merchant, true);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         vm.prank(thief);
-        vm.expectRevert(Slot.NotMerchant.selector);
-        Slot(slot).resolveQuarantine(thief, address(0), 0);
+        (bool ok,) = slot.call(abi.encodeWithSignature("resolveQuarantine(address,address,uint16)", thief, address(0), uint16(0)));
+        assertFalse(ok);
+        assertEq(usdc.balanceOf(slot), 1e6);
     }
 
     /// Quarantine by starving the blacklist probe of gas (63/64 rule): with
@@ -98,7 +100,7 @@ contract WhiteHatTest is SlotTestBase {
         gasLimit = bound(gasLimit, 5_000, 400_000);
         vm.prank(thief);
         (bool ok,) = slot.call{gas: gasLimit}(abi.encodeCall(Slot.sweepFor, (thief)));
-        assertFalse(Slot(slot).quarantined(), "clean slot quarantined by gas griefing");
+        assertFalse(Slot(payable(slot)).quarantined(), "clean slot quarantined by gas griefing");
         if (!ok) assertEq(usdc.balanceOf(slot), 1e6, "failed sweep moved funds");
     }
 
@@ -108,7 +110,7 @@ contract WhiteHatTest is SlotTestBase {
         vm.fee(1 gwei);
         vm.txGasPrice(1 gwei);
         vm.prank(stranger);
-        Slot(a).sweep();
+        Slot(payable(a)).sweep();
         uint256 normal = usdc.balanceOf(stranger);
 
         vm.prank(stranger);
@@ -116,7 +118,7 @@ contract WhiteHatTest is SlotTestBase {
         _fund(b, 1e6);
         vm.txGasPrice(1000 gwei); // tries to make the merchant pay a huge "gas" bill
         vm.prank(thief);
-        Slot(b).sweep();
+        Slot(payable(b)).sweep();
         // 1000x the gas price buys no extra refund (small diffs are warm/cold storage).
         assertLe(usdc.balanceOf(thief), normal + 100, "refund not capped at base fee");
     }
@@ -129,9 +131,9 @@ contract WhiteHatTest is SlotTestBase {
         vm.txGasPrice(100_000 gwei);
         vm.prank(stranger);
         vm.expectRevert(Slot.GasTooHigh.selector);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         vm.prank(merchant);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         assertEq(usdc.balanceOf(merchant), 1e6);
     }
 
@@ -196,24 +198,5 @@ contract BlacklistedPayoutTest is SlotTestBase {
         usdc.setBlacklisted(merchant, true);
         vm.expectRevert(SlotFactory.BlacklistedPayout.selector);
         factory.createRequest(merchant, ref1, 0, address(0), MAX_R, 1e6, "x", 0);
-    }
-
-    /// Resolving a quarantine onto the USDC contract would lock the slot for good.
-    function test_ResolveQuarantineRejectsUsdcAsNewMerchant() public {
-        address slot = _slotFunded(0, 1e6);
-        usdc.setBlacklisted(merchant, true);
-        Slot(slot).sweep();
-        vm.prank(merchant);
-        vm.expectRevert(Slot.BadPayout.selector);
-        Slot(slot).resolveQuarantine(address(usdc), address(0), 0);
-    }
-
-    function test_ResolveQuarantineRejectsUsdcAsNewFeeRecipient() public {
-        address slot = _slotFunded(0, 1e6);
-        usdc.setBlacklisted(merchant, true);
-        Slot(slot).sweep();
-        vm.prank(merchant);
-        vm.expectRevert(Slot.BadPayout.selector);
-        Slot(slot).resolveQuarantine(makeAddr("m2"), address(usdc), 100);
     }
 }

@@ -57,7 +57,10 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
       </Card>
 
       <Card>
-        <h2 className="display text-lg font-semibold mb-3">Leaderboard</h2>
+        <h2 className="display text-lg font-semibold mb-1">Leaderboard</h2>
+        <p className="text-xs mb-3" style={{ color: 'var(--subtle)' }}>
+          Raw on-chain activity: each collector can only credit itself, but anyone can collect their own payments too.
+        </p>
         {rows.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--subtle)' }}>No collectors yet. Run the bot below and be first.</p>
         ) : (

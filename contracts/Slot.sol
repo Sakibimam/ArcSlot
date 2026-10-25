@@ -42,6 +42,8 @@ contract Slot is ReentrancyGuard {
     ///      fork (contracts/test-integration), worst case = fresh recipients.
     uint256 internal constant GAS_BASE_OVERHEAD = 55_000;
     uint256 internal constant GAS_PER_TRANSFER  = 42_000;
+    /// @dev A collector's reward (gas refund + tip) never exceeds 10% of a sweep.
+    uint256 internal constant MAX_REWARD_BPS    = 1_000;
 
     // ─── Initialisation-time configuration ────────────────────────────────────
     //
@@ -76,8 +78,9 @@ contract Slot is ReentrancyGuard {
     /// @notice The factory that deployed this slot (records collector stats).
     address public factory;
 
-    /// @dev Set when sweep() detects a blacklisted payout address or a
-    ///      failed isBlacklisted probe. Cleared by resolveQuarantine().
+    /// @dev Set when sweep() finds the merchant blacklisted (or the blacklist
+    ///      probe fails). Funds stay frozen in the slot — nobody can redirect
+    ///      them — until a later sweep succeeds, which clears it.
     bool public quarantined;
 
     /// @notice Gross USDC this slot has paid out across all sweeps (6-decimal).
@@ -86,6 +89,10 @@ contract Slot is ReentrancyGuard {
     uint256 public totalCollected;
     /// @notice Timestamp of the last successful sweep.
     uint64  public lastCollectedAt;
+
+    /// @notice Fees owed to a fee recipient that was blacklisted at sweep time,
+    ///         held in this slot until releaseHeldFees() can pay them out.
+    uint256 public heldFees;
 
     // ─── Events ────────────────────────────────────────────────────────────────
 
@@ -125,14 +132,9 @@ contract Slot is ReentrancyGuard {
         bytes32 indexed payRef_
     );
 
-    /// @dev Emitted when the merchant clears a quarantine with new terms.
-    event QuarantineResolved(
-        address indexed slot,
-        bytes32 indexed payRef_,
-        address newMerchant,
-        address newFeeRecipient,
-        uint16  newFeeBps
-    );
+    event FeeHeld(address indexed slot, bytes32 indexed payRef_, address indexed feeRecipient, uint256 amount);
+    event HeldFeesReleased(address indexed slot, address indexed feeRecipient, uint256 amount);
+    event Rescued(address indexed token, address indexed merchant, uint256 amount);
 
     // ─── Errors ────────────────────────────────────────────────────────────────
 
@@ -143,11 +145,12 @@ contract Slot is ReentrancyGuard {
     error FeeBpsTooHigh();
     error NothingToSweep();
     error BelowMinSweep();
-    error NotMerchant();
-    error NotQuarantined();
     error ZeroRewardTo();
     error GasTooHigh();
-    error BadPayout();
+    error NotRewardRecipient();
+    error NativeNotAccepted();
+    error CannotRescueUsdc();
+    error FeeRecipientBlocked();
 
     // ─── Initialiser ───────────────────────────────────────────────────────────
 
@@ -215,6 +218,9 @@ contract Slot is ReentrancyGuard {
     ///         collector instead of the calling contract.
     function sweepFor(address rewardTo) external nonReentrant {
         if (rewardTo == address(0)) revert ZeroRewardTo();
+        // Only claim for yourself (the factory's sweepMany names its real caller):
+        // stops griefing collectors via sweepFor(merchant) and leaderboard spoofing.
+        if (rewardTo != msg.sender && msg.sender != factory) revert NotRewardRecipient();
         _sweep(rewardTo);
     }
 
@@ -224,7 +230,8 @@ contract Slot is ReentrancyGuard {
 
         // ── Step 2: read balance and enforce minimum ───────────────────────────
         IERC20  _usdc  = usdc;
-        uint256 gross  = _usdc.balanceOf(address(this));
+        uint256 held   = heldFees;
+        uint256 gross  = _usdc.balanceOf(address(this)) - held;
         if (gross == 0)         revert NothingToSweep();
         // Off Arc a Slot only recovers wrong-chain payments: no minimum.
         if (gross < minSweep && ChainConfig.isArc()) revert BelowMinSweep();
@@ -235,19 +242,20 @@ contract Slot is ReentrancyGuard {
         uint16  _feeBps       = feeBps;
         bytes32 _payRef       = payRef;
 
-        {
-            (bool isBlocked, address who) =
-                _checkBlacklist(address(_usdc), _merchant, _feeRecipient, _feeBps);
-
-            if (isBlocked) {
-                quarantined = true;
-                if (who == address(0)) {
-                    emit QuarantinedCheckFailed(address(this), _payRef);
-                } else {
-                    emit Quarantined(address(this), _payRef, who);
-                }
-                return;
-            }
+        // A blacklisted (or unverifiable) merchant freezes the slot: the funds
+        // stay here and no one can redirect them.
+        (BlacklistResult m,) = _probeBlacklist(address(_usdc), _merchant);
+        if (m != BlacklistResult.Clear) {
+            quarantined = true;
+            if (m == BlacklistResult.CallFailed) emit QuarantinedCheckFailed(address(this), _payRef);
+            else emit Quarantined(address(this), _payRef, _merchant);
+            return;
+        }
+        // A blacklisted fee wallet must not block the merchant: hold its fee.
+        bool holdFee;
+        if (_feeBps > 0) {
+            (BlacklistResult f,) = _probeBlacklist(address(_usdc), _feeRecipient);
+            holdFee = f != BlacklistResult.Clear;
         }
 
         // ── Step 4: fee split ──────────────────────────────────────────────────
@@ -258,6 +266,8 @@ contract Slot is ReentrancyGuard {
         // collector is refunded for these storage writes too.
         totalCollected  += gross;
         lastCollectedAt  = uint64(block.timestamp);
+        if (holdFee) heldFees = held + fee;
+        if (quarantined) quarantined = false;
 
         // ── Step 5: caller reimbursement ───────────────────────────────────────
         //    The merchant sweeping their own slot is not reimbursed (it would
@@ -269,10 +279,12 @@ contract Slot is ReentrancyGuard {
             // Record for the public collector leaderboard. Done before the gas
             // measurement ends, so the collector is refunded for it too.
             ISlotFactoryStats(factory).recordCollect(rewardTo, gross);
-            reimbursement = _gasRefund6(g0, fee > 0 ? 3 : 2) + tip;
+            reimbursement = _gasRefund6(g0, fee > 0 && !holdFee ? 3 : 2) + tip;
 
-            // Never pay out short: refuse the sweep until gas drops.
+            // Never pay out short: refuse the sweep until gas drops. Both caps
+            // bind: the merchant's own limit and 10% of this payment.
             if (reimbursement > maxReimbursement) revert GasTooHigh();
+            if (reimbursement * 10_000 > gross * MAX_REWARD_BPS) revert GasTooHigh();
 
             // Taken from net (never from fee), so fee integrity is preserved.
             if (reimbursement > net) reimbursement = net;
@@ -284,7 +296,8 @@ contract Slot is ReentrancyGuard {
             _usdc.safeTransfer(rewardTo, reimbursement);
         }
         if (fee > 0) {
-            _usdc.safeTransfer(_feeRecipient, fee);
+            if (holdFee) emit FeeHeld(address(this), _payRef, _feeRecipient, fee);
+            else _usdc.safeTransfer(_feeRecipient, fee);
         }
         if (net > 0) {
             _usdc.safeTransfer(_merchant, net);
@@ -294,42 +307,36 @@ contract Slot is ReentrancyGuard {
         emit Received(_payRef, gross, net, fee, reimbursement, rewardTo);
     }
 
-    // ─── Quarantine resolution ─────────────────────────────────────────────────
+    // ─── Held fees, stray tokens, native USDC ───────────────────────────────────
 
-    /// @notice Called by the current merchant to resolve a quarantine.
-    ///         Allows replacing BOTH the merchant and the feeRecipient so that
-    ///         a subsequent sweep can succeed regardless of which address caused
-    ///         the quarantine. This is the ONLY function that may change merchant
-    ///         or feeRecipient, and only from the quarantined state.
-    ///
-    ///         Validation mirrors initialize():
-    ///         - newMerchant must be non-zero.
-    ///         - If newFeeBps > 0 then newFeeRecipient must be non-zero.
-    ///         - newFeeBps must be <= 1000.
-    ///
-    /// @param newMerchant      Replacement merchant address (non-zero).
-    /// @param newFeeRecipient  Replacement fee recipient (zero is valid when
-    ///                         newFeeBps == 0, disabling the fee path entirely).
-    /// @param newFeeBps        Replacement fee in basis points (0-1000).
-    function resolveQuarantine(
-        address newMerchant,
-        address newFeeRecipient,
-        uint16  newFeeBps
-    ) external {
-        if (msg.sender != merchant)                          revert NotMerchant();
-        if (!quarantined)                                    revert NotQuarantined();
-        if (newMerchant == address(0))                       revert ZeroMerchant();
-        if (newFeeBps > 1000)                                revert FeeBpsTooHigh();
-        if (newFeeBps > 0 && newFeeRecipient == address(0)) revert ZeroFeeRecipient();
-        // Never resolve onto a payout that would quarantine again with nobody
-        // able to resolve it (e.g. the USDC contract, which Circle blacklists).
-        if (_isPayoutBlocked(newMerchant) || (newFeeBps > 0 && _isPayoutBlocked(newFeeRecipient))) revert BadPayout();
+    /// @notice Pay fees held for a fee recipient that was blacklisted at sweep
+    ///         time, once it no longer is. Anyone may call; it only ever pays
+    ///         the fee recipient fixed at creation.
+    function releaseHeldFees() external nonReentrant {
+        uint256 amount = heldFees;
+        if (amount == 0) revert NothingToSweep();
+        (BlacklistResult f,) = _probeBlacklist(address(usdc), feeRecipient);
+        if (f != BlacklistResult.Clear) revert FeeRecipientBlocked();
+        heldFees = 0;
+        usdc.safeTransfer(feeRecipient, amount);
+        emit HeldFeesReleased(address(this), feeRecipient, amount);
+    }
 
-        quarantined   = false;
-        merchant      = newMerchant;
-        feeRecipient  = newFeeRecipient;
-        feeBps        = newFeeBps;
-        emit QuarantineResolved(address(this), payRef, newMerchant, newFeeRecipient, newFeeBps);
+    /// @notice Send any non-USDC token that landed here to the merchant. Anyone
+    ///         may call; it can only ever pay the merchant fixed at creation.
+    function rescueToken(address token) external nonReentrant {
+        if (token == address(usdc)) revert CannotRescueUsdc();
+        uint256 amount = IERC20(token).balanceOf(address(this));
+        if (amount == 0) revert NothingToSweep();
+        IERC20(token).safeTransfer(merchant, amount);
+        emit Rescued(token, merchant, amount);
+    }
+
+    /// @notice On Arc, native USDC is the same balance as the ERC-20, so a plain
+    ///         wallet "send" pays the slot. Elsewhere native coins would be
+    ///         stranded, so they are refused.
+    receive() external payable {
+        if (!ChainConfig.isArc()) revert NativeNotAccepted();
     }
 
     // ─── Internal helpers ──────────────────────────────────────────────────────
@@ -342,35 +349,6 @@ contract Slot is ReentrancyGuard {
         uint256 price    = tx.gasprice < block.basefee ? tx.gasprice : block.basefee;
         uint256 overhead = GAS_BASE_OVERHEAD + GAS_PER_TRANSFER * transfers;
         return ((g0 - gasleft() + overhead) * price) / 1e12;
-    }
-
-    function _isPayoutBlocked(address who) internal view returns (bool) {
-        if (who == address(usdc)) return true;
-        (BlacklistResult r,) = _probeBlacklist(address(usdc), who);
-        return r == BlacklistResult.Blacklisted;
-    }
-
-    /// @dev Returns (true, who) if a blacklisted address is found.
-    ///      Returns (true, address(0)) if the isBlacklisted probe failed
-    ///      (fail-closed: treat as quarantine-worthy).
-    ///      Returns (false, address(0)) if all addresses are confirmed clear.
-    function _checkBlacklist(
-        address _usdcAddr,
-        address _merchant,
-        address _feeRecipient,
-        uint16  _feeBps
-    ) internal view returns (bool isBlocked, address who) {
-        (BlacklistResult merchantResult, bool merchantBlocked) = _probeBlacklist(_usdcAddr, _merchant);
-        if (merchantResult == BlacklistResult.CallFailed) return (true, address(0));
-        if (merchantBlocked) return (true, _merchant);
-
-        if (_feeBps > 0) {
-            (BlacklistResult feeResult, bool feeBlocked) = _probeBlacklist(_usdcAddr, _feeRecipient);
-            if (feeResult == BlacklistResult.CallFailed) return (true, address(0));
-            if (feeBlocked) return (true, _feeRecipient);
-        }
-
-        return (false, address(0));
     }
 
     enum BlacklistResult { Clear, Blacklisted, CallFailed }

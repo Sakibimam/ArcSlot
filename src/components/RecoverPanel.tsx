@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAccount, useReadContracts, useSignMessage, useSwitchChain, useWriteContract } from 'wagmi'
 import { type ContractFunctionParameters, erc20Abi } from 'viem'
 import { LifeBuoy } from 'lucide-react'
-import { SLOT_ABI } from '@/lib/abis'
+import { SLOT_ABI, SLOT_FACTORY_ABI } from '@/lib/abis'
 import { type SupportedChainId, getFactoryAddress, getVaultFactoryAddress } from '@/lib/chains'
 import { type SourceChain, sourceChainsFor } from '@/lib/crosschain'
 import { type RecoveryStep, planRecovery } from '@/lib/recovery'
@@ -36,11 +36,13 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
   const chains = sourceChainsFor(arcChainId)
   const usdcOn = (c: SourceChain) => getUsdc(c.chainId)?.address as Hex
 
-  // One batch: who the slot pays on Arc, its reference, and its USDC on every other chain.
+  // One batch: who the slot pays on Arc, its reference, who created it (the
+  // address commits to them), and its USDC on every other chain.
   // Mixed ABIs in one batch: typed as plain call descriptors, results narrowed below.
   const contracts: (ContractFunctionParameters & { chainId: number })[] = [
     { address: slot as Hex, abi: SLOT_ABI, functionName: 'merchant', chainId: arcChainId },
     { address: slot as Hex, abi: SLOT_ABI, functionName: 'payRef', chainId: arcChainId },
+    { address: (getFactoryAddress(arcChainId) ?? slot) as Hex, abi: SLOT_FACTORY_ABI, functionName: 'creatorOf', args: [slot], chainId: arcChainId },
     ...chains.map((c) => ({ address: usdcOn(c), abi: erc20Abi, functionName: 'balanceOf', args: [slot as Hex], chainId: c.chainId })),
   ]
   const { data, refetch } = useReadContracts({
@@ -49,8 +51,9 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
   })
   const merchant = data?.[0]?.result as string | undefined
   const payRef = data?.[1]?.result as string | undefined
+  const creator = data?.[2]?.result as string | undefined
   const stray = chains
-    .map((chain, i) => ({ chain, amount: data?.[2 + i]?.result }))
+    .map((chain, i) => ({ chain, amount: data?.[3 + i]?.result }))
     .filter((s): s is { chain: SourceChain; amount: bigint } => typeof s.amount === 'bigint' && s.amount > 0n)
 
   const [busy, setBusy] = useState<string | null>(null)
@@ -71,7 +74,7 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
   async function recover(chain: SourceChain) {
     const factory = getFactoryAddress(arcChainId)
     const vaultFactory = getVaultFactoryAddress(arcChainId)
-    if (!factory || !vaultFactory || !wallet || !payRef || !merchant) return
+    if (!factory || !vaultFactory || !wallet || !payRef || !merchant || !creator) return
     const payee = merchant
     const say = (text: string) => setStatus((s) => ({ ...s, [chain.key]: text }))
     setBusy(chain.key)
@@ -82,7 +85,7 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
         signMessage: (digest) => signMessageAsync({ message: { raw: digest } }),
       })
       const found = await probeRecovery(io, {
-        factory, slot, vault: payout === 'vault' ? record?.vault : undefined, wallet, merchant: payee, payRef,
+        factory, slot, vault: payout === 'vault' ? record?.vault : undefined, creator, merchant: payee, payRef,
       })
       const plan = planRecovery({ ...found, payout, vault })
       if (!plan.ok) {
@@ -90,14 +93,14 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
           ? `Recovery isn't set up on ${chain.name} yet. It will work once Slot is deployed there.`
           : plan.reason === 'vault-settings-missing'
             ? 'Restore your vault backup on this device first; recovery needs its settings.'
-            : plan.reason === 'not-creator'
-              ? 'Switch to the wallet that created this request; only it can recover the payment.'
+            : plan.reason === 'address-mismatch'
+              ? `Recovery on ${chain.name} would not match the paid address, so nothing was sent.`
               : 'Only the payee can recover this.')
         return
       }
       const { recovered } = await executeRecovery(io, {
         steps: plan.steps, chainId: chain.chainId, usdc: usdcOn(chain), factory, vaultFactory,
-        slot, merchant: payee, payRef, wallet, vault,
+        slot, merchant: payee, payRef, wallet, creator, vault,
       }, (step) => say(STEP_TEXT[step](chain.name)))
       say(`Recovered ${formatUsdc6(recovered)} USDC on ${chain.name} to your wallet.`)
       setRecovered((r) => ({ ...r, [chain.key]: true }))

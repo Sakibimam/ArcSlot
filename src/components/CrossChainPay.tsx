@@ -6,6 +6,7 @@ import { CircleCheck, Info } from 'lucide-react'
 import { type SourceChain, sourceChainsFor } from '@/lib/crosschain'
 import { type CrossChainQuote, type PaymentStep, quoteCrossChainPayment, retryCrossChainPayment, sendCrossChainPayment } from '@/lib/crosschain-pay'
 import { formatUsdc6 } from '@/lib/slot-logic'
+import { checkQuote } from '@/lib/crosschain'
 import { Button, Field, inputClass, inputStyle } from './ui'
 
 interface CrossChainPayProps {
@@ -49,7 +50,13 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
     setStatus('quoting')
     try {
       await switchChainAsync({ chainId: source.chainId })
-      setQuote(await quoteCrossChainPayment({ provider: await provider(), source: source.key, slot, amount, arcChainId }))
+      const q = await quoteCrossChainPayment({ provider: await provider(), source: source.key, slot, amount, arcChainId })
+      if (!checkQuote(q.summary, amount).ok) {
+        setStatus('idle')
+        setError(`This quote would deliver ${formatUsdc6(q.summary.receives)} USDC, not the requested ${formatUsdc6(amount)}. Nothing was sent.`)
+        return
+      }
+      setQuote(q)
       setStatus('quoted')
     } catch {
       setStatus('idle')
@@ -145,6 +152,14 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
           <div className="flex justify-between gap-3"><dt style={{ color: 'var(--subtle)' }}>You send on {source.name}</dt><dd data-testid="xc-debit" className="mono">{formatUsdc6(quote.summary.debit)} USDC</dd></div>
           <div className="flex justify-between gap-3"><dt style={{ color: 'var(--subtle)' }}>Network fee (Circle relayer)</dt><dd data-testid="xc-fee" className="mono">{formatUsdc6(quote.summary.fee)} USDC</dd></div>
           <p className="pt-1 font-medium" style={{ color: 'var(--success)' }}>Merchant receives exactly {formatUsdc6(quote.summary.receives)} USDC</p>
+          {amount !== undefined && amount > 0n && (() => {
+            const c = checkQuote(quote.summary, amount)
+            return c.ok && c.highFee ? (
+              <p className="pt-1 text-xs" style={{ color: 'var(--warning)' }}>
+                The network fee is {c.feePercent}% of this payment. Paying on Arc directly costs far less.
+              </p>
+            ) : null
+          })()}
         </dl>
       )}
 

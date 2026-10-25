@@ -57,3 +57,13 @@ export function summarizeQuote(q: { amountReceived: string; feeTotal: string; to
   if (receives === null || fee === null || debit === null) throw new Error('Malformed bridge quote')
   return { receives, fee, debit }
 }
+
+/**
+ * A quote is only payable if the slot receives exactly what was asked; the
+ * fee share is surfaced so a payer isn't surprised by a large relayer fee.
+ */
+export function checkQuote(q: QuoteSummary, requested: bigint): { ok: false } | { ok: true; highFee: boolean; feePercent: number } {
+  if (q.receives !== requested) return { ok: false }
+  const feePercent = Number((q.fee * 100n + requested / 2n) / requested)
+  return { ok: true, highFee: q.fee * 4n > requested, feePercent }
+}

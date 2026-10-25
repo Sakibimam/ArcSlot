@@ -25,6 +25,13 @@ function board(rows: [string, bigint, bigint][], totals = { collections: 0n, del
 beforeEach(() => resetWagmi())
 
 describe('Leaderboard', () => {
+  // v8 (audit L-2): a collector can only credit itself, but it can still
+  // recycle its own USDC; the board says what it measures.
+  it('explains that rankings are raw on-chain activity', () => {
+    render(<Leaderboard chainId={5042002} />)
+    expect(screen.getByText(/raw on-chain activity/i)).toBeInTheDocument()
+  })
+
   it('shows network totals', () => {
     board([[ALICE, 2n, 300_000n]], { collections: 2n, delivered: 300_000n })
     render(<Leaderboard chainId={5042002} />)

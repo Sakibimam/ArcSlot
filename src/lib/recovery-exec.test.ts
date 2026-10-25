@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { executeRecovery, probeRecovery, type ChainIO } from './recovery-exec'
 
-const FACTORY = '0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A'
+const FACTORY = '0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49'
 const VAULT_FACTORY = '0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97'
 const SLOT = '0x00000000000000000000000000000000000000a1'
 const WALLET = '0x1111111111111111111111111111111111111111'
@@ -31,19 +31,20 @@ function fakeIO(code: Record<string, boolean> = {}, predicted: string = SLOT) {
   return { io, writes, wait, signMessage }
 }
 
-const base = { chainId: 11155111, usdc: USDC, factory: FACTORY, vaultFactory: VAULT_FACTORY, slot: SLOT, payRef: REF, wallet: WALLET }
+const CREATOR = '0x2222222222222222222222222222222222222222'
+const base = { chainId: 11155111, usdc: USDC, factory: FACTORY, vaultFactory: VAULT_FACTORY, slot: SLOT, payRef: REF, wallet: WALLET, creator: CREATOR }
 
 describe('probeRecovery', () => {
   it('reports what already exists on the foreign chain', async () => {
     const { io } = fakeIO({ [FACTORY.toLowerCase()]: true, [VAULT.toLowerCase()]: true })
-    expect(await probeRecovery(io, { factory: FACTORY, slot: SLOT, vault: VAULT, wallet: WALLET, merchant: WALLET, payRef: REF }))
-      .toEqual({ factoryThere: true, slotThere: false, vaultThere: true, creatorMatches: true })
+    expect(await probeRecovery(io, { factory: FACTORY, slot: SLOT, vault: VAULT, creator: CREATOR, merchant: WALLET, payRef: REF }))
+      .toEqual({ factoryThere: true, slotThere: false, vaultThere: true, addressMatches: true })
   })
 
-  it('flags a wallet that did not create the request', async () => {
+  it('flags a factory there that would deploy somewhere else', async () => {
     const { io } = fakeIO({ [FACTORY.toLowerCase()]: true }, '0x00000000000000000000000000000000000000c3')
-    expect(await probeRecovery(io, { factory: FACTORY, slot: SLOT, wallet: WALLET, merchant: WALLET, payRef: REF }))
-      .toMatchObject({ creatorMatches: false })
+    expect(await probeRecovery(io, { factory: FACTORY, slot: SLOT, creator: CREATOR, merchant: WALLET, payRef: REF }))
+      .toMatchObject({ addressMatches: false })
   })
 })
 
@@ -52,8 +53,9 @@ describe('executeRecovery', () => {
     const f = fakeIO()
     const io = f.io
     const res = await executeRecovery(io, { ...base, merchant: WALLET, steps: ['createSlot', 'collect'] })
-    expect(f.writes.map((w) => w.functionName)).toEqual(['createSlot', 'sweep'])
-    expect(f.writes[0]).toMatchObject({ address: FACTORY, args: [WALLET, REF, 0, '0x0000000000000000000000000000000000000000', 50_000n] })
+    expect(f.writes.map((w) => w.functionName)).toEqual(['recoverSlot', 'sweep'])
+    // The creator's address, deployed by whoever recovers (v8: no creator key needed).
+    expect(f.writes[0]).toMatchObject({ address: FACTORY, args: [CREATOR, WALLET, REF] })
     expect(f.writes[1]).toMatchObject({ address: SLOT })
     expect(f.wait).toHaveBeenCalledTimes(2)
     expect(res.recovered).toBe(50_000n)
@@ -64,7 +66,7 @@ describe('executeRecovery', () => {
     const io = f.io
     const vault = { address: VAULT, owner: WALLET, pqKey: `0x${'ab'.repeat(32)}`, twoKey: true, recoveryDelay: '604800', salt: `0x${'12'.repeat(32)}` }
     await executeRecovery(io, { ...base, merchant: VAULT, vault, steps: ['createVault', 'createSlot', 'collect', 'withdraw'] })
-    expect(f.writes.map((w) => w.functionName)).toEqual(['createVault', 'createSlot', 'sweep', 'withdraw'])
+    expect(f.writes.map((w) => w.functionName)).toEqual(['createVault', 'recoverSlot', 'sweep', 'withdraw'])
     expect(f.writes[0]).toMatchObject({ address: VAULT_FACTORY, args: [WALLET, vault.pqKey, true, 604_800n, vault.salt] })
     expect(f.signMessage).toHaveBeenCalledWith(DIGEST)
     const w = f.writes[3]
@@ -85,7 +87,7 @@ describe('executeRecovery', () => {
 
   it('refuses to deploy a slot at a different address than the one paid', async () => {
     const f = fakeIO({}, '0x00000000000000000000000000000000000000c3')
-    await expect(executeRecovery(f.io, { ...base, merchant: WALLET, steps: ['createSlot', 'collect'] })).rejects.toThrow(/created/i)
+    await expect(executeRecovery(f.io, { ...base, merchant: WALLET, steps: ['createSlot', 'collect'] })).rejects.toThrow(/address/i)
     expect(f.writes).toEqual([])
   })
 

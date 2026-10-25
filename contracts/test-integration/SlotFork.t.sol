@@ -38,7 +38,7 @@ contract SlotForkTest is Test {
         gasLimit = bound(gasLimit, 5_000, 400_000);
         vm.prank(stranger);
         (bool ok,) = slot.call{gas: gasLimit}(abi.encodeCall(Slot.sweepFor, (stranger)));
-        assertFalse(Slot(slot).quarantined(), "clean slot quarantined by gas griefing");
+        assertFalse(Slot(payable(slot)).quarantined(), "clean slot quarantined by gas griefing");
         if (!ok) assertEq(USDC.balanceOf(slot), 1_000_000, "failed sweep moved funds");
     }
 
@@ -58,7 +58,7 @@ contract SlotForkTest is Test {
             _pay(slot, 1_000_000);
             uint256 before = USDC.balanceOf(payouts[i]);
             vm.prank(stranger);
-            Slot(slot).sweep();
+            Slot(payable(slot)).sweep();
             assertEq(USDC.balanceOf(slot), 0, "slot not emptied");
             assertGt(USDC.balanceOf(payouts[i]), before, "payout not credited");
         }
@@ -67,6 +67,34 @@ contract SlotForkTest is Test {
     function test_Fork_RejectsUsdcContractAsPayout() public {
         vm.expectRevert(SlotFactory.BlacklistedPayout.selector);
         factory.createSlot(address(USDC), keccak256("usdc-payout"), 0, address(0), MAX_R);
+    }
+
+    /// v8 (audit H-2): a wallet's plain native-USDC send pays a slot on real
+    /// Arc, shows up in the ERC-20 balance, and sweeps to the merchant.
+    function test_Fork_NativeUsdcSendPaysSlot() public {
+        address slot = factory.createSlot(merchant, keccak256("fork-native"), 0, address(0), MAX_R);
+        vm.prank(payer);
+        (bool ok,) = payable(slot).call{value: 1 ether}(""); // 1 USDC, 18-dec native
+        assertTrue(ok, "native send to slot reverted on Arc");
+        assertEq(USDC.balanceOf(slot), 1_000_000, "native send not visible as ERC-20");
+        vm.prank(merchant);
+        Slot(payable(slot)).sweep();
+        assertEq(USDC.balanceOf(merchant), 1_000_000);
+    }
+
+    /// Native sends finer than 1e-6 USDC: what does the ERC-20 view show, and
+    /// is any of it left behind after a sweep?
+    function test_Fork_NativeDustBehaviour() public {
+        address slot = factory.createSlot(merchant, keccak256("fork-dust"), 0, address(0), MAX_R);
+        vm.prank(payer);
+        (bool ok,) = payable(slot).call{value: 1 ether + 123_456_789}(""); // 1.000000000123456789
+        assertTrue(ok);
+        emit log_named_uint("erc20 view (6-dec)", USDC.balanceOf(slot));
+        emit log_named_uint("native (18-dec)   ", slot.balance);
+        vm.prank(merchant);
+        Slot(payable(slot)).sweep();
+        emit log_named_uint("native left after sweep (wei)", slot.balance);
+        assertLt(slot.balance, 1e12, "more than sub-micro dust left behind");
     }
 
     function test_Fork_UsdcIsSixDecimals() public view {
@@ -86,18 +114,18 @@ contract SlotForkTest is Test {
         assertEq(slot, predicted, "predict != deployed on fork");
 
         _pay(slot, 1_000_000); // 1 USDC
-        assertEq(Slot(slot).balance(), 1_000_000);
+        assertEq(Slot(payable(slot)).balance(), 1_000_000);
 
         vm.txGasPrice(21 gwei);
         vm.prank(stranger);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
 
         uint256 got = USDC.balanceOf(stranger);
         assertGe(got, TIP, "sweeper not paid");
         assertLe(got, MAX_R, "over cap");
         assertEq(USDC.balanceOf(merchant) + got, 1_000_000, "not conserved");
-        assertEq(Slot(slot).balance(), 0, "slot not drained");
-        assertFalse(Slot(slot).quarantined(), "real blocklist probe failed");
+        assertEq(Slot(payable(slot)).balance(), 0, "slot not drained");
+        assertFalse(Slot(payable(slot)).quarantined(), "real blocklist probe failed");
     }
 
     /// Regression for the live testnet failure: overpaid priority tip on a
@@ -107,8 +135,8 @@ contract SlotForkTest is Test {
         _pay(slot, 150_000);
         vm.txGasPrice(block.basefee + 575 gwei);
         vm.prank(stranger);
-        Slot(slot).sweep();
-        assertEq(Slot(slot).balance(), 0, "not swept");
+        Slot(payable(slot)).sweep();
+        assertEq(Slot(payable(slot)).balance(), 0, "not swept");
         assertLe(USDC.balanceOf(stranger), MAX_R, "over cap");
     }
 
@@ -118,7 +146,7 @@ contract SlotForkTest is Test {
         _pay(slot, 2_000_000);
 
         vm.prank(merchant); // self-sweep: no reimbursement
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
 
         assertEq(USDC.balanceOf(feeTo), 50_000, "2.5% fee wrong");
         assertEq(USDC.balanceOf(merchant), 1_950_000, "merchant net wrong");
@@ -132,15 +160,15 @@ contract SlotForkTest is Test {
         vm.txGasPrice(20_000 gwei);
         vm.prank(stranger);
         vm.expectRevert(Slot.GasTooHigh.selector);
-        Slot(slot).sweep();
-        assertEq(Slot(slot).balance(), MIN_SWEEP, "payment touched");
+        Slot(payable(slot)).sweep();
+        assertEq(Slot(payable(slot)).balance(), MIN_SWEEP, "payment touched");
     }
 
     function test_Fork_BelowMinimumReverts() public {
         address slot = factory.createSlot(merchant, keccak256("fork-order-4"), 0, address(0), MAX_R);
         _pay(slot, 50_000);
         vm.expectRevert(Slot.BelowMinSweep.selector);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
     }
 
     /// Found live on testnet: FIXED_OVERHEAD was calibrated against mock
@@ -154,7 +182,7 @@ contract SlotForkTest is Test {
 
         uint256 g0 = gasleft();
         vm.prank(stranger);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         uint256 txGas = g0 - gasleft() + 21_000 + 64; // + intrinsic + 4-byte calldata
 
         uint256 cost6 = (txGas * block.basefee) / 1e12;

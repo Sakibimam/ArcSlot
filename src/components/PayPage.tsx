@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAccount, useBytecode, useReadContract, useReadContracts, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
-import { erc20Abi, zeroAddress } from 'viem'
+import { type ContractFunctionParameters, erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
 import { AlertTriangle, Atom, BadgeCheck, CircleCheck, Shuffle, ExternalLink, QrCode, ShieldCheck, Wallet } from 'lucide-react'
 import { SLOT_ABI, SLOT_FACTORY_ABI, SLOT_VAULT_ABI } from '@/lib/abis'
@@ -9,6 +9,7 @@ import type { ChainRequest } from '@/lib/use-chain-requests'
 import {
   ARC_TESTNET_ID,
   type SupportedChainId,
+  LEGACY_FACTORY_ADDRESSES,
   SLOT_VAULT_IMPL,
   TESTNET_FAUCET_URL,
   USDC_ADDRESS,
@@ -16,7 +17,7 @@ import {
   networkName,
   shortAddr,
 } from '@/lib/chains'
-import { formatUsdc6, isMinimalProxyTo, isRequestPaid, parseUsdc6, requestTrust } from '@/lib/slot-logic'
+import { formatUsdc6, isMinimalProxyTo, isRequestPaid, parseUsdc6, requestTrust, sanitizeLabel } from '@/lib/slot-logic'
 import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, NetworkBadge, inputClass, inputStyle } from './ui'
 import { CrossChainPay } from './CrossChainPay'
@@ -40,9 +41,9 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
   // Everything that matters comes from the chain, never from the link: who gets
   // paid (the slot), what was received and collected, and the request itself.
   const factory = getFactoryAddress(chainId)
-  const { data, isError, isLoading } = useReadContracts({
-    contracts: [
-      { address: addr, abi: SLOT_ABI, functionName: 'merchant', chainId },
+  // Mixed ABIs in one batch: typed as plain call descriptors, results narrowed below.
+  const contracts: (ContractFunctionParameters & { chainId: number })[] = [
+    { address: addr, abi: SLOT_ABI, functionName: 'merchant', chainId },
       { address: USDC_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [addr], chainId },
       { address: addr, abi: SLOT_ABI, functionName: 'totalCollected', chainId },
       // No factory on this network: the read fails harmlessly and links fall back to their own values.
@@ -50,20 +51,37 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
       // Anyone can deploy a contract that answers merchant() with a famous payee
       // and keeps the money; only slots this factory deployed are payable.
       { address: factory ?? zeroAddress, abi: SLOT_FACTORY_ABI, functionName: 'isSlot', args: [addr], chainId },
-    ],
-    query: { refetchInterval: 4_000 },
+      ...LEGACY_FACTORY_ADDRESSES[chainId].map((f) => ({ address: f, abi: SLOT_FACTORY_ABI, functionName: 'isSlot', args: [addr], chainId })),
+  ]
+  // Poll while waiting for payment; stop once it's paid (1,000 open pages would
+  // otherwise keep hammering the RPC). Hidden tabs don't poll (react-query default).
+  const { data, isError, isLoading } = useReadContracts({
+    contracts,
+    query: {
+      refetchInterval: (query) => {
+        const d = query.state.data as { result?: unknown }[] | undefined
+        const [bal, col, req] = [d?.[1]?.result, d?.[2]?.result, d?.[3]?.result as ChainRequest | undefined]
+        const want = req?.exists ? (req.amount > 0n ? req.amount : undefined) : linkAmount
+        const paid = typeof bal === 'bigint' && typeof col === 'bigint' && want !== undefined && isRequestPaid(want, bal, col)
+        return paid ? false : 6_000
+      },
+    },
   })
   const merchant = data?.[0]?.result as string | undefined
-  const slotBalance = data?.[1]?.result
-  const collected = (data?.[2]?.result) ?? 0n
+  const balRaw = data?.[1]?.result
+  const slotBalance = typeof balRaw === 'bigint' ? balRaw : undefined
+  const collectedRaw = data?.[2]?.result
+  const collected = typeof collectedRaw === 'bigint' ? collectedRaw : 0n
   const chainReq = data?.[3]?.result as ChainRequest | undefined
   const request = chainReq?.exists ? chainReq : undefined
-  const isFactorySlot = data?.[4]?.result === true
+  const legacySlot = data?.[4]?.result !== true && !!data?.slice(5).some((r) => r?.result === true)
+  const isFactorySlot = data?.[4]?.result === true || legacySlot
   const invalid = isError || (!isLoading && data !== undefined && (!merchant || !isFactorySlot))
 
   // On-chain request data wins; link values are only a fallback for older links.
   const requested = request ? (request.amount > 0n ? request.amount : undefined) : linkAmount
-  const label = request ? request.label : linkLabel
+  const rawLabel = request ? request.label : linkLabel
+  const label = rawLabel === undefined ? undefined : sanitizeLabel(rawLabel)
   const now = useNow(30_000)
   const expired = !!request && request.expiresAt > 0n && now / 1000 > Number(request.expiresAt)
 
@@ -139,7 +157,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
           <span className="text-sm" style={{ color: 'var(--subtle)' }}>Payment request</span>
           <NetworkBadge name={network} testnet={testnet} />
         </div>
-        <h1 className="display text-2xl font-semibold break-words">{label ?? 'Payment'}</h1>
+        <h1 className="display text-2xl font-semibold break-words">{label || 'Payment'}</h1>
+        {label && (
+          <p className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>Description written by whoever created this request.</p>
+        )}
         {requested !== undefined && (
           <p data-testid="pay-amount" className="display text-4xl font-bold mt-2 tabular-nums">
             {formatUsdc6(requested)} <span className="text-xl font-semibold" style={{ color: 'var(--subtle)' }}>USDC</span>
@@ -148,20 +169,25 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         <div className="mt-4 flex items-center gap-2 text-sm" style={{ color: 'var(--muted)' }}>
           <ShieldCheck className="size-4 shrink-0" style={{ color: 'var(--success)' }} />
           <span>
-            Paid to{' '}
+            Pays to{' '}
             {merchant ? (
               <a href={buildAddressExplorerUrl(chainId, merchant)} target="_blank" rel="noreferrer" className="mono underline decoration-dotted">
                 {shortAddr(merchant)}
               </a>
             ) : '…'}
-            {' '}— verified on-chain
+            {' '}— fixed in the contract
           </span>
         </div>
         {trust === 'verified' && (
           <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--success)' }}>
             <BadgeCheck className="size-4 shrink-0" />
-            <span>Verified request · created by the payee</span>
+            <span>Created by the payee&apos;s own wallet</span>
           </div>
+        )}
+        {legacySlot && (
+          <p className="mt-2 text-xs" style={{ color: 'var(--subtle)' }}>
+            This request uses an earlier version of ArcSlot. Payments still reach the payee.
+          </p>
         )}
         {trust === 'unverified' && (
           <p className="mt-3 flex gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(245,201,122,0.1)', color: 'var(--warning)' }}>
@@ -285,7 +311,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
               <p className="flex gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(245,201,122,0.1)', color: 'var(--warning)' }}>
                 <AlertTriangle className="size-4 shrink-0" />
                 <span>
-                  Only send USDC on {network}{requested !== undefined ? <> — exactly <b>{formatUsdc6(requested)} USDC</b></> : null}. Other tokens or networks can&apos;t be recovered.
+                  Send USDC on {network} (native or token){requested !== undefined ? <> — exactly <b>{formatUsdc6(requested)} USDC</b></> : null}. Sent the wrong token or network by mistake? The payee can still recover it.
                 </span>
               </p>
             </div>

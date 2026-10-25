@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sourceChainsFor, arcBridgeChain, buildPaymentParams, summarizeQuote } from './crosschain'
+import { sourceChainsFor, arcBridgeChain, buildPaymentParams, summarizeQuote, checkQuote } from './crosschain'
 
 const SLOT = '0x047508895350F679424507a7ae62e13bc2e015a9'
 
@@ -45,5 +45,18 @@ describe('summarizeQuote', () => {
   })
   it('throws on a malformed quote', () => {
     expect(() => summarizeQuote({ amountReceived: 'x', feeTotal: '0', totalDebit: '0' })).toThrow()
+  })
+})
+
+// v8 (audit L-5): never let a quote that short-pays the merchant through.
+describe('checkQuote', () => {
+  it('accepts a quote that delivers exactly the requested amount', () => {
+    expect(checkQuote({ receives: 200_000n, fee: 10_000n, debit: 210_000n }, 200_000n)).toEqual({ ok: true, highFee: false, feePercent: 5 })
+  })
+  it('refuses a quote that delivers less than requested', () => {
+    expect(checkQuote({ receives: 199_999n, fee: 10_000n, debit: 209_999n }, 200_000n)).toEqual({ ok: false })
+  })
+  it('flags a fee above a quarter of the payment', () => {
+    expect(checkQuote({ receives: 200_000n, fee: 145_270n, debit: 345_270n }, 200_000n)).toEqual({ ok: true, highFee: true, feePercent: 73 })
   })
 })

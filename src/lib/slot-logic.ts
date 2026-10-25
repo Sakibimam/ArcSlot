@@ -72,6 +72,17 @@ export function requestTrust(r: { creator: string; merchant: string; vaultOwner:
   return 'unverified'
 }
 
+// Bidi overrides/isolates, zero-width marks and the BOM can make a label read
+// differently from what it says ("Pay 100" rendered as "Pay 001").
+const INVISIBLE = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u001F\u007F-\u009F]/g
+
+/** Label as it is safe to show: no invisible/bidi tricks, single-spaced. */
+export function sanitizeLabel(label: string): string {
+  return label.replace(INVISIBLE, '').replace(CONTROL, ' ').replace(/\s+/g, ' ').trim()
+}
+
 /** EIP-1167 runtime code of a minimal proxy (clone) pointing at `impl`. */
 export function minimalProxyCode(impl: string): string {
   return `0x363d3d373d3d3d363d73${impl.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3`

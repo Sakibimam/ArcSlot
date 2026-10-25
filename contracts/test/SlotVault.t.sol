@@ -365,7 +365,7 @@ contract VaultAsSlotMerchantTest is SlotVaultTestBase {
         usdc.mint(slot, 1_000_000);
 
         vm.prank(relayer);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         uint256 inVault = usdc.balanceOf(address(v));
         assertGt(inVault, 900_000, "payout did not reach vault");
 
@@ -375,59 +375,49 @@ contract VaultAsSlotMerchantTest is SlotVaultTestBase {
     }
 }
 
-// ─── A vault can resolve quarantine on its own Slots ────────────────────────
+// ─── v8: a vault-owned Slot cannot be redirected, even with both keys ──────
 
-contract VaultResolvesQuarantineTest is SlotVaultTestBase {
+contract VaultOwnedSlotBlacklistTest is SlotVaultTestBase {
     SlotFactory internal slots;
     address internal feeTo = makeAddr("feeTo");
-    address internal newFeeTo = makeAddr("newFeeTo");
 
     function setUp() public override {
         super.setUp();
         slots = new SlotFactory(address(new Slot()), 2_000, 100_000);
     }
 
-    function _quarantinedSlot(SlotVault v) internal returns (address slot) {
-        slot = slots.createSlot(address(v), keccak256("inv-q"), 250, feeTo, 50_000);
+    /// A blacklisted fee wallet no longer strands the vault's money: the vault
+    /// is paid and the fee is held for the fee wallet.
+    function test_FeeWalletBlacklisted_VaultStillPaid() public {
+        SlotVault v = _vault(true);
+        address slot = slots.createSlot(address(v), keccak256("inv-q"), 250, feeTo, 50_000);
         usdc.mint(slot, 1_000_000);
         usdc.setBlacklisted(feeTo, true);
-        Slot(slot).sweep();
-        assertTrue(Slot(slot).quarantined(), "setup: not quarantined");
-    }
-
-    /// Without this, a quarantined Slot whose merchant is a vault is stuck forever.
-    function test_VaultResolvesQuarantineThenSweepSucceeds() public {
-        SlotVault v = _vault(true);
-        address slot = _quarantinedSlot(v);
-
-        bytes32 d = v.resolveDigest(slot, address(v), newFeeTo, 250);
         vm.prank(relayer);
-        v.resolveSlotQuarantine(slot, address(v), newFeeTo, 250, _pqSign(pqKey, d), _ownerSign(d));
-
-        assertFalse(Slot(slot).quarantined());
-        Slot(slot).sweep();
-        assertEq(usdc.balanceOf(newFeeTo), 25_000, "fee to new recipient");
-        assertGt(usdc.balanceOf(address(v)), 900_000, "payout reached vault");
-        assertEq(v.nonce(), 1);
+        Slot(payable(slot)).sweep();
+        assertFalse(Slot(payable(slot)).quarantined());
+        assertEq(Slot(payable(slot)).heldFees(), 25_000);
+        assertGt(usdc.balanceOf(address(v)), 900_000);
     }
 
-    function test_ResolveRequiresBothKeys() public {
+    /// AUDIT (v7 A-1): a blacklisted vault used resolveSlotQuarantine, relayed by
+    /// anyone, to move frozen funds to a clean wallet. That path is now dead.
+    function test_BlacklistedVaultCannotRedirectFrozenFunds() public {
         SlotVault v = _vault(true);
-        address slot = _quarantinedSlot(v);
-        bytes32 d = v.resolveDigest(slot, address(v), newFeeTo, 250);
-        bytes memory pqSig = _pqSign(pqKey, d);
-        vm.expectRevert(SlotVault.BadOwnerSignature.selector);
-        v.resolveSlotQuarantine(slot, address(v), newFeeTo, 250, pqSig, "");
-    }
+        address slot = slots.createSlot(address(v), keccak256("inv-b"), 0, address(0), 50_000);
+        usdc.mint(slot, 1_000_000);
+        usdc.setBlacklisted(address(v), true);
+        Slot(payable(slot)).sweep();
+        assertTrue(Slot(payable(slot)).quarantined());
 
-    /// A signature to resolve one slot cannot redirect a different slot.
-    function test_ResolveSignatureBoundToSlotAndTarget() public {
-        SlotVault v = _vault(true);
-        address slot = _quarantinedSlot(v);
-        bytes32 d = v.resolveDigest(slot, address(v), newFeeTo, 250);
+        address clean = makeAddr("clean");
+        bytes32 d = v.resolveDigest(slot, clean, address(0), 0);
         bytes memory pqSig = _pqSign(pqKey, d);
         bytes memory ownerSig = _ownerSign(d);
-        vm.expectRevert(SlotVault.BadPQSignature.selector);
-        v.resolveSlotQuarantine(slot, makeAddr("thief"), newFeeTo, 250, pqSig, ownerSig);
+        vm.prank(relayer);
+        vm.expectRevert();
+        v.resolveSlotQuarantine(slot, clean, address(0), 0, pqSig, ownerSig);
+        assertEq(usdc.balanceOf(slot), 1_000_000, "frozen funds moved");
+        assertEq(usdc.balanceOf(clean), 0);
     }
 }

@@ -11,28 +11,28 @@ contract SlotCollectedTest is SlotTestBase {
     /// Without this, a paid-then-collected request looks unpaid to the payer.
     function test_TotalCollectedSurvivesTheSweep() public {
         address slot = _slotFunded(0, 1_000_000);
-        assertEq(Slot(slot).totalCollected(), 0);
+        assertEq(Slot(payable(slot)).totalCollected(), 0);
         vm.warp(1_800_000_000);
-        Slot(slot).sweep();
-        assertEq(Slot(slot).balance(), 0);
-        assertEq(Slot(slot).totalCollected(), 1_000_000, "gross recorded");
-        assertEq(Slot(slot).lastCollectedAt(), 1_800_000_000);
+        Slot(payable(slot)).sweep();
+        assertEq(Slot(payable(slot)).balance(), 0);
+        assertEq(Slot(payable(slot)).totalCollected(), 1_000_000, "gross recorded");
+        assertEq(Slot(payable(slot)).lastCollectedAt(), 1_800_000_000);
     }
 
     function test_TotalCollectedAccumulatesAcrossRounds() public {
         address slot = _slotFunded(0, 1_000_000);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         _fund(slot, 500_000);
-        Slot(slot).sweep();
-        assertEq(Slot(slot).totalCollected(), 1_500_000);
+        Slot(payable(slot)).sweep();
+        assertEq(Slot(payable(slot)).totalCollected(), 1_500_000);
     }
 
     function test_QuarantinedSweepCollectsNothing() public {
         address slot = _slotFunded(0, 1_000_000);
         usdc.setBlacklisted(merchant, true);
-        Slot(slot).sweep();
-        assertTrue(Slot(slot).quarantined());
-        assertEq(Slot(slot).totalCollected(), 0);
+        Slot(payable(slot)).sweep();
+        assertTrue(Slot(payable(slot)).quarantined());
+        assertEq(Slot(payable(slot)).totalCollected(), 0);
     }
 }
 
@@ -64,8 +64,8 @@ contract SlotRequestTest is SlotTestBase {
     function test_DeploysTheSameSlotAsPredict() public {
         address predicted = factory.predict(creator, merchant, ref1);
         assertEq(_request(merchant, ref1, 1, "x", 0), predicted);
-        assertEq(Slot(predicted).merchant(), merchant);
-        assertEq(Slot(predicted).maxReimbursement(), MAX_R);
+        assertEq(Slot(payable(predicted)).merchant(), merchant);
+        assertEq(Slot(payable(predicted)).maxReimbursement(), MAX_R);
     }
 
     function test_IndexesRequestsByCreatorNewestLast() public {

@@ -103,10 +103,10 @@ contract SlotVaultForkTest is Test {
 
         vm.txGasPrice(block.basefee);
         vm.prank(relayer);
-        Slot(slot).sweep();
+        Slot(payable(slot)).sweep();
         uint256 inVault = USDC.balanceOf(address(v));
         assertGt(inVault, 990_000, "payout missing");
-        assertFalse(Slot(slot).quarantined(), "real blocklist probe failed for vault");
+        assertFalse(Slot(payable(slot)).quarantined(), "real blocklist probe failed for vault");
 
         uint256 dl = block.timestamp + 1 hours;
         bytes32 d = v.withdrawDigest(payee, inVault, 0, dl);

@@ -17,6 +17,11 @@ vi.mock('@/lib/pq', () => ({
   signDigest: (_seed: string, digest: string) => `0xpq${digest.slice(2, 6)}`,
   backupText: () => '{"kind":"slot-vault-backup"}',
   parseBackup: () => ({ vault: VAULT, chainId: 5042002, seed: SEED }),
+  encryptedBackupText: (b: { box: string }) => JSON.stringify({ kind: 'slot-vault-backup', v: 2, box: b.box }),
+  openBackup: (_text: string, pw: string) => (pw.length >= 12
+    ? Promise.resolve({ vault: VAULT, chainId: 5042002, seed: SEED })
+    : Promise.reject(new Error('Wrong password'))),
+  MIN_VAULT_PASSWORD: 12,
 }))
 
 import { VaultCard } from './VaultCard'
@@ -53,12 +58,13 @@ describe('VaultCard — setup', () => {
     expect(screen.getByRole('button', { name: /set up vault/i })).toBeInTheDocument()
   })
 
-  it('requires matching passwords of at least 8 characters', () => {
+  it('requires matching passwords of at least 12 characters', () => {
     render(<VaultCard chainId={5042002} onVaultChange={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /set up vault/i }))
-    type(/^vault password$/i, 'short')
-    type(/confirm password/i, 'short')
+    type(/^vault password$/i, 'elevenchars')
+    type(/confirm password/i, 'elevenchars')
     expect(screen.getByRole('button', { name: /generate key/i })).toBeDisabled()
+    expect(screen.getByText(/at least 12 characters/i)).toBeInTheDocument()
     type(/^vault password$/i, 'long-enough-pw')
     type(/confirm password/i, 'different-pw!')
     expect(screen.getByRole('button', { name: /generate key/i })).toBeDisabled()
@@ -192,8 +198,8 @@ describe('VaultCard — restore on a new device', () => {
     render(<VaultCard chainId={5042002} onVaultChange={onVaultChange} />)
     fireEvent.click(screen.getByRole('button', { name: /restore from backup/i }))
     type(/backup file contents/i, '{"kind":"slot-vault-backup"}')
-    type(/^vault password$/i, 'new-device-pw')
-    type(/confirm password/i, 'new-device-pw')
+    type(/^vault password$/i, 'new-device-password')
+    type(/confirm password/i, 'new-device-password')
     fireEvent.click(screen.getByRole('button', { name: /restore vault/i }))
   }
   const onVaultChange = vi.fn()
@@ -203,7 +209,7 @@ describe('VaultCard — restore on a new device', () => {
     wagmiState.publicReads = { pqKey: VK, owner: ME }
     restore()
     await waitFor(() => expect(onVaultChange).toHaveBeenCalledWith(VAULT))
-    expect(loadVault(5042002, ME)).toMatchObject({ vault: VAULT, box: 'box:new-device-pw' })
+    expect(loadVault(5042002, ME)).toMatchObject({ vault: VAULT, box: 'box:new-device-password' })
   })
 
   it('refuses a backup for a vault owned by another wallet', async () => {
@@ -217,5 +223,29 @@ describe('VaultCard — restore on a new device', () => {
     wagmiState.publicReads = { pqKey: `0x${'99'.repeat(32)}`, owner: ME }
     restore()
     expect(await screen.findByText(/no longer matches/i)).toBeInTheDocument()
+  })
+})
+
+// v8 (audit L-7): the backup file carries the encrypted key, not the seed.
+describe('VaultCard — encrypted backup', () => {
+  it('builds the backup from the password-encrypted box', async () => {
+    const created: string[] = []
+    // jsdom has no createObjectURL: define it just for this test.
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true,
+      value: vi.fn((b: Blob) => { void b.text().then((t) => created.push(t)); return 'blob:x' }),
+    })
+    wagmiState.publicReads = { predict: VAULT }
+    render(<VaultCard chainId={5042002} onVaultChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /set up vault/i }))
+    type(/^vault password$/i, 'long-enough-pw')
+    type(/confirm password/i, 'long-enough-pw')
+    fireEvent.click(screen.getByRole('button', { name: /generate key/i }))
+    await screen.findByText(/save your backup/i)
+    fireEvent.click(screen.getByRole('button', { name: /download/i }))
+    await vi.waitFor(() => expect(created.length).toBe(1))
+    expect(JSON.parse(created[0])).toEqual({ kind: 'slot-vault-backup', v: 2, box: 'box:long-enough-pw' })
+    expect(created[0]).not.toContain('5e5e')
+    Reflect.deleteProperty(URL, 'createObjectURL')
   })
 })

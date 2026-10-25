@@ -31,19 +31,18 @@ contract CollectorRewardsTest is SlotTestBase {
         assertEq(usdc.balanceOf(address(factory)), 0, "reward stuck in factory");
     }
 
-    function test_SweepForPaysTheNamedAddress() public {
+    /// v8: a reward can only be claimed by the address that collects it.
+    function test_SweepForCannotNameAnotherAddress() public {
         address slot = _slotFunded(0, 1_000_000);
-        address payout = makeAddr("collector-payout");
         vm.prank(collector);
-        Slot(slot).sweepFor(payout);
-        assertGt(usdc.balanceOf(payout), 0);
-        assertEq(usdc.balanceOf(collector), 0);
+        vm.expectRevert(Slot.NotRewardRecipient.selector);
+        Slot(payable(slot)).sweepFor(makeAddr("collector-payout"));
     }
 
-    function test_SweepForMerchantTakesNoReward() public {
+    function test_MerchantSweepForSelfTakesNoReward() public {
         address slot = _slotFunded(0, 1_000_000);
-        vm.prank(collector);
-        Slot(slot).sweepFor(merchant);
+        vm.prank(merchant);
+        Slot(payable(slot)).sweepFor(merchant);
         assertEq(usdc.balanceOf(merchant), 1_000_000, "merchant should get everything");
     }
 }
@@ -66,8 +65,8 @@ contract CollectorStatsTest is SlotTestBase {
     function test_RecordsCollectionsAndUsdcDelivered() public {
         address s1 = _paidSlot(ref1, 1_000_000);
         address s2 = _paidSlot(ref2, 2_000_000);
-        vm.prank(alice); Slot(s1).sweep();
-        vm.prank(alice); Slot(s2).sweep();
+        vm.prank(alice); Slot(payable(s1)).sweep();
+        vm.prank(alice); Slot(payable(s2)).sweep();
 
         (uint64 collections, uint192 delivered) = factory.collectorStats(alice);
         assertEq(collections, 2);
@@ -81,9 +80,9 @@ contract CollectorStatsTest is SlotTestBase {
         address s1 = _paidSlot(ref1, 1_000_000);
         address s2 = _paidSlot(ref2, 1_000_000);
         address s3 = _paidSlot(keccak256("r3"), 1_000_000);
-        vm.prank(alice); Slot(s1).sweep();
-        vm.prank(alice); Slot(s2).sweep();
-        vm.prank(bob);   Slot(s3).sweep();
+        vm.prank(alice); Slot(payable(s1)).sweep();
+        vm.prank(alice); Slot(payable(s2)).sweep();
+        vm.prank(bob);   Slot(payable(s3)).sweep();
 
         assertEq(factory.collectorCount(), 2);
         (address[] memory who, SlotFactory.CollectorStats[] memory stats) = factory.collectorsPage(0, 10);
@@ -97,7 +96,7 @@ contract CollectorStatsTest is SlotTestBase {
     function test_MerchantCollectingOwnSlotIsNotACollector() public {
         address s = _paidSlot(ref1, 1_000_000);
         vm.prank(merchant);
-        Slot(s).sweep();
+        Slot(payable(s)).sweep();
         assertEq(factory.collectorCount(), 0);
         assertEq(factory.totalCollections(), 0);
     }
@@ -112,7 +111,7 @@ contract CollectorStatsTest is SlotTestBase {
         address s = _paidSlot(ref1, 1_000_000);
         usdc.setBlacklisted(merchant, true);
         vm.prank(alice);
-        Slot(s).sweep();
+        Slot(payable(s)).sweep();
         assertEq(factory.totalCollections(), 0);
     }
 }

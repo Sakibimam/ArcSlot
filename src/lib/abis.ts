@@ -209,6 +209,25 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "function",
+    "name": "creatorOf",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "implementation",
     "inputs": [],
     "outputs": [
@@ -297,6 +316,35 @@ export const SLOT_FACTORY_ABI = [
       }
     ],
     "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "recoverSlot",
+    "inputs": [
+      {
+        "name": "creator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "payRef",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "slot",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
@@ -674,6 +722,11 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "error",
+    "name": "OnlyOffArc",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReferenceAlreadyUsed",
     "inputs": []
   },
@@ -700,6 +753,10 @@ export const SLOT_FACTORY_ABI = [
 ] as const
 
 export const SLOT_ABI = [
+  {
+    "type": "receive",
+    "stateMutability": "payable"
+  },
   {
     "type": "function",
     "name": "balance",
@@ -748,6 +805,19 @@ export const SLOT_ABI = [
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "heldFees",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -880,22 +950,19 @@ export const SLOT_ABI = [
   },
   {
     "type": "function",
-    "name": "resolveQuarantine",
+    "name": "releaseHeldFees",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "rescueToken",
     "inputs": [
       {
-        "name": "newMerchant",
+        "name": "token",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "newFeeRecipient",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "newFeeBps",
-        "type": "uint16",
-        "internalType": "uint16"
       }
     ],
     "outputs": [],
@@ -962,7 +1029,7 @@ export const SLOT_ABI = [
   },
   {
     "type": "event",
-    "name": "QuarantineResolved",
+    "name": "FeeHeld",
     "inputs": [
       {
         "name": "slot",
@@ -977,22 +1044,41 @@ export const SLOT_ABI = [
         "internalType": "bytes32"
       },
       {
-        "name": "newMerchant",
+        "name": "feeRecipient",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "newFeeRecipient",
-        "type": "address",
+        "name": "amount",
+        "type": "uint256",
         "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "HeldFeesReleased",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "newFeeBps",
-        "type": "uint16",
+        "name": "feeRecipient",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "uint16"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1085,13 +1171,33 @@ export const SLOT_ABI = [
     "anonymous": false
   },
   {
-    "type": "error",
-    "name": "AlreadyInitialised",
-    "inputs": []
+    "type": "event",
+    "name": "Rescued",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "merchant",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "error",
-    "name": "BadPayout",
+    "name": "AlreadyInitialised",
     "inputs": []
   },
   {
@@ -1101,7 +1207,17 @@ export const SLOT_ABI = [
   },
   {
     "type": "error",
+    "name": "CannotRescueUsdc",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "FeeBpsTooHigh",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FeeRecipientBlocked",
     "inputs": []
   },
   {
@@ -1111,12 +1227,12 @@ export const SLOT_ABI = [
   },
   {
     "type": "error",
-    "name": "NotMerchant",
+    "name": "NativeNotAccepted",
     "inputs": []
   },
   {
     "type": "error",
-    "name": "NotQuarantined",
+    "name": "NotRewardRecipient",
     "inputs": []
   },
   {

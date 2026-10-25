@@ -1,6 +1,6 @@
 # ArcSlot Contract Deployments
 
-## Current (v7)
+## Current (v8)
 
 Deployed by the developer with the repository's deterministic deploy script
 (`bun run deploy:deterministic`), via CREATE2 through the canonical deterministic deployer
@@ -9,12 +9,22 @@ Because CREATE2 was used, the addresses are identical on every supported network
 
 | Contract | Address | Networks | Explorer |
 |---|---|---|---|
-| SlotFactory | `0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A) |
-| Slot (implementation) | `0x5Cdd775C5D1C832f52136a20996AeE0040D299Da` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x5Cdd775C5D1C832f52136a20996AeE0040D299Da) |
+| SlotFactory | `0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49) |
+| Slot (implementation) | `0x136F85f4cb8e3758Fc421c2220FBeebb294D8DE2` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x136F85f4cb8e3758Fc421c2220FBeebb294D8DE2) |
 | VaultFactory | `0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) |
 | SlotVault (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0) |
 
 VaultFactory and SlotVault are unchanged since v5 (same bytecode, same addresses), so existing vaults keep working.
+
+### What changed in v8 (independent review of v7)
+
+Every issue from the developer's independent attack review of v7 is fixed, test-first. Details and the stress-test results are in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md).
+
+- **No blacklist bypass.** A blacklisted merchant's funds stay frozen in the slot until Circle clears the address. `resolveQuarantine` is gone, so nobody can rewrite a slot's payout or fee terms.
+- **A blacklisted fee wallet no longer blocks the merchant.** The merchant is paid, and the fee is held in the slot until `releaseHeldFees()` can pay the original fee recipient.
+- **Native USDC sends work on Arc.** Slots accept native USDC there and refuse native coins elsewhere. `rescueToken` returns any other token to the merchant.
+- **Recovery no longer depends on the creator.** `recoverSlot(creator, merchant, payRef)` lets anyone redeploy a slot off Arc, always with no fee. `creatorOf` records each slot's creator.
+- **Collector limits.** A collector can only claim a reward for itself, which ends griefing and leaderboard spoofing, and a reward never exceeds 10% of the payment.
 
 ### What changed in v7 (white-hat review)
 
@@ -48,6 +58,8 @@ Do not reference these in the app or in tests.
 
 | Version | Contract | Address | Networks | Deployed by | Why superseded |
 |---|---|---|---|---|---|
+| v7 | SlotFactory | `0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A` | Arc Testnet, Ethereum Sepolia | developer's deterministic script | blacklisted merchants could redirect frozen funds (and other v7 review findings) |
+| v7 | Slot impl | `0x5Cdd775C5D1C832f52136a20996AeE0040D299Da` | Arc Testnet, Ethereum Sepolia | developer's deterministic script | replaced with v8 Slot |
 | v6 | SlotFactory | `0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151` | Arc Testnet, Ethereum Sepolia | developer's deterministic script | accepted blacklisted payouts (could lock funds) |
 | v6 | Slot impl | `0xAF526cE35D261330efFa49E62413Ed80CEe5b82C` | Arc Testnet, Ethereum Sepolia | developer's deterministic script | replaced with v7 Slot |
 | v5 | SlotFactory | `0xaaC460901F37E2c250732D1e208e660F23D8E156` | Arc Testnet, Ethereum Sepolia | developer's deterministic script | audit H-1: slot address not bound to its creator |

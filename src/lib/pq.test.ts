@@ -9,6 +9,9 @@ import {
   decryptSeed,
   backupText,
   parseBackup,
+  encryptedBackupText,
+  openBackup,
+  MIN_VAULT_PASSWORD,
 } from './pq'
 
 const SEED = `0x${'5e'.repeat(48)}` as const
@@ -86,5 +89,52 @@ describe('backup', () => {
 
   it('rejects garbage', () => {
     expect(() => parseBackup('hello')).toThrow()
+  })
+})
+
+// v8 (audit L-7): stronger key derivation, encrypted backups, longer passwords.
+describe('key hardening', () => {
+  const vault = '0x00000000000000000000000000000000000000aa'
+  const PW = 'correct horse battery staple'
+
+  it('new boxes record a stronger PBKDF2 work factor', async () => {
+    const box = JSON.parse(await encryptSeed(SEED, PW)) as { v: number; iter: number }
+    expect(box.v).toBe(2)
+    expect(box.iter).toBeGreaterThanOrEqual(600_000)
+  })
+
+  it('still opens boxes written by the previous version (310k, no iter field)', async () => {
+    const salt = crypto.getRandomValues(new Uint8Array(16))
+    const iv = crypto.getRandomValues(new Uint8Array(12))
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(PW), 'PBKDF2', false, ['deriveKey'])
+    const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310_000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt'])
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, hexToBytes(SEED.slice(2))))
+    const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u))
+    const v1 = JSON.stringify({ v: 1, salt: b64(salt), iv: b64(iv), ct: b64(ct) })
+    expect(await decryptSeed(v1, PW)).toBe(SEED)
+  })
+
+  it('backups no longer contain the seed in plain text', async () => {
+    const text = encryptedBackupText({ vault, chainId: 5042002, seed: SEED, box: await encryptSeed(SEED, PW) })
+    // The secret half (SK.seed || SK.prf, first 32 bytes) must never appear; the
+    // public key legitimately starts with PK.seed, the seed's public last third.
+    expect(text).not.toContain('5e'.repeat(32))
+    expect(JSON.parse(text)).toMatchObject({ kind: 'slot-vault-backup', v: 2, vault, chainId: 5042002 })
+  })
+
+  it('opens an encrypted backup with its password, and refuses a wrong one', async () => {
+    const settings = { salt: `0x${'12'.repeat(32)}`, twoKey: true, recoveryDelay: '604800' }
+    const text = encryptedBackupText({ vault, chainId: 5042002, seed: SEED, box: await encryptSeed(SEED, PW), ...settings })
+    expect(await openBackup(text, PW)).toEqual({ vault, chainId: 5042002, seed: SEED, ...settings })
+    await expect(openBackup(text, 'nope-nope-nope')).rejects.toThrow(/password/i)
+  })
+
+  it('still restores old plain-text backups', async () => {
+    const text = backupText({ vault, chainId: 5042002, seed: SEED })
+    expect(await openBackup(text, 'anything')).toEqual({ vault, chainId: 5042002, seed: SEED })
+  })
+
+  it('requires vault passwords of at least 12 characters', () => {
+    expect(MIN_VAULT_PASSWORD).toBeGreaterThanOrEqual(12)
   })
 })

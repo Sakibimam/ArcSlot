@@ -115,8 +115,8 @@ All four contracts are deployed through the standard CREATE2 deployer (`0x4e59�
 
 | Contract | Address | Live on |
 |---|---|---|
-| `Slot` (implementation) | `0x5Cdd775C5D1C832f52136a20996AeE0040D299Da` | Arc testnet, Ethereum Sepolia |
-| `SlotFactory` | [`0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A`](https://explorer.testnet.arc.io/address/0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A) | Arc testnet, Ethereum Sepolia |
+| `Slot` (implementation) | `0x136F85f4cb8e3758Fc421c2220FBeebb294D8DE2` | Arc testnet, Ethereum Sepolia |
+| `SlotFactory` | [`0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49`](https://explorer.testnet.arc.io/address/0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49) | Arc testnet, Ethereum Sepolia |
 | `SlotVault` (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc testnet, Ethereum Sepolia |
 | `VaultFactory` | [`0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97`](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) | Arc testnet, Ethereum Sepolia |
 
@@ -124,7 +124,7 @@ Arc mainnet: not yet deployed. `tip = 2000` (0.002 USDC) and `minSweep = 100000`
 
 Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0xe6f1581977aae624b2c06d2ba305c8c9ba82041d7eddaea261a7ab06455e1c58) — merchant +0.141329 USDC, sweeper reimbursed 0.008671 USDC (0.002 tip + gas refund) vs 0.005873 USDC real gas.
 
-> Earlier testnet factories — `0xCEc73F…1151` (v6, accepted blacklisted payouts), `0xaaC460…E156` (v5, slot address not bound to its creator: audit H-1), `0x387eA5…474c` (no on-chain requests) and `0x34163d…4a45` (no reimbursement cap or base-fee pricing) — are superseded; do not use them.
+> Earlier testnet factories — `0xFe3356…b01A` (v7), `0xCEc73F…1151` (v6, accepted blacklisted payouts), `0xaaC460…E156` (v5, slot address not bound to its creator: audit H-1), `0x387eA5…474c` (no on-chain requests) and `0x34163d…4a45` (no reimbursement cap or base-fee pricing) — are superseded; do not use them.
 
 ## Development
 
