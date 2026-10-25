@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Frontend tests
+        run: bunx vitest run
+      - name: Contracts build
+        run: forge build
+      - name: Contract unit tests
+        # Arc fork tests need arc-forge (Arc's USDC precompile) and run locally via test:all.
+        run: forge test --no-match-path 'contracts/test-{integration,stress}/*'
+      - name: Build
+        run: bun run build
