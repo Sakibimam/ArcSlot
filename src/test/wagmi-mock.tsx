@@ -10,6 +10,8 @@ export const wagmiState = {
   readContract: { data: undefined as unknown },
   /** Per-functionName overrides for useReadContract. */
   readByFn: {} as Record<string, unknown>,
+  /** Every useReadContract call made while rendering, for asserting args. */
+  readCalls: [] as ReadArgs[],
   write: { data: undefined as string | undefined, isPending: false, error: null as Error | null },
   waitReceipt: { data: undefined as unknown, isLoading: false, isSuccess: false },
   writeContract: vi.fn(),
@@ -29,6 +31,7 @@ export function resetWagmi() {
   wagmiState.readContracts = { data: undefined, isLoading: false, isError: false }
   wagmiState.readContract = { data: undefined }
   wagmiState.readByFn = {}
+  wagmiState.readCalls = []
   wagmiState.write = { data: undefined, isPending: false, error: null }
   wagmiState.waitReceipt = { data: undefined, isLoading: false, isSuccess: false }
   wagmiState.writeContract = vi.fn()
@@ -47,6 +50,7 @@ export const wagmiModule = {
   useAccount: () => wagmiState.account,
   useReadContracts: () => ({ ...wagmiState.readContracts, refetch: wagmiState.refetch }),
   useReadContract: (args: ReadArgs) => {
+    wagmiState.readCalls.push(args)
     if (args.query?.enabled === false) return { data: undefined, refetch: wagmiState.refetch }
     const fn = args.functionName ?? ''
     const data = fn in wagmiState.readByFn ? wagmiState.readByFn[fn] : wagmiState.readContract.data

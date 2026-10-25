@@ -28,7 +28,7 @@ function reads(merchant: string, stray: [bigint, bigint, bigint]) {
 beforeEach(() => {
   resetWagmi()
   wagmiState.account = { ...wagmiState.account, address: ME, chainId: 5042002 }
-  vi.mocked(probeRecovery).mockReset().mockResolvedValue({ factoryThere: true, slotThere: false, vaultThere: false })
+  vi.mocked(probeRecovery).mockReset().mockResolvedValue({ factoryThere: true, slotThere: false, vaultThere: false, creatorMatches: true })
   vi.mocked(executeRecovery).mockReset().mockResolvedValue({ recovered: 50_000n })
 })
 
@@ -65,11 +65,28 @@ describe('RecoverPanel', () => {
   })
 
   it('explains when recovery is not set up on that chain yet', async () => {
-    vi.mocked(probeRecovery).mockResolvedValue({ factoryThere: false, slotThere: false, vaultThere: false })
+    vi.mocked(probeRecovery).mockResolvedValue({ factoryThere: false, slotThere: false, vaultThere: false, creatorMatches: true })
     reads(ME, [0n, 0n, 50_000n])
     render(<RecoverPanel arcChainId={5042002} slot={SLOT} />)
     fireEvent.click(screen.getByRole('button', { name: /recover/i }))
     expect(await screen.findByText(/recovery isn.t set up on arbitrum sepolia yet/i)).toBeInTheDocument()
+    expect(executeRecovery).not.toHaveBeenCalled()
+  })
+
+  it('probes as the connected wallet, since slot addresses commit to their creator', async () => {
+    reads(ME, [0n, 50_000n, 0n])
+    render(<RecoverPanel arcChainId={5042002} slot={SLOT} />)
+    fireEvent.click(screen.getByRole('button', { name: /recover/i }))
+    await screen.findByText(/recovered/i)
+    expect(vi.mocked(probeRecovery).mock.calls[0][1]).toMatchObject({ slot: SLOT, wallet: ME, merchant: ME, payRef: REF })
+  })
+
+  it('explains that only the wallet that created the request can recover it', async () => {
+    vi.mocked(probeRecovery).mockResolvedValue({ factoryThere: true, slotThere: false, vaultThere: false, creatorMatches: false })
+    reads(ME, [0n, 50_000n, 0n])
+    render(<RecoverPanel arcChainId={5042002} slot={SLOT} />)
+    fireEvent.click(screen.getByRole('button', { name: /recover/i }))
+    expect(await screen.findByText(/switch to the wallet that created this request/i)).toBeInTheDocument()
     expect(executeRecovery).not.toHaveBeenCalled()
   })
 

@@ -70,9 +70,10 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
     address: factory ?? undefined,
     abi: SLOT_FACTORY_ABI,
     functionName: 'predict',
-    args: payoutInvalid ? undefined : [payout, payRef],
+    // The address commits to the creator (msg.sender of createRequest).
+    args: payoutInvalid || !wallet ? undefined : [wallet, payout, payRef],
     chainId,
-    query: { enabled: !!factory && !payoutInvalid },
+    query: { enabled: !!factory && !payoutInvalid && !!wallet },
   })
 
   const { writeContract, data: txHash, isPending, error, reset } = useWriteContract()

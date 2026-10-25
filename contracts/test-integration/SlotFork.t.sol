@@ -42,7 +42,7 @@ contract SlotForkTest is Test {
 
     function test_Fork_PredictCreateFundSweep() public {
         bytes32 ref = keccak256("fork-order-1");
-        address predicted = factory.predict(merchant, ref);
+        address predicted = factory.predict(address(this), merchant, ref);
         address slot = factory.createSlot(merchant, ref, 0, address(0), MAX_R);
         assertEq(slot, predicted, "predict != deployed on fork");
 

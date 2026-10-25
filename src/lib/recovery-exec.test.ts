@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { executeRecovery, probeRecovery, type ChainIO } from './recovery-exec'
 
-const FACTORY = '0xaaC460901F37E2c250732D1e208e660F23D8E156'
+const FACTORY = '0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151'
 const VAULT_FACTORY = '0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97'
 const SLOT = '0x00000000000000000000000000000000000000a1'
 const WALLET = '0x1111111111111111111111111111111111111111'
@@ -11,7 +11,7 @@ const REF = `0x${'77'.repeat(32)}`
 const DIGEST = `0x${'cd'.repeat(32)}`
 const OWNER_SIG: `0x${string}` = `0x${'0b'.repeat(65)}`
 
-function fakeIO(code: Record<string, boolean> = {}) {
+function fakeIO(code: Record<string, boolean> = {}, predicted: string = SLOT) {
   type Write = { functionName: string; address: string; args?: readonly unknown[] }
   const writes: Write[] = []
   const wait = vi.fn((_hash: `0x${string}`) => Promise.resolve())
@@ -21,6 +21,7 @@ function fakeIO(code: Record<string, boolean> = {}) {
     read: (r: { functionName: string }) => {
       if (r.functionName === 'balanceOf') return Promise.resolve(50_000n)
       if (r.functionName === 'withdrawDigest') return Promise.resolve(DIGEST)
+      if (r.functionName === 'predict') return Promise.resolve(predicted)
       return Promise.reject(new Error(`unexpected read ${r.functionName}`))
     },
     write: (w: Write) => { writes.push(w); return Promise.resolve(`0xhash${writes.length}` as `0x${string}`) },
@@ -35,8 +36,14 @@ const base = { chainId: 11155111, usdc: USDC, factory: FACTORY, vaultFactory: VA
 describe('probeRecovery', () => {
   it('reports what already exists on the foreign chain', async () => {
     const { io } = fakeIO({ [FACTORY.toLowerCase()]: true, [VAULT.toLowerCase()]: true })
-    expect(await probeRecovery(io, { factory: FACTORY, slot: SLOT, vault: VAULT }))
-      .toEqual({ factoryThere: true, slotThere: false, vaultThere: true })
+    expect(await probeRecovery(io, { factory: FACTORY, slot: SLOT, vault: VAULT, wallet: WALLET, merchant: WALLET, payRef: REF }))
+      .toEqual({ factoryThere: true, slotThere: false, vaultThere: true, creatorMatches: true })
+  })
+
+  it('flags a wallet that did not create the request', async () => {
+    const { io } = fakeIO({ [FACTORY.toLowerCase()]: true }, '0x00000000000000000000000000000000000000c3')
+    expect(await probeRecovery(io, { factory: FACTORY, slot: SLOT, wallet: WALLET, merchant: WALLET, payRef: REF }))
+      .toMatchObject({ creatorMatches: false })
   })
 })
 
@@ -74,6 +81,12 @@ describe('executeRecovery', () => {
     const seen: string[] = []
     await executeRecovery(io, { ...base, merchant: WALLET, steps: ['createSlot', 'collect'] }, (s) => seen.push(s))
     expect(seen).toEqual(['createSlot', 'collect'])
+  })
+
+  it('refuses to deploy a slot at a different address than the one paid', async () => {
+    const f = fakeIO({}, '0x00000000000000000000000000000000000000c3')
+    await expect(executeRecovery(f.io, { ...base, merchant: WALLET, steps: ['createSlot', 'collect'] })).rejects.toThrow(/created/i)
+    expect(f.writes).toEqual([])
   })
 
   it('refuses to withdraw without vault details', async () => {

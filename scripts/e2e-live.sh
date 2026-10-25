@@ -22,13 +22,13 @@ echo "sweeper   $ME"
 echo "merchant  $MERCHANT"
 [ "$(echo "$ME" | tr A-F a-f)" != "$(echo "$MERCHANT" | tr A-F a-f)" ] || fail "merchant must differ from sweeper"
 
-PRED=$($CAST call "$FACTORY" 'predict(address,bytes32)(address)' "$MERCHANT" "$REF" --rpc-url "$RPC")
+PRED=$($CAST call "$FACTORY" 'predict(address,address,bytes32)(address)' "$ME" "$MERCHANT" "$REF" --rpc-url "$RPC")
 echo "predicted $PRED"
 
 TX1=$(send "$FACTORY" 'createSlot(address,bytes32,uint16,address,uint256)' "$MERCHANT" "$REF" 0 0x0000000000000000000000000000000000000000 50000 | jq -r .transactionHash)
 echo "create    $TX1"
-SLOT=$($CAST call "$FACTORY" 'slots(address,bytes32)(address)' "$MERCHANT" "$REF" --rpc-url "$RPC")
-[ "$SLOT" = "$PRED" ] || fail "deployed $SLOT != predicted $PRED"
+[ "$($CAST call "$FACTORY" 'isSlot(address)(bool)' "$PRED" --rpc-url "$RPC")" = "true" ] || fail "no slot deployed at predicted $PRED"
+SLOT=$PRED
 
 TX2=$(send $USDC 'transfer(address,uint256)' "$SLOT" "$AMOUNT" | jq -r .transactionHash)
 echo "pay       $TX2"

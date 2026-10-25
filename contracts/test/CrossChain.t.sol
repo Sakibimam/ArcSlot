@@ -82,9 +82,9 @@ contract DeterministicDeployTest is Test {
         address merchant = makeAddr("merchant");
         bytes32 ref = keccak256("inv-1");
         uint256 snap = vm.snapshotState();
-        address onArc = SlotFactory(_deployOn(5042002).slotFactory).predict(merchant, ref);
+        address onArc = SlotFactory(_deployOn(5042002).slotFactory).predict(address(this), merchant, ref);
         vm.revertToState(snap);
-        address onBase = SlotFactory(_deployOn(84532).slotFactory).predict(merchant, ref);
+        address onBase = SlotFactory(_deployOn(84532).slotFactory).predict(address(this), merchant, ref);
         assertEq(onArc, onBase);
     }
 
@@ -117,10 +117,10 @@ contract OffArcSlotTest is Test {
         factory = new SlotFactory(address(new Slot()), 2_000, 100_000);
     }
 
-    /// Someone sent USDC to the slot address on Base by mistake: anyone can
+    /// Someone sent USDC to the slot address on Base by mistake: the creator can
     /// deploy the slot there and the whole amount goes to the merchant.
     function test_RecoversStrayFundsToMerchant() public {
-        address predicted = factory.predict(merchant, ref);
+        address predicted = factory.predict(address(this), merchant, ref);
         usdc.mint(predicted, 50_000); // below Arc's minimum, still recoverable
         address slot = factory.createSlot(merchant, ref, 0, address(0), 50_000);
         assertEq(slot, predicted);

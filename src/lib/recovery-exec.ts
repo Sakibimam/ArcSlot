@@ -18,13 +18,26 @@ export interface ChainIO {
 
 const hasCode = (c: string | undefined) => !!c && c !== '0x'
 
-export async function probeRecovery(io: ChainIO, p: { factory: string; slot: string; vault?: string }) {
+/** The address this wallet's createSlot would deploy; slots commit to their creator. */
+const predictFor = (io: ChainIO, p: { factory: string; wallet: string; merchant: string; payRef: string }) =>
+  io.read({
+    address: p.factory as Hex, abi: SLOT_FACTORY_ABI, functionName: 'predict', args: [p.wallet, p.merchant, p.payRef],
+  }) as Promise<string>
+
+const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+
+export async function probeRecovery(
+  io: ChainIO,
+  p: { factory: string; slot: string; vault?: string; wallet: string; merchant: string; payRef: string },
+) {
   const [factory, slot, vault] = await Promise.all([
     io.getCode(p.factory),
     io.getCode(p.slot),
     p.vault ? io.getCode(p.vault) : Promise.resolve(undefined),
   ])
-  return { factoryThere: hasCode(factory), slotThere: hasCode(slot), vaultThere: hasCode(vault) }
+  const found = { factoryThere: hasCode(factory), slotThere: hasCode(slot), vaultThere: hasCode(vault) }
+  if (!found.factoryThere || found.slotThere) return { ...found, creatorMatches: true }
+  return { ...found, creatorMatches: sameAddress(await predictFor(io, p), p.slot) }
 }
 
 /** maxReimbursement for the recovery slot; must be >= the factory tip (0.002 USDC). Unused off Arc. */
@@ -50,6 +63,11 @@ export async function executeRecovery(
   const send = async (args: Parameters<ChainIO['write']>[0]) => io.wait(await io.write(args))
   const balanceOf = (who: string) =>
     io.read({ address: p.usdc as Hex, abi: erc20Abi, functionName: 'balanceOf', args: [who] }) as Promise<bigint>
+
+  // Checked before any transaction: another wallet's slot would land elsewhere.
+  if (p.steps.includes('createSlot') && !sameAddress(await predictFor(io, p), p.slot)) {
+    throw new Error('Only the wallet that created this request can recover it')
+  }
 
   let recovered = 0n
   for (const step of p.steps) {

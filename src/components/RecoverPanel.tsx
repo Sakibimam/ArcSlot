@@ -81,14 +81,18 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
         write: (args) => writeContractAsync(args as never),
         signMessage: (digest) => signMessageAsync({ message: { raw: digest } }),
       })
-      const found = await probeRecovery(io, { factory, slot, vault: payout === 'vault' ? record?.vault : undefined })
+      const found = await probeRecovery(io, {
+        factory, slot, vault: payout === 'vault' ? record?.vault : undefined, wallet, merchant: payee, payRef,
+      })
       const plan = planRecovery({ ...found, payout, vault })
       if (!plan.ok) {
         say(plan.reason === 'not-deployed'
           ? `Recovery isn't set up on ${chain.name} yet. It will work once Slot is deployed there.`
           : plan.reason === 'vault-settings-missing'
             ? 'Restore your vault backup on this device first; recovery needs its settings.'
-            : 'Only the payee can recover this.')
+            : plan.reason === 'not-creator'
+              ? 'Switch to the wallet that created this request; only it can recover the payment.'
+              : 'Only the payee can recover this.')
         return
       }
       const { recovered } = await executeRecovery(io, {

@@ -63,6 +63,19 @@ describe('CreateRequest', () => {
     expect(call.args[0]).toBe(OTHER)
   })
 
+  // The slot address commits to its creator (audit H-1), so predict must ask
+  // for the address the connected wallet will get — not anyone's.
+  it('predicts the slot address for the connected wallet as creator', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /change/i }))
+    fill(/payout address/i, OTHER)
+    const predicts = wagmiState.readCalls.filter((c) => c.functionName === 'predict')
+    const predict = predicts[predicts.length - 1]
+    expect(predict?.args?.[0]).toBe(ME)
+    expect(predict?.args?.[1]).toBe(OTHER)
+    expect(predict?.args?.[2]).toMatch(/^0x[0-9a-f]{64}$/)
+  })
+
   it('hides fee and gas settings under Advanced', () => {
     render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
     expect(screen.queryByLabelText(/platform fee/i)).not.toBeInTheDocument()

@@ -62,7 +62,7 @@ contract SlotRequestTest is SlotTestBase {
     }
 
     function test_DeploysTheSameSlotAsPredict() public {
-        address predicted = factory.predict(merchant, ref1);
+        address predicted = factory.predict(creator, merchant, ref1);
         assertEq(_request(merchant, ref1, 1, "x", 0), predicted);
         assertEq(Slot(predicted).merchant(), merchant);
         assertEq(Slot(predicted).maxReimbursement(), MAX_R);
@@ -114,7 +114,7 @@ contract SlotRequestTest is SlotTestBase {
     }
 
     function test_EmitsRequestCreated() public {
-        address predicted = factory.predict(merchant, ref1);
+        address predicted = factory.predict(creator, merchant, ref1);
         vm.expectEmit(true, true, true, true, address(factory));
         emit SlotFactory.RequestCreated(predicted, creator, merchant, 1_000_000, "Coffee", 0);
         _request(merchant, ref1, 1_000_000, "Coffee", 0);

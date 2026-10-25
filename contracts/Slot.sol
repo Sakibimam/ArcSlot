@@ -125,6 +125,15 @@ contract Slot is ReentrancyGuard {
         bytes32 indexed payRef_
     );
 
+    /// @dev Emitted when the merchant clears a quarantine with new terms.
+    event QuarantineResolved(
+        address indexed slot,
+        bytes32 indexed payRef_,
+        address newMerchant,
+        address newFeeRecipient,
+        uint16  newFeeBps
+    );
+
     // ─── Errors ────────────────────────────────────────────────────────────────
 
     error AlreadyInitialised();
@@ -316,6 +325,7 @@ contract Slot is ReentrancyGuard {
         merchant      = newMerchant;
         feeRecipient  = newFeeRecipient;
         feeBps        = newFeeBps;
+        emit QuarantineResolved(address(this), payRef, newMerchant, newFeeRecipient, newFeeBps);
     }
 
     // ─── Internal helpers ──────────────────────────────────────────────────────

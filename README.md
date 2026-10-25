@@ -111,23 +111,20 @@ SlotFactory.createSlot(merchant, payRef, feeBps, feeRecipient, maxReimbursement)
 
 ## Deployments
 
-| Network | Contract | Address |
-|---|---|---|
 All four contracts are deployed through the standard CREATE2 deployer (`0x4e59…956C`), so they have **the same address on every chain**:
 
 | Contract | Address | Live on |
 |---|---|---|
-| `Slot` (implementation) | `0x5154cec13C1B652FdA465D92fe74aA42FEadfC04` | Arc testnet, Ethereum Sepolia |
-| `SlotFactory` | [`0xaaC460901F37E2c250732D1e208e660F23D8E156`](https://explorer.testnet.arc.io/address/0xaaC460901F37E2c250732D1e208e660F23D8E156) | Arc testnet, Ethereum Sepolia |
+| `Slot` (implementation) | `0xAF526cE35D261330efFa49E62413Ed80CEe5b82C` | Arc testnet, Ethereum Sepolia |
+| `SlotFactory` | [`0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151`](https://explorer.testnet.arc.io/address/0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151) | Arc testnet, Ethereum Sepolia |
 | `SlotVault` (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc testnet, Ethereum Sepolia |
 | `VaultFactory` | [`0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97`](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) | Arc testnet, Ethereum Sepolia |
-| Arc Mainnet | — | not yet deployed |
 
-`tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… PRIVATE_KEY=… bun run deploy:deterministic` (idempotent).
+Arc mainnet: not yet deployed. `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… PRIVATE_KEY=… bun run deploy:deterministic` (idempotent). See [`DEPLOYMENTS.md`](DEPLOYMENTS.md) for history and [`AUDIT.md`](AUDIT.md) for the Arc Studio security review.
 
-Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0x636ab3e055171daf3cf49e0741b0975dec7c4841f9f593a1ff850242abd03436) — merchant +0.144646 USDC, sweeper reimbursed 0.005354 USDC vs 0.002388 USDC real gas.
+Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0x061591d77618a3fe93ca6dacbc81af7d084111bcd4de6dc5d14809a449215a42) — merchant +0.141329 USDC, sweeper reimbursed 0.008671 USDC (0.002 tip + gas refund) vs 0.005873 USDC real gas.
 
-> Earlier testnet factories `0x387eA5…474c` (no on-chain requests) and `0x34163d…4a45` predate newer features; `0x34163d…4a45` predates the reimbursement cap and base-fee pricing — do not use it.
+> Earlier testnet factories — `0xaaC460…E156` (v5, slot address not bound to its creator: audit H-1), `0x387eA5…474c` (no on-chain requests) and `0x34163d…4a45` (no reimbursement cap or base-fee pricing) — are superseded; do not use them.
 
 ## Development
 

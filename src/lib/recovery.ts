@@ -14,7 +14,7 @@ export interface VaultSettings {
 
 export type RecoveryPlan =
   | { ok: true; steps: RecoveryStep[] }
-  | { ok: false; reason: 'not-deployed' | 'vault-settings-missing' | 'not-yours' }
+  | { ok: false; reason: 'not-deployed' | 'vault-settings-missing' | 'not-yours' | 'not-creator' }
 
 export function planRecovery(s: {
   /** SlotFactory deployed on the foreign chain */
@@ -24,9 +24,12 @@ export function planRecovery(s: {
   payout: 'wallet' | 'vault' | 'other'
   vaultThere?: boolean
   vault?: VaultSettings
+  /** Whether this wallet's createSlot lands on the paid address (it commits to the creator) */
+  creatorMatches?: boolean
 }): RecoveryPlan {
   if (s.payout === 'other') return { ok: false, reason: 'not-yours' }
   if (!s.factoryThere) return { ok: false, reason: 'not-deployed' }
+  if (!s.slotThere && s.creatorMatches === false) return { ok: false, reason: 'not-creator' }
   const steps: RecoveryStep[] = []
   if (s.payout === 'vault') {
     if (!s.vaultThere && !s.vault) return { ok: false, reason: 'vault-settings-missing' }

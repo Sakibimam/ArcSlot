@@ -257,6 +257,11 @@ export const SLOT_FACTORY_ABI = [
     "name": "predict",
     "inputs": [
       {
+        "name": "creator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "merchant",
         "type": "address",
         "internalType": "address"
@@ -407,30 +412,6 @@ export const SLOT_FACTORY_ABI = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "slots",
-    "inputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -613,6 +594,12 @@ export const SLOT_FACTORY_ABI = [
         "type": "bytes32",
         "indexed": true,
         "internalType": "bytes32"
+      },
+      {
+        "name": "creator",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       },
       {
         "name": "feeBps",
@@ -967,6 +954,43 @@ export const SLOT_ABI = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "QuarantineResolved",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "payRef_",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newMerchant",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newFeeRecipient",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newFeeBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",

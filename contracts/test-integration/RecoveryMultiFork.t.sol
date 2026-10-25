@@ -25,7 +25,7 @@ contract RecoveryMultiForkTest is Test {
         // Arc testnet: where the request was made.
         vm.createSelectFork(ARC_RPC);
         DeployDeterministic.Deployment memory onArc = new DeployDeterministic().deployAll();
-        address slotOnArc = SlotFactory(onArc.slotFactory).predict(merchant, ref);
+        address slotOnArc = SlotFactory(onArc.slotFactory).predict(address(this), merchant, ref);
 
         // Ethereum Sepolia: where the payer sent USDC by mistake.
         vm.createSelectFork(SEPOLIA_RPC);
@@ -35,7 +35,7 @@ contract RecoveryMultiForkTest is Test {
 
         SlotFactory factory = SlotFactory(onSepolia.slotFactory);
         assertEq(factory.usdc(), address(SEPOLIA_USDC));
-        address slotOnSepolia = factory.predict(merchant, ref);
+        address slotOnSepolia = factory.predict(address(this), merchant, ref);
         assertEq(slotOnSepolia, slotOnArc, "slot address differs across chains");
 
         // The mistake: real Sepolia USDC sent to the Arc slot address.
@@ -43,7 +43,7 @@ contract RecoveryMultiForkTest is Test {
         vm.prank(PAYER);
         assertTrue(SEPOLIA_USDC.transfer(slotOnSepolia, amount));
 
-        // Recovery: anyone deploys the slot there and collects; all of it goes to the merchant.
+        // Recovery: the creator redeploys the slot there; anyone collects; all of it goes to the merchant.
         assertEq(factory.createSlot(merchant, ref, 0, address(0), 50_000), slotOnSepolia);
         vm.prank(stranger);
         Slot(slotOnSepolia).sweep();

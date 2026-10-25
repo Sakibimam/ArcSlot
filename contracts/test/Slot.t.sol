@@ -137,27 +137,27 @@ contract SlotTestBase is Test {
 
 contract PredictTest is SlotTestBase {
     function test_PredictMatchesDeployed() public {
-        address predicted = factory.predict(merchant, ref1);
+        address predicted = factory.predict(address(this), merchant, ref1);
         address deployed  = factory.createSlot(merchant, ref1, 100, feeRecipient, MAX_R);
         assertEq(predicted, deployed, "predict != deployed");
     }
 
     function test_PredictIsIdempotent() public view {
-        assertEq(factory.predict(merchant, ref1), factory.predict(merchant, ref1));
+        assertEq(factory.predict(address(this), merchant, ref1), factory.predict(address(this), merchant, ref1));
     }
 
     function test_DifferentRefsGiveDifferentAddresses() public view {
-        assertTrue(factory.predict(merchant, ref1) != factory.predict(merchant, ref2));
+        assertTrue(factory.predict(address(this), merchant, ref1) != factory.predict(address(this), merchant, ref2));
     }
 
     function test_DifferentMerchantsSameRefGiveDifferentAddresses() public {
         address m2 = makeAddr("m2");
-        assertTrue(factory.predict(merchant, ref1) != factory.predict(m2, ref1));
+        assertTrue(factory.predict(address(this), merchant, ref1) != factory.predict(address(this), m2, ref1));
     }
 
     function testFuzz_PredictNonZero(address m, bytes32 r) public view {
         vm.assume(m != address(0));
-        assertTrue(factory.predict(m, r) != address(0));
+        assertTrue(factory.predict(address(this), m, r) != address(0));
     }
 }
 

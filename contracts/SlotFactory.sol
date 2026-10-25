@@ -28,17 +28,13 @@ contract SlotFactory {
     ///         forwarded to every clone.
     uint256 public immutable minSweep;
 
-    // ─── State ─────────────────────────────────────────────────────────────────
-
-    /// @dev merchant => payRef => slot address (non-zero once deployed).
-    mapping(address => mapping(bytes32 => address)) public slots;
-
     // ─── Events ────────────────────────────────────────────────────────────────
 
     event SlotCreated(
         address indexed slot,
         address indexed merchant,
         bytes32 indexed payRef,
+        address creator,
         uint16  feeBps,
         address feeRecipient
     );
@@ -126,9 +122,11 @@ contract SlotFactory {
 
     // ─── Public interface ──────────────────────────────────────────────────────
 
-    /// @notice Deploy a new Slot clone for (merchant, payRef).
+    /// @notice Deploy a new Slot clone for (msg.sender, merchant, payRef).
+    ///         The address commits to the caller, so nobody can front-run a
+    ///         merchant's slot with different fee terms at the same address.
     /// @param merchant      Address that will receive swept USDC.
-    /// @param payRef        Off-chain payment reference; unique per merchant.
+    /// @param payRef        Off-chain payment reference; unique per creator and merchant.
     /// @param feeBps        Fee in basis points (0-1000, i.e. 0-10%).
     /// @param feeRecipient  Receives the fee portion; must be non-zero when feeBps > 0.
     /// @param maxReimbursement Cap on a stranger sweeper's gas refund + tip
@@ -248,13 +246,12 @@ contract SlotFactory {
         if (feeBps > 1000)                            revert FeeBpsTooHigh();
         if (feeBps > 0 && feeRecipient == address(0)) revert ZeroFeeRecipient();
         if (maxReimbursement < tip)                   revert MaxReimbursementBelowTip();
-        if (slots[merchant][payRef] != address(0))    revert ReferenceAlreadyUsed();
 
-        bytes32 salt_ = _salt(merchant, payRef);
+        bytes32 salt_ = _salt(msg.sender, merchant, payRef);
+        if (isSlot[implementation.predictDeterministicAddress(salt_)]) revert ReferenceAlreadyUsed();
         slot = implementation.cloneDeterministic(salt_);
 
         // Record before external call (CEI).
-        slots[merchant][payRef] = slot;
         isSlot[slot] = true;
         _allSlots.push(slot);
 
@@ -269,21 +266,23 @@ contract SlotFactory {
             feeRecipient
         );
 
-        emit SlotCreated(slot, merchant, payRef, feeBps, feeRecipient);
+        emit SlotCreated(slot, merchant, payRef, msg.sender, feeBps, feeRecipient);
     }
 
-    /// @notice Predict the deterministic address for (merchant, payRef)
-    ///         without deploying. Returns the same address createSlot would produce.
-    function predict(address merchant, bytes32 payRef)
+    /// @notice Predict the deterministic address `creator` gets from
+    ///         createSlot/createRequest for (merchant, payRef), without deploying.
+    function predict(address creator, address merchant, bytes32 payRef)
         external
         view
         returns (address)
     {
-        return implementation.predictDeterministicAddress(_salt(merchant, payRef));
+        return implementation.predictDeterministicAddress(_salt(creator, merchant, payRef));
     }
 
     /// @notice Sweep a batch of Slot addresses. Each slot's sweep() is called
     ///         in a try/catch so one failing slot cannot block the rest.
+    ///         Gas is not capped per slot, so an oversized batch can exceed the
+    ///         block gas limit; callers should keep batches small.
     /// @param slotAddresses Array of Slot clone addresses to sweep.
     function sweepMany(address[] calldata slotAddresses) external {
         uint256 n = slotAddresses.length;
@@ -301,7 +300,7 @@ contract SlotFactory {
 
     // ─── Internal ──────────────────────────────────────────────────────────────
 
-    function _salt(address merchant, bytes32 payRef) internal pure returns (bytes32) {
-        return keccak256(abi.encode(merchant, payRef));
+    function _salt(address creator, address merchant, bytes32 payRef) internal pure returns (bytes32) {
+        return keccak256(abi.encode(creator, merchant, payRef));
     }
 }

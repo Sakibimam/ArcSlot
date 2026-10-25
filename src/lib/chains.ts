@@ -23,7 +23,7 @@ export function getChainMeta(chainId: SupportedChainId) {
 // Replace these with real addresses once createSlot is deployed on each chain.
 export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
   [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000', // not yet deployed
-  [ARC_TESTNET_ID]: '0xaaC460901F37E2c250732D1e208e660F23D8E156',
+  [ARC_TESTNET_ID]: '0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151',
 };
 
 // Quantum-safe vault factory (SlotVault clones). Zero address = not yet deployed.
