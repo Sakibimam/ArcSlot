@@ -8,6 +8,7 @@ import { loadVault } from '@/lib/vault-store'
 import { useChainRequests } from '@/lib/use-chain-requests'
 import { RequestCard } from '@/components/RequestCard'
 import { PayPage } from '@/components/PayPage'
+import { Leaderboard } from '@/components/Leaderboard'
 import { Card } from '@/components/ui'
 import { type SupportedChainId, getFactoryAddress } from '@/lib/chains'
 import { type Route, parseRoute } from '@/lib/links'
@@ -54,6 +55,17 @@ export default function App() {
   const handleSwept = useCallback((address: string, receipt: ReceiptData) => {
     setRequests((prev) => prev.map((r) => (r.address === address ? { ...r, receipt } : r)))
   }, [])
+
+  if (route.page === 'collectors') {
+    return (
+      <div className="min-h-dvh flex flex-col">
+        <Header chainId={chainId} onChainChange={setChainId} />
+        <main className="flex-1 mx-auto w-full max-w-2xl px-4 pt-6 pb-24 sm:pt-10">
+          <Leaderboard chainId={chainId} />
+        </main>
+      </div>
+    )
+  }
 
   if (route.page !== 'merchant') {
     return (

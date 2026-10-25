@@ -52,6 +52,24 @@ contract SlotFactory {
     error ReferenceAlreadyUsed();
     error MaxReimbursementBelowTip();
     error FeeNotAllowedOffArc();
+    error NotSlot();
+
+    // ─── Registry and collector leaderboard ───────────────────────────────────
+
+    /// @notice True for every slot this factory deployed.
+    mapping(address => bool) public isSlot;
+    address[] internal _allSlots;
+
+    struct CollectorStats {
+        uint64  collections; // sweeps by this collector (not the merchant)
+        uint192 delivered;   // gross USDC those sweeps moved (6-decimal)
+    }
+    mapping(address => CollectorStats) public collectorStats;
+    address[] internal _collectors;
+    uint256 public totalCollections;
+    uint256 public totalDelivered;
+
+    event Collected(address indexed collector, address indexed slot, uint256 gross);
     error LabelTooLong();
     error BadExpiry();
 
@@ -155,6 +173,48 @@ contract SlotFactory {
         emit RequestCreated(slot, msg.sender, merchant, amount, label, expiresAt);
     }
 
+    /// @notice Called by this factory's slots when someone other than the
+    ///         merchant collects. Feeds the public collector leaderboard.
+    function recordCollect(address collector, uint256 gross) external {
+        if (!isSlot[msg.sender]) revert NotSlot();
+        CollectorStats storage st = collectorStats[collector];
+        if (st.collections == 0) _collectors.push(collector);
+        st.collections += 1;
+        st.delivered   += uint192(gross);
+        totalCollections += 1;
+        totalDelivered   += gross;
+        emit Collected(collector, msg.sender, gross);
+    }
+
+    function slotCount() external view returns (uint256) {
+        return _allSlots.length;
+    }
+
+    /// @notice Every slot, oldest first, paginated (lets collector bots find
+    ///         work with view calls instead of log scans).
+    function slotsPage(uint256 offset, uint256 limit) external view returns (address[] memory page) {
+        page = _page(_allSlots, offset, limit);
+    }
+
+    function collectorCount() external view returns (uint256) {
+        return _collectors.length;
+    }
+
+    function collectorsPage(uint256 offset, uint256 limit)
+        external view returns (address[] memory who, CollectorStats[] memory stats)
+    {
+        who = _page(_collectors, offset, limit);
+        stats = new CollectorStats[](who.length);
+        for (uint256 i; i < who.length; ++i) stats[i] = collectorStats[who[i]];
+    }
+
+    function _page(address[] storage all, uint256 offset, uint256 limit) internal view returns (address[] memory page) {
+        if (offset >= all.length) return new address[](0);
+        uint256 end = offset + limit > all.length ? all.length : offset + limit;
+        page = new address[](end - offset);
+        for (uint256 i = offset; i < end; ++i) page[i - offset] = all[i];
+    }
+
     function requestOf(address slot) external view returns (Request memory) {
         return _requests[slot];
     }
@@ -195,6 +255,8 @@ contract SlotFactory {
 
         // Record before external call (CEI).
         slots[merchant][payRef] = slot;
+        isSlot[slot] = true;
+        _allSlots.push(slot);
 
         Slot(slot).initialize(
             ChainConfig.usdc(),
@@ -227,7 +289,9 @@ contract SlotFactory {
         uint256 n = slotAddresses.length;
         for (uint256 i; i < n; ++i) {
             if (slotAddresses[i] == address(0)) continue;
-            try Slot(slotAddresses[i]).sweep() {
+            // sweepFor: inside the slot msg.sender is this factory, so name the
+            // real caller or the reward would be stuck here.
+            try Slot(slotAddresses[i]).sweepFor(msg.sender) {
                 // success
             } catch {
                 // swallow: one bad slot cannot block the rest

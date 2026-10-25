@@ -34,10 +34,10 @@ Deterministic (same address on every chain, deployed on Arc testnet + Ethereum S
 
 | Contract | Address |
 |---|---|
-| Slot impl | `0x71A38b3C3A7951391e79C8849c9Eca00878f27eF` |
-| SlotFactory | `0x9A8aa8de71f26611695cD419174C3a972D317aB3` |
-| SlotVault impl | `0x525c4b333FD8855655b79D7922411cCffB2A50fa` |
-| VaultFactory | `0x16cFCACE90Be16C52F1243746626Afd3878Aeb22` |
+| Slot impl | `0x5154cec13C1B652FdA465D92fe74aA42FEadfC04` |
+| SlotFactory | `0xaaC460901F37E2c250732D1e208e660F23D8E156` |
+| SlotVault impl | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` |
+| VaultFactory | `0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97` |
 
 Old testnet factory `0x34163d…4a45` predates `maxReimbursement` / base-fee pricing — do not use.
 

@@ -94,3 +94,13 @@ describe('App — requests from the chain', () => {
     expect(screen.getByText('From my phone')).toBeInTheDocument()
   })
 })
+
+describe('App — collectors page', () => {
+  it('renders the leaderboard at #/collect', () => {
+    window.location.hash = '#/collect'
+    wagmiState.readContracts = { isLoading: false, isError: false, data: [{ result: 0n }, { result: 0n }, { result: [[], []] }] }
+    render(<App />)
+    expect(screen.getByRole('heading', { name: /collectors/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /request a payment/i })).not.toBeInTheDocument()
+  })
+})

@@ -38,6 +38,84 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "function",
+    "name": "collectorCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "collectorStats",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "collections",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "delivered",
+        "type": "uint192",
+        "internalType": "uint192"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "collectorsPage",
+    "inputs": [
+      {
+        "name": "offset",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "who",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "stats",
+        "type": "tuple[]",
+        "internalType": "struct SlotFactory.CollectorStats[]",
+        "components": [
+          {
+            "name": "collections",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "delivered",
+            "type": "uint192",
+            "internalType": "uint192"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "createRequest",
     "inputs": [
       {
@@ -144,6 +222,25 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "function",
+    "name": "isSlot",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "minSweep",
     "inputs": [],
     "outputs": [
@@ -178,6 +275,24 @@ export const SLOT_FACTORY_ABI = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recordCollect",
+    "inputs": [
+      {
+        "name": "collector",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "gross",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -285,6 +400,19 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "function",
+    "name": "slotCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "slots",
     "inputs": [
       {
@@ -303,6 +431,30 @@ export const SLOT_FACTORY_ABI = [
         "name": "",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "slotsPage",
+    "inputs": [
+      {
+        "name": "offset",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "page",
+        "type": "address[]",
+        "internalType": "address[]"
       }
     ],
     "stateMutability": "view"
@@ -335,6 +487,32 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "function",
+    "name": "totalCollections",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalDelivered",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "usdc",
     "inputs": [],
     "outputs": [
@@ -345,6 +523,31 @@ export const SLOT_FACTORY_ABI = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "Collected",
+    "inputs": [
+      {
+        "name": "collector",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "slot",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "gross",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -474,6 +677,11 @@ export const SLOT_FACTORY_ABI = [
   },
   {
     "type": "error",
+    "name": "NotSlot",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReferenceAlreadyUsed",
     "inputs": []
   },
@@ -509,6 +717,19 @@ export const SLOT_ABI = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "factory",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"
@@ -697,6 +918,19 @@ export const SLOT_ABI = [
   },
   {
     "type": "function",
+    "name": "sweepFor",
+    "inputs": [
+      {
+        "name": "rewardTo",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "tip",
     "inputs": [],
     "outputs": [
@@ -880,6 +1114,11 @@ export const SLOT_ABI = [
   {
     "type": "error",
     "name": "ZeroMerchant",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroRewardTo",
     "inputs": []
   },
   {

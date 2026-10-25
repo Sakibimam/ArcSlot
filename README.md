@@ -41,6 +41,15 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 - Each Slot records `totalCollected`, so a request still reads as paid after the merchant collects, and as collected on any device.
 - The factory indexes requests by creator (`requestsOf`), so the dashboard loads from the chain on any device.
 
+### Collect-to-earn
+
+Anyone can collect a paid request and send it to the merchant, earning the slot's USDC gas refund (priced at the base fee) plus a 0.002 USDC tip. Only the collector's own priority fee isn't refunded.
+
+- **Bot:** `COLLECTOR_PRIVATE_KEY=0x… bun run collect` pages through every slot (`SlotFactory.slotsPage`, plain view calls — Arc's RPC rejects even 10k-block log ranges), simulates `sweepFor(itself)`, and collects when its priority fee is below the tip. `--once` runs a single pass; `NETWORK=mainnet` for mainnet.
+- **Leaderboard:** each non-merchant collection is recorded on-chain in the factory (`collectorStats`, `collectorsPage`, totals); the app shows it at `#/collect`. The record is written inside the gas-measured window, so collectors are refunded for it.
+- **Fixed:** `SlotFactory.sweepMany` used to pay the reward to the factory (inside the slot `msg.sender` was the factory), where it was stuck. Slots now have `sweepFor(rewardTo)`, and `sweepMany` names the real caller.
+- Verified live: one bot pass collected two paid requests on Arc testnet for +0.002784 and +0.002881 USDC net, and the leaderboard recorded 2 collections / 0.30 USDC delivered.
+
 ### Wrong-network recovery
 
 If a payer sends USDC to a Slot's address on the wrong chain (say, an exchange withdrawal on Ethereum instead of Arc), the merchant can recover it.
@@ -108,10 +117,10 @@ All four contracts are deployed through the standard CREATE2 deployer (`0x4e59�
 
 | Contract | Address | Live on |
 |---|---|---|
-| `Slot` (implementation) | `0x71A38b3C3A7951391e79C8849c9Eca00878f27eF` | Arc testnet, Ethereum Sepolia |
-| `SlotFactory` | [`0x9A8aa8de71f26611695cD419174C3a972D317aB3`](https://explorer.testnet.arc.io/address/0x9A8aa8de71f26611695cD419174C3a972D317aB3) | Arc testnet, Ethereum Sepolia |
-| `SlotVault` (implementation) | `0x525c4b333FD8855655b79D7922411cCffB2A50fa` | Arc testnet, Ethereum Sepolia |
-| `VaultFactory` | [`0x16cFCACE90Be16C52F1243746626Afd3878Aeb22`](https://explorer.testnet.arc.io/address/0x16cFCACE90Be16C52F1243746626Afd3878Aeb22) | Arc testnet, Ethereum Sepolia |
+| `Slot` (implementation) | `0x5154cec13C1B652FdA465D92fe74aA42FEadfC04` | Arc testnet, Ethereum Sepolia |
+| `SlotFactory` | [`0xaaC460901F37E2c250732D1e208e660F23D8E156`](https://explorer.testnet.arc.io/address/0xaaC460901F37E2c250732D1e208e660F23D8E156) | Arc testnet, Ethereum Sepolia |
+| `SlotVault` (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc testnet, Ethereum Sepolia |
+| `VaultFactory` | [`0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97`](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) | Arc testnet, Ethereum Sepolia |
 | Arc Mainnet | — | not yet deployed |
 
 `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… PRIVATE_KEY=… bun run deploy:deterministic` (idempotent).
@@ -151,9 +160,9 @@ bun run build        # Vite production build → dist/
 ### Contracts
 
 ```bash
-bun run contracts:test        # 117 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
+bun run contracts:test        # 127 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
 bun run contracts:test:fork   # 16 fork tests: Arc mainnet (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; --ffi) + a two-chain Arc testnet/Sepolia recovery test
-bun run test                  # 170 Vitest unit + component integration tests
+bun run test                  # 183 Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```

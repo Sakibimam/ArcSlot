@@ -22,6 +22,7 @@ export function Header({ chainId, onChainChange }: HeaderProps) {
         </a>
 
         <div className="flex items-center gap-2">
+          <a href="#/collect" className="text-sm font-semibold px-2" style={{ color: 'var(--accent)' }}>Earn</a>
           {chainId !== undefined && onChainChange && (
             <div className="flex rounded-xl p-1 gap-1" style={{ background: 'var(--surface-muted)' }} role="group" aria-label="Network">
               {([

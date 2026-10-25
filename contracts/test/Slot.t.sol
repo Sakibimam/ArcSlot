@@ -889,6 +889,9 @@ contract ReimbursementCapTest is SlotTestBase {
     /// 20 gwei base fee and the sweep reverted GasTooHigh. Reimbursement must
     /// follow the network base fee, not the sweeper's chosen tip.
     function test_PriorityTipDoesNotInflateReimbursement() public {
+        // A collector's first-ever sweep also registers them on the leaderboard
+        // (refunded, so it costs more gas); compare two repeat sweeps.
+        _reimbursementAt(20 gwei, 21 gwei, keccak256("warm-up"));
         uint256 normal   = _reimbursementAt(20 gwei, 21 gwei,  ref1);
         uint256 inflated = _reimbursementAt(20 gwei, 600 gwei, ref2);
         assertApproxEqAbs(inflated, normal, 50, "priority tip inflated reimbursement");

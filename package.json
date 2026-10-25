@@ -24,7 +24,8 @@
     "test:e2e:chain": "bash scripts/e2e-live.sh",
     "test:e2e:crosschain": "node scripts/e2e-ui-crosschain.mjs",
     "test:e2e:recovery": "node scripts/e2e-ui-recovery.mjs",
-    "deploy:deterministic": "bash scripts/deploy-deterministic.sh"
+    "deploy:deterministic": "bash scripts/deploy-deterministic.sh",
+    "collect": "bun scripts/collector.ts"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.19.2",

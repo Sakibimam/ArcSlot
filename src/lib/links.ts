@@ -11,6 +11,7 @@ const MAX_LABEL = 80
 
 export type Route =
   | { page: 'merchant' }
+  | { page: 'collectors' }
   | { page: 'invalid-pay' }
   | { page: 'pay'; chainId: SupportedChainId; slot: string; amount: bigint | undefined; label: string | undefined }
 
@@ -23,6 +24,7 @@ export function buildPayHash(p: { chainId: number; slot: string; amount?: bigint
 }
 
 export function parseRoute(hash: string): Route {
+  if (hash === '#/collect') return { page: 'collectors' }
   const m = /^#\/pay\/(\d+)\/([^/?]+)(?:\?(.*))?$/.exec(hash)
   if (!m) return { page: 'merchant' }
   const chainId = Number(m[1])

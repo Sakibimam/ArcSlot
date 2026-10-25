@@ -46,7 +46,7 @@ contract DeployDeterministic is Script {
     }
 
     function _deploy(string memory name, bytes memory initcode) internal returns (address addr) {
-        bytes32 salt = keccak256(abi.encodePacked("arc-slot.v4.", name));
+        bytes32 salt = keccak256(abi.encodePacked("arc-slot.v5.", name));
         addr = vm.computeCreate2Address(salt, keccak256(initcode), CREATE2_DEPLOYER);
         if (addr.code.length > 0) return addr;
         (bool ok,) = CREATE2_DEPLOYER.call(abi.encodePacked(salt, initcode));

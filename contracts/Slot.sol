@@ -6,6 +6,10 @@ import {SafeERC20}        from "@openzeppelin/contracts/token/ERC20/utils/SafeER
 import {ReentrancyGuard}  from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ChainConfig}      from "./ChainConfig.sol";
 
+interface ISlotFactoryStats {
+    function recordCollect(address collector, uint256 gross) external;
+}
+
 /// @title Slot
 /// @notice A minimal deposit-address clone in the Arc Slot system.
 ///
@@ -69,6 +73,9 @@ contract Slot is ReentrancyGuard {
 
     bool private _initialised;
 
+    /// @notice The factory that deployed this slot (records collector stats).
+    address public factory;
+
     /// @dev Set when sweep() detects a blacklisted payout address or a
     ///      failed isBlacklisted probe. Cleared by resolveQuarantine().
     bool public quarantined;
@@ -129,6 +136,7 @@ contract Slot is ReentrancyGuard {
     error BelowMinSweep();
     error NotMerchant();
     error NotQuarantined();
+    error ZeroRewardTo();
     error GasTooHigh();
 
     // ─── Initialiser ───────────────────────────────────────────────────────────
@@ -159,6 +167,7 @@ contract Slot is ReentrancyGuard {
         if (_feeBps > 0 && _feeRecipient == address(0)) revert ZeroFeeRecipient();
 
         _initialised  = true;
+        factory       = msg.sender;
         usdc          = IERC20(_usdc);
         tip           = _tip;
         minSweep      = _minSweep;
@@ -188,6 +197,18 @@ contract Slot is ReentrancyGuard {
     ///
     ///         ReentrancyGuard prevents a reentrant call between transfers.
     function sweep() external nonReentrant {
+        _sweep(msg.sender);
+    }
+
+    /// @notice Sweep and send the collector reward to `rewardTo`. Lets batchers
+    ///         (e.g. SlotFactory.sweepMany) and bots route rewards to the real
+    ///         collector instead of the calling contract.
+    function sweepFor(address rewardTo) external nonReentrant {
+        if (rewardTo == address(0)) revert ZeroRewardTo();
+        _sweep(rewardTo);
+    }
+
+    function _sweep(address rewardTo) internal {
         // ── Step 1: snapshot gas at entry ──────────────────────────────────────
         uint256 g0 = gasleft();
 
@@ -234,7 +255,10 @@ contract Slot is ReentrancyGuard {
         //    gas — and funds can never be locked by GasTooHigh.
         uint256 reimbursement;
         //    Off Arc gas is not USDC, so there is no USDC gas refund there.
-        if (msg.sender != _merchant && ChainConfig.isArc()) {
+        if (rewardTo != _merchant && ChainConfig.isArc()) {
+            // Record for the public collector leaderboard. Done before the gas
+            // measurement ends, so the collector is refunded for it too.
+            ISlotFactoryStats(factory).recordCollect(rewardTo, gross);
             reimbursement = _gasRefund6(g0, fee > 0 ? 3 : 2) + tip;
 
             // Never pay out short: refuse the sweep until gas drops.
@@ -247,7 +271,7 @@ contract Slot is ReentrancyGuard {
 
         // ── Step 6: SafeERC20 transfers (Interactions) ─────────────────────────
         if (reimbursement > 0) {
-            _usdc.safeTransfer(msg.sender, reimbursement);
+            _usdc.safeTransfer(rewardTo, reimbursement);
         }
         if (fee > 0) {
             _usdc.safeTransfer(_feeRecipient, fee);
@@ -257,7 +281,7 @@ contract Slot is ReentrancyGuard {
         }
 
         // ── Step 7: event ──────────────────────────────────────────────────────
-        emit Received(_payRef, gross, net, fee, reimbursement, msg.sender);
+        emit Received(_payRef, gross, net, fee, reimbursement, rewardTo);
     }
 
     // ─── Quarantine resolution ─────────────────────────────────────────────────

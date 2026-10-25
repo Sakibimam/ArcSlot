@@ -24,7 +24,7 @@ import { saveVault, loadVault } from '@/lib/vault-store'
 
 const ME = '0x1111111111111111111111111111111111111111'
 const VAULT = '0x00000000000000000000000000000000000000aa'
-const FACTORY = '0x16cFCACE90Be16C52F1243746626Afd3878Aeb22'
+const FACTORY = '0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97'
 const DIGEST = `0x${'cd'.repeat(32)}`
 
 function vaultReads({ balance = 1_000_000n, pendingKey = `0x${'00'.repeat(32)}`, readyAt = 0n } = {}) {

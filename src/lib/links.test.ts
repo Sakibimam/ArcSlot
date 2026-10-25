@@ -38,3 +38,9 @@ describe('parseRoute', () => {
     expect(r.page === 'pay' && r.label?.length).toBe(80)
   })
 })
+
+describe('parseRoute — collectors', () => {
+  it('routes #/collect to the collector leaderboard', () => {
+    expect(parseRoute('#/collect')).toEqual({ page: 'collectors' })
+  })
+})
