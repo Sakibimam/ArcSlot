@@ -11,38 +11,24 @@ export { HERO_RECEIPTS }
 const STEPS = [
   { n: '01', title: 'Make a link', body: "Amount, what it's for, and an optional expiry. It takes ten seconds.", tag: 'arc-slot.app/#/pay/…' },
   { n: '02', title: 'Your customer pays', body: "They scan the QR code or open the link and pay from any wallet: on Arc, or from Ethereum, Base or Arbitrum through Circle's CCTP.", tag: 'Scan or click' },
-  { n: '03', title: 'The money is yours', body: 'It lands in your wallet, usually within seconds. Nobody can redirect it.', tag: '*PAID*' },
+  { n: '03', title: 'The money is yours', body: 'It settles within seconds at an address only you can collect from. One click moves it to your wallet.', tag: '*PAID*' },
 ]
 
-// ── Code sample ───────────────────────────────────────────────────────────────
+// ── createRequest, as shown in "Let your software get paid" ──────────────────
+// One entry per ABI input, in order; LandingPage.test checks it against SLOT_FACTORY_ABI.
 
-const CODE_SAMPLE = `import { createWalletClient, http, parseUnits, toHex, padHex } from 'viem'
-import { arcTestnet } from 'viem/chains'
-import { SLOT_FACTORY_ABI } from './abis'
+export const CREATE_REQUEST_ARGS = [
+  { param: 'merchant', value: 'merchant' },
+  { param: 'payRef', value: 'payRef' },
+  { param: 'feeBps', value: '0' },
+  { param: 'feeRecipient', value: 'zeroAddress' },
+  { param: 'maxReimbursement', value: "parseUnits('0.05', 6)" },
+  { param: 'amount', value: "parseUnits('1000', 6)" },
+  { param: 'label', value: "'Logo design'" },
+  { param: 'expiresAt', value: '0n' },
+] as const
 
-const walletClient = createWalletClient({
-  account,                               // your 0x... address
-  chain: arcTestnet,
-  transport: http(),
-})
-
-const factory = '0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49'
-
-const hash = await walletClient.writeContract({
-  address: factory,
-  abi: SLOT_FACTORY_ABI,
-  functionName: 'createRequest',
-  args: [
-    merchant,                            // address
-    padHex(toHex('invoice-001'), { size: 32 }), // payRef
-    0,                                   // feeBps
-    '0x0000000000000000000000000000000000000000',
-    parseUnits('0.10', 6),               // maxReimbursement
-    parseUnits('1000', 6),               // amount (1 000 USDC)
-    'Logo design',                       // label
-    0n,                                  // expiresAt (no expiry)
-  ],
-})`
+// ── FAQ ───────────────────────────────────────────────────────────────────────
 
 const FAQ = [
   { q: 'Do I need an account?', a: 'No. Just a wallet.' },
@@ -52,8 +38,6 @@ const FAQ = [
   { q: 'Is it audited?', a: 'Two security audits in Arc Studio and an independent review, with every finding fixed. There is no third-party audit yet.' },
   { q: 'What if a customer pays on the wrong network?', a: 'You can recover it from your dashboard.' },
 ]
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function useNetworkStatus(): string {
   const mainnetLive = getFactoryAddress(ARC_MAINNET_ID) !== null
@@ -243,6 +227,310 @@ function BlurIn({ children, delay = 0, className = '' }: { children: React.React
   )
 }
 
+// ── Value propositions ───────────────────────────────────────────────────────
+
+const TWIST = 'font-serif italic font-normal whitespace-nowrap'
+const CTA =
+  'mt-8 inline-flex items-center h-12 px-7 rounded-full text-[16px] font-semibold transition-all hover:-translate-y-px hover:shadow-md'
+
+function Story({ id, labelId, title, lead, cta, visual, visualFirst = false, tone = 'paper' }: {
+  id?: string
+  labelId: string
+  title: React.ReactNode
+  lead: string
+  cta: { text: string; href: string }
+  visual: React.ReactNode
+  /** On desktop, put the visual on the left. On phones the text always comes first. */
+  visualFirst?: boolean
+  tone?: 'paper' | 'white' | 'ink'
+}) {
+  const dark = tone === 'ink'
+  const external = cta.href.startsWith('https://')
+  return (
+    <section
+      id={id}
+      aria-labelledby={labelId}
+      className={[
+        'relative overflow-hidden',
+        tone === 'white' ? 'bg-surface' : dark ? 'bg-ink text-paper' : 'bg-paper',
+      ].join(' ')}
+    >
+      {dark && <Rosette className="pointer-events-none absolute -right-80 -bottom-80 w-[900px] text-paper opacity-[0.08]" />}
+      <div className="relative mx-auto max-w-[1200px] px-4 sm:px-8 py-20 lg:py-28 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+        <BlurIn className={visualFirst ? 'lg:order-2' : ''}>
+          <h2 id={labelId} className="heading-tight leading-[1]" style={{ fontSize: 'clamp(40px,5vw,64px)' }}>
+            {title}
+          </h2>
+          <p className={['mt-6 text-[18px] sm:text-[21px] leading-[1.5] max-w-[30ch]', dark ? 'text-paper/85' : 'text-ink/80'].join(' ')}>
+            {lead}
+          </p>
+          <a
+            href={cta.href}
+            {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            className={[CTA, dark ? 'bg-paper text-ink hover:bg-white' : 'bg-ink text-paper hover:bg-ink/90'].join(' ')}
+          >
+            {cta.text}
+          </a>
+        </BlurIn>
+        <BlurIn delay={120} className={visualFirst ? 'lg:order-1' : ''}>
+          {visual}
+        </BlurIn>
+      </div>
+    </section>
+  )
+}
+
+const panel = 'bg-surface rounded-[24px] shadow-[0_30px_60px_-30px_rgba(11,42,33,0.25)]'
+
+function SettledVisual() {
+  const [ref, inView] = useInView<HTMLDivElement>()
+  const times: [string, string, boolean][] = [['Sent', '11:28:04', false], ['Settled on Arc', '11:28:05', false], ['Collected', '11:28:09', true]]
+  return (
+    <div ref={ref} className="relative overflow-hidden rounded-[24px] bg-[#CFC8BE] h-[420px] sm:h-[480px]">
+      <img
+        src="/images/card-designer.jpg"
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        decoding="async"
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ objectPosition: '66% 40%' }}
+      />
+      <div className="absolute inset-x-4 bottom-4 sm:inset-x-8 sm:bottom-8 rounded-[20px] bg-surface px-5 py-5 sm:px-6 shadow-[0_30px_60px_-24px_rgba(11,42,33,0.35)]">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-[17px] font-semibold text-ink">Packaging design</span>
+          <span className="dot text-[24px] sm:text-[26px] text-ink">+850.00</span>
+        </div>
+        <ol className="mt-4 grid grid-cols-3 gap-2">
+          {times.map(([k, v, last]) => (
+            <li key={k}>
+              <p className={['serial text-[10px]', last ? 'text-serial' : 'text-ink/80'].join(' ')}>{k}</p>
+              <p className="mt-1 text-[14px] sm:text-[15px] font-semibold text-ink tabular">{v}</p>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-4 h-1 rounded-full bg-ink/10 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-paid motion-safe:transition-[width] motion-safe:duration-1000 motion-safe:ease-out"
+            style={{ width: inView ? '100%' : '0%' }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FeesVisual() {
+  return (
+    <div className={`${panel} p-6 sm:p-10`}>
+      <p className="serial text-[12px] text-ink/80">On a $1,000 invoice</p>
+      <Ledger />
+      <p className="mt-5 text-[13px] text-ink/80">
+        Sources:{' '}
+        <a href="https://www.fool.com/money/research/average-credit-card-processing-fees-costs-america/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">Motley Fool Money</a>
+        {' · '}
+        <a href="https://finance.yahoo.com/news/stripe-charges-1-5-stablecoin-145737023.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">Cryptonews via Yahoo Finance</a>
+      </p>
+    </div>
+  )
+}
+
+function MiddleVisual() {
+  const side = 'rounded-[20px] border border-paper/25 bg-paper/10 px-5 py-5 text-center whitespace-nowrap sm:min-w-[140px]'
+  const arrow = 'self-center text-[26px] text-paper/85 rotate-90 sm:rotate-0'
+  return (
+    <ol aria-label="Where a payment goes" className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4">
+      <li className={side}><p className="serial text-[10px] text-paper/80">Your client</p><p className="mt-2 text-[18px] font-semibold">Any wallet</p></li>
+      <li aria-hidden="true" className={arrow}>→</li>
+      <li className="rounded-[20px] bg-paper text-ink px-5 py-5 text-center whitespace-nowrap">
+        <p className="serial text-[10px] text-serial">This invoice</p>
+        <p className="mt-2 font-mono text-[17px] font-semibold">0x4C21…9a0E</p>
+        <p className="mt-1 text-[13px] text-ink/80">pays only you</p>
+      </li>
+      <li aria-hidden="true" className={arrow}>→</li>
+      <li className={side}><p className="serial text-[10px] text-paper/80">You</p><p className="mt-2 text-[18px] font-semibold">Your wallet</p></li>
+    </ol>
+  )
+}
+
+function RecoveryVisual() {
+  const rows: [string, string, string][] = [
+    ['Arc', 'expected', 'ok'],
+    ['Ethereum', '50.00 sent by mistake', 'stray'],
+    ['Base', 'same address', 'same'],
+  ]
+  return (
+    <div className={`${panel} p-6 sm:p-9 flex flex-col gap-3`}>
+      <p className="serial text-[12px] text-ink/80">One address, every chain</p>
+      {rows.map(([chain, status, kind]) => (
+        <div
+          key={chain}
+          className={[
+            'flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[14px] px-4 py-3.5',
+            kind === 'stray' ? 'bg-[#FDF2F0] border border-serial/25' : 'bg-paper',
+          ].join(' ')}
+        >
+          <span className="text-[17px] font-semibold text-ink w-[84px]">{chain}</span>
+          <span className="font-mono text-[13px] text-ink">0x4C21…9a0E</span>
+          <span className={['text-[14px] font-semibold', kind === 'ok' ? 'text-paid' : kind === 'stray' ? 'text-serial' : 'text-ink/80 font-normal'].join(' ')}>{status}</span>
+        </div>
+      ))}
+      <span aria-hidden="true" className="mt-2 self-start rounded-full bg-ink px-5 py-3 text-[15px] font-semibold text-paper">Recover to my wallet</span>
+    </div>
+  )
+}
+
+function VaultVisual() {
+  return (
+    <div className="relative overflow-hidden rounded-[24px] bg-[#BFD6E6] h-[380px] sm:h-[480px]">
+      <img
+        src="/images/vault-sky.jpg"
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        decoding="async"
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute left-1/2 top-1/2 w-[min(360px,calc(100%-32px))] -translate-x-1/2 -translate-y-1/2 rounded-[22px] bg-surface/95 p-6 shadow-[0_30px_60px_-24px_rgba(11,42,33,0.4)]">
+        <div className="flex items-center gap-3">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-ink">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="#FFFFFF" strokeWidth="2" />
+            </svg>
+          </span>
+          <div>
+            <p className="text-[18px] font-semibold text-ink">Quantum-safe vault</p>
+            <p className="mt-0.5 text-[13px] text-ink/80">SLH-DSA · FIPS 205 · two keys</p>
+          </div>
+        </div>
+        <p className="dot mt-5 text-[40px] sm:text-[44px] leading-none text-ink">12,480.00</p>
+        <p className="serial mt-2 text-[11px] text-ink/80">USDC · protected</p>
+      </div>
+    </div>
+  )
+}
+
+function CodeVisual() {
+  return (
+    <div className="rounded-[24px] bg-ink text-paper p-6 sm:p-8 shadow-[0_30px_60px_-30px_rgba(11,42,33,0.5)]">
+      <p className="serial text-[11px] text-paper/80">One contract call</p>
+      <pre className="mt-4 overflow-x-auto font-mono text-[12px] sm:text-[14px] leading-[1.75]" aria-label="createRequest call">
+        <code>
+          {'factory.createRequest(\n'}
+          {CREATE_REQUEST_ARGS.map((a) => (
+            <span key={a.param}>
+              {'  '}
+              <span className={/['\d]/.test(a.value[0]) || a.value.startsWith('parse') ? 'text-[#9FD8B5]' : ''}>{a.value}</span>
+              {','}
+              {a.value !== a.param && <span className="text-paper/80">{`  // ${a.param}`}</span>}
+              {'\n'}
+            </span>
+          ))}
+          {')'}
+        </code>
+      </pre>
+      <p className="mt-4 text-[14px] text-[#FFD2CC]">→ payment link ready · no API key</p>
+    </div>
+  )
+}
+
+function ValueProps() {
+  return (
+    <>
+      <Story
+        tone="white"
+        labelId="vp-paid"
+        title={<>Paid <span className={TWIST}>means</span> paid.</>}
+        lead={'No payout schedule, no 2–7 business days. On Arc a payment settles in about a second, at an address only you can collect from.'}
+        cta={{ text: 'See how it works', href: '#/docs/lifecycle' }}
+        visual={<SettledVisual />}
+      />
+      <Story
+        id="fees"
+        labelId="vp-fees"
+        title={<>Keep <span className={TWIST}>the 1.5%</span>.</>}
+        lead="On a $1,000 invoice, cards take $23.60 and processors take $15. You pay about two cents."
+        cta={{ text: 'Do the maths', href: '#/docs/fees' }}
+        visual={<FeesVisual />}
+        visualFirst
+      />
+      <Story
+        tone="ink"
+        labelId="vp-middle"
+        title={<>Nobody <span className={TWIST}>in the middle</span>.</>}
+        lead="Every invoice gets its own address that only pays you. Even if we disappeared tomorrow, your links would keep working."
+        cta={{ text: 'Read the code', href: 'https://github.com/Sakibimam/ArcSlot' }}
+        visual={<MiddleVisual />}
+      />
+      <Story
+        labelId="vp-recovery"
+        title={<>Wrong network? <span className={TWIST}>Still yours</span>.</>}
+        lead="Your invoice has the same address on every chain, so a payment sent to the wrong one can be recovered."
+        cta={{ text: 'Learn about recovery', href: '#/docs/recovery' }}
+        visual={<RecoveryVisual />}
+        visualFirst
+      />
+      <Story
+        tone="white"
+        labelId="vp-vault"
+        title={<>Locked with <span className={TWIST}>tomorrow&apos;s maths</span>.</>}
+        lead="An optional vault that only opens with a post-quantum signature, checked on-chain by Arc. A stolen wallet key alone can't touch it."
+        cta={{ text: 'Set up a vault', href: '#/app' }}
+        visual={<VaultVisual />}
+      />
+      <Story
+        id="agents"
+        labelId="vp-software"
+        title={<>Let your software <span className={TWIST}>get paid</span>.</>}
+        lead="Any app or AI agent can create and pay invoices with one contract call. No API key, no sign-up."
+        cta={{ text: 'View the code', href: '#/docs/api' }}
+        visual={<CodeVisual />}
+        visualFirst
+      />
+    </>
+  )
+}
+
+function FreePlan() {
+  return (
+    <section aria-labelledby="vp-plan" className="bg-surface border-t border-ink/10">
+      <BlurIn className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20 lg:py-28 flex flex-col items-center text-center">
+        <h2 id="vp-plan" className="heading-tight leading-[1]" style={{ fontSize: 'clamp(40px,5vw,64px)' }}>
+          One plan. <span className={TWIST}>Free</span>.
+        </h2>
+        <p className="mt-5 text-[18px] sm:text-[21px] text-ink/80">You pay the network, never us.</p>
+        <div className="mt-10 w-full max-w-[460px] rounded-[28px] border border-ink/10 bg-paper p-7 sm:p-10 text-left">
+          <p className="flex items-baseline gap-2.5">
+            <span className="heading-tight text-[64px] leading-none">$0</span>
+            <span className="text-[18px] text-ink/80">/ month, forever</span>
+          </p>
+          <ul className="mt-6 space-y-3 text-[17px] text-ink">
+            {['Unlimited payment links', "Paid from Arc or another chain via Circle's CCTP", 'No ArcSlot fee, ever', '~$0.02 network fee per payment'].map((t) => (
+              <li key={t} className="flex gap-3"><span aria-hidden="true" className="text-paid">✓</span>{t}</li>
+            ))}
+          </ul>
+          <a href="#/app" className="mt-8 flex h-14 items-center justify-center rounded-full bg-ink text-[17px] font-semibold text-paper transition-all hover:-translate-y-px hover:bg-ink/90 hover:shadow-md">
+            Create a payment link
+          </a>
+        </div>
+      </BlurIn>
+    </section>
+  )
+}
+
+function TrustLine() {
+  return (
+    <section aria-label="Built on" className="border-t border-ink/10">
+      <p className="mx-auto max-w-[1200px] px-4 sm:px-8 py-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 serial text-[12px] sm:text-[13px] text-ink/80 text-center">
+        <span>Built on Circle USDC + CCTP</span><span aria-hidden="true">·</span>
+        <span>Running on Arc</span><span aria-hidden="true">·</span>
+        <span>Every line of code public</span>
+      </p>
+    </section>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function LandingPage() {
@@ -331,31 +619,6 @@ export function LandingPage() {
         </section>
         )}
 
-        {/* ── Ledger ──────────────────────────────────────────────────────── */}
-        <section id="fees" className="border-t border-ink/20">
-          <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 lg:gap-20">
-            <BlurIn>
-              <p className="serial text-[12px] text-serial">Schedule of fees</p>
-              <h2 className="heading-tight mt-4 leading-[0.98]" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>
-                What a $1,000 invoice costs
-              </h2>
-              <p className="mt-5 text-[16px] text-ink/80 max-w-[40ch] leading-relaxed">
-                Per payment, for comparison. Processors pay you out in dollars to a bank. ArcSlot
-                pays you in USDC, straight to your wallet.
-              </p>
-            </BlurIn>
-            <div>
-              <Ledger />
-              <p className="mt-5 text-[13px] text-ink/80">
-                Sources:{' '}
-                <a href="https://www.fool.com/money/research/average-credit-card-processing-fees-costs-america/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">Motley Fool Money</a>
-                {' · '}
-                <a href="https://finance.yahoo.com/news/stripe-charges-1-5-stablecoin-145737023.html" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">Cryptonews via Yahoo Finance</a>
-              </p>
-            </div>
-          </div>
-        </section>
-
         {/* ── How it works ────────────────────────────────────────────────── */}
         <section id="how-it-works" ref={stepsRef} className="border-t border-ink/20">
           <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20">
@@ -384,71 +647,8 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ── Nobody holds your money ──────────────────────────────────────── */}
-        <section className="relative overflow-hidden bg-ink text-paper">
-          <Rosette className="pointer-events-none absolute -left-80 -bottom-80 w-[900px] text-paper opacity-[0.08]" />
-          <div className="relative mx-auto max-w-[1200px] px-4 sm:px-8 py-20 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
-            <BlurIn>
-              <h2 className="heading-tight leading-[0.97] text-paper" style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '14ch' }}>
-                Nobody holds your money. Not even us.
-              </h2>
-              <ul className="mt-10 space-y-5">
-                {[
-                  'Every invoice gets its own address that can only pay you.',
-                  'If this website disappeared tomorrow, your links would still work.',
-                  'Sent on the wrong network? You can still recover it.',
-                  "Circle's compliance checks are built in.",
-                ].map((item, i) => (
-                  <li key={item} className="flex gap-4 items-baseline">
-                    <span className="serial text-[12px] text-[#F08A7E] flex-none">0{i + 1}</span>
-                    <span className="text-[17px] text-paper/90 leading-snug">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </BlurIn>
-            <BlurIn delay={120} className="lg:border-l lg:border-paper/20 lg:pl-16">
-              <h3 className="serial text-[12px] text-paper/80 mb-8">Why trust it</h3>
-              <ul className="space-y-7">
-                {[
-                  { text: 'Stripe paid $1.1 billion for a stablecoin company and charges 1.5% per payment.', href: 'https://www.nbcnewyork.com/news/business/money-report/stripe-closes-1-1-billion-bridge-deal-prepares-for-aggressive-stablecoin-push/6135508/', linkText: 'NBC New York' },
-                  { text: 'Business stablecoin payments grew 733% in 2025.', href: 'https://ambcrypto.com/stablecoin-volumes-surge-to-35-trillion-but-real-world-payments-still-lag-at-1/', linkText: 'AMBCrypto' },
-                  { text: 'Audited twice in Arc Studio, reviewed independently, and open source.', href: 'https://github.com/Sakibimam/ArcSlot', linkText: 'GitHub' },
-                ].map((fact) => (
-                  <li key={fact.href} className="border-t border-paper/20 pt-5 text-[16px] text-paper/85 leading-relaxed">
-                    {fact.text}{' '}
-                    <a href={fact.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 text-paper hover:text-[#F08A7E]">{fact.linkText}</a>
-                  </li>
-                ))}
-              </ul>
-            </BlurIn>
-          </div>
-        </section>
-
-        {/* ── For apps and AI agents ───────────────────────────────────────── */}
-        <section id="agents">
-          <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20">
-            <BlurIn>
-              <p className="serial text-[12px] text-serial">For apps and AI agents</p>
-              <h2 className="heading-tight mt-4 mb-4" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>No API key. No sign-up.</h2>
-              <p className="text-[17px] text-ink/80 mb-9 max-w-[52ch] leading-relaxed">
-                Any app or agent can create and pay links on-chain. One contract call issues a link.
-              </p>
-            </BlurIn>
-            <div
-              className="bg-ink text-paper rounded-[18px] overflow-hidden"
-              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
-            >
-              <div className="flex items-center justify-between border-b border-paper/15 px-5 py-3 serial text-[11px] text-paper/80">
-                <span>createRequest · viem</span><span>Arc testnet</span>
-              </div>
-              <div className="overflow-x-auto">
-                <pre className="font-mono text-[13px] leading-relaxed p-5 min-w-0" style={{ tabSize: 2 }} aria-label="viem code sample for createRequest">
-                  <code>{CODE_SAMPLE}</code>
-                </pre>
-              </div>
-            </div>
-          </div>
-        </section>
+        <ValueProps />
+        <FreePlan />
 
         {/* ── FAQ ─────────────────────────────────────────────────────────── */}
         <section className="border-t border-ink/20">
@@ -472,28 +672,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* ── Final CTA ───────────────────────────────────────────────────── */}
-        <section className="px-4 sm:px-8 pb-20">
-          <div
-            className="relative overflow-hidden mx-auto max-w-[1200px] bg-surface px-6 py-16 sm:py-20 text-center rounded-[24px]"
-            style={{ border: '1px solid rgba(11,42,33,0.10)', boxShadow: '0 30px 60px -20px rgba(11,42,33,0.25)' }}
-          >
-            <Rosette className="pointer-events-none absolute left-1/2 top-1/2 w-[760px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.06]" />
-            <p className="relative serial text-[12px] text-serial">Series 5042 · Next issue</p>
-            <h2
-              className="relative heading-tight mt-5 mb-9 mx-auto leading-[0.97]"
-              style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '18ch' }}
-            >
-              Your next invoice could cost two cents.
-            </h2>
-            <a
-              href="#/app"
-              className="relative inline-flex items-center h-12 px-8 rounded-full text-[15px] font-semibold text-paper bg-ink hover:bg-ink/90 transition-all hover:-translate-y-px hover:shadow-md"
-            >
-              Create a payment link
-            </a>
-          </div>
-        </section>
+        <TrustLine />
       </main>
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}

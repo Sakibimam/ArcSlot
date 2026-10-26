@@ -8,7 +8,7 @@ describe('landing photos', () => {
   const jpgs = readdirSync(dir).filter((f) => f.endsWith('.jpg'))
 
   it('are all present', () => {
-    expect(jpgs.sort()).toEqual(['card-consultant.jpg', 'card-designer.jpg', 'hero-sky-mobile.jpg', 'hero-sky.jpg'])
+    expect(jpgs.sort()).toEqual(['card-consultant.jpg', 'card-designer.jpg', 'hero-sky-mobile.jpg', 'hero-sky.jpg', 'vault-sky.jpg'])
   })
 
   it('are real JPEGs (start with FF D8 FF, end with FF D9)', () => {
@@ -25,8 +25,7 @@ describe('landing photos', () => {
 
   it('are credited', () => {
     const credits = readFileSync(`${dir}/CREDITS.md`, 'utf8')
-    // hero-sky-mobile.jpg is a crop of hero-sky.jpg — both are credited under hero-sky.jpg
-    for (const f of jpgs) expect(credits, f).toContain(f.replace('-sky-mobile', '-sky').replace('-mobile', ''))
+    for (const f of jpgs) expect(credits, f).toContain(f)
     expect(credits).toMatch(/Unsplash License/)
   })
 })
