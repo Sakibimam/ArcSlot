@@ -22,6 +22,7 @@ export default {
         sans: ['Archivo', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
         dot:  ['DotGothic16', 'ui-monospace', 'monospace'],
+        serif: ['"Instrument Serif"', 'Georgia', 'serif'],
       },
       keyframes: {
         'accordion-down': {

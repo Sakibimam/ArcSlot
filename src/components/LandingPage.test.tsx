@@ -37,6 +37,24 @@ describe('LandingPage', () => {
     expect(screen.getAllByText(/\*PAID\*/).length).toBeGreaterThan(0)
   })
 
+  it('the headline pairs engraved capitals with an italic serif turn, "percent" struck out', () => {
+    render(<LandingPage />)
+    const h1 = screen.getByRole('heading', { level: 1 })
+    expect(h1.querySelector('[data-part="headline-lead"]')).toHaveTextContent(/^Get paid in USDC$/)
+    const turn = h1.querySelector('[data-part="headline-turn"]')!
+    expect(turn).toHaveClass('font-serif', 'italic')
+    expect(turn.querySelector('s')).toHaveTextContent('percent')
+  })
+
+  it('backs the hero with three plain facts', () => {
+    render(<LandingPage />)
+    const facts = screen.getByRole('list', { name: /at a glance/i })
+    expect(facts.querySelectorAll('li')).toHaveLength(3)
+    expect(facts).toHaveTextContent(/~\$0\.02/)
+    expect(facts).toHaveTextContent(/under a second/i)
+    expect(facts).toHaveTextContent(/no custody/i)
+  })
+
   it('shows the FAQ accordion', () => {
     render(<LandingPage />)
     expect(screen.getByText(/do i need an account/i)).toBeInTheDocument()

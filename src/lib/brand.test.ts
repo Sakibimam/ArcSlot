@@ -14,6 +14,7 @@ describe('brand', () => {
     expect(html).toMatch(/family=Archivo:wdth,wght@/)
     expect(html).toMatch(/family=IBM\+Plex\+Mono/)
     expect(html).toMatch(/family=DotGothic16/)
+    expect(html).toMatch(/family=Instrument\+Serif:ital@0;1/)
     expect(html).not.toMatch(/Schibsted/)
   })
   it('tints the browser chrome bank-note green', () => {

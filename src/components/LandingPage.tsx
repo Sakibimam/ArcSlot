@@ -236,8 +236,6 @@ const FAQ = [
 
 const ctaPrimary =
   'inline-flex items-center justify-center h-14 px-7 bg-ink text-paper text-[16px] font-bold hover:bg-[#164537] active:translate-y-px transition-colors'
-const ctaSecondary =
-  'inline-flex items-center justify-center h-14 px-7 border-[1.5px] border-ink text-ink text-[16px] font-semibold hover:bg-ink hover:text-paper active:translate-y-px transition-colors'
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -279,22 +277,57 @@ export function LandingPage() {
 
               <div className="lg:pt-6">
                 <p className="serial text-[12px] sm:text-[13px] text-serial">Series 5042 · Issued on Arc</p>
-                <h1
-                  className="engraved mt-6 leading-[0.95]"
-                  style={{ fontSize: 'clamp(40px, 5.2vw, 74px)' }}
-                >
-                  Get paid in USDC for cents, not percent.
+                <h1 className="mt-5">
+                  <span
+                    data-part="headline-lead"
+                    className="engraved block leading-none tracking-[0.01em]"
+                    style={{ fontSize: 'clamp(26px, 3.3vw, 44px)', fontStretch: '125%' }}
+                  >
+                    Get paid in USDC
+                  </span>{' '}
+                  <span
+                    data-part="headline-turn"
+                    className="font-serif italic block mt-1 font-normal leading-[0.92] tracking-[-0.02em]"
+                    style={{ fontSize: 'clamp(58px, 7.6vw, 112px)' }}
+                  >
+                    for cents, not{' '}
+                    <s className="decoration-serial" style={{ textDecorationThickness: '0.06em' }}>percent</s>.
+                  </span>
                 </h1>
-                <p className="mt-7 text-[18px] text-ink/80 leading-relaxed max-w-[50ch]">
-                  Every invoice gets its own address that can only pay you. Your customer pays
-                  from any wallet, on Arc or from Ethereum, Base or Arbitrum. Nobody holds the
-                  money, and nobody takes 1.5%.
+                <p className="mt-8 text-[19px] text-ink/80 leading-[1.55] max-w-[38ch]">
+                  Every invoice gets its own address that can only pay you. Customers pay from
+                  any wallet, on Arc, Ethereum, Base or Arbitrum.
                 </p>
-                <div className="mt-9 flex flex-wrap gap-3">
+                <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
                   <a href="#/app" className={ctaPrimary}>Create a payment link</a>
-                  <a href="#how-it-works" onClick={scrollToSteps} className={ctaSecondary}>See how it works</a>
+                  <a
+                    href="#how-it-works"
+                    onClick={scrollToSteps}
+                    className="group inline-flex items-center gap-2 text-[16px] font-semibold text-ink"
+                  >
+                    <span className="underline decoration-ink/30 underline-offset-[6px] group-hover:decoration-serial">See how it works</span>
+                    <span aria-hidden="true" className="motion-safe:transition-transform group-hover:translate-x-1">→</span>
+                  </a>
                 </div>
-                <p className="mt-7 serial text-[11px] text-ink/80">{networkStatus}</p>
+                <ul aria-label="At a glance" className="mt-12 grid grid-cols-3 border-y border-ink/20 divide-x divide-ink/20 max-w-[560px]">
+                  {[
+                    ['Fee per payment', '~$0.02'],
+                    ['Settles', 'under a second'],
+                    ['Who holds it', 'No custody'],
+                  ].map(([k, v]) => (
+                    <li key={k} className="py-4 px-3 sm:px-5 first:pl-0">
+                      <p className="serial text-[10px] sm:text-[11px] text-ink/80">{k}</p>
+                      <p className="mt-1.5 text-[15px] sm:text-[17px] font-semibold text-ink">{v}</p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-6 inline-flex items-center gap-2 serial text-[11px] text-ink/80">
+                  <span className="relative flex size-2" aria-hidden="true">
+                    <span className="absolute inline-flex size-full rounded-full bg-paid opacity-60 motion-safe:animate-ping" />
+                    <span className="relative inline-flex size-2 rounded-full bg-paid" />
+                  </span>
+                  {networkStatus}
+                </p>
               </div>
 
               <HeroReceipt />
