@@ -88,6 +88,9 @@ export default function App() {
         <main className="flex-1 mx-auto w-full max-w-md px-4 pt-8 pb-16 sm:pt-12">
           {route.page === 'pay' ? (
             <PayPage
+              // A fresh page per link: otherwise a payment made on one link
+              // ("Payment sent", PAID) carries over to the next one opened.
+              key={`${route.chainId}:${route.slot}`}
               chainId={route.chainId}
               slot={route.slot}
               amount={route.amount}
