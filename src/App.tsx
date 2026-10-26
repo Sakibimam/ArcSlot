@@ -4,6 +4,7 @@ import { Header, AppFooter } from '@/components/Header'
 import { CreateRequest } from '@/components/CreateRequest'
 import { VaultCard } from '@/components/VaultCard'
 import { LandingPage } from '@/components/LandingPage'
+import { DocsPage } from '@/components/DocsPage'
 import { useAccount } from 'wagmi'
 import { loadVault } from '@/lib/vault-store'
 import { useChainRequests } from '@/lib/use-chain-requests'
@@ -65,6 +66,11 @@ export default function App() {
   // ── Landing page ────────────────────────────────────────────────────────────
   if (route.page === 'landing') {
     return <LandingPage />
+  }
+
+  // ── Docs ────────────────────────────────────────────────────────────────────
+  if (route.page === 'docs') {
+    return <DocsPage section={route.section} />
   }
 
   // ── Collectors page ─────────────────────────────────────────────────────────

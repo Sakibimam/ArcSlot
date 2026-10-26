@@ -501,6 +501,9 @@ export function LandingPage() {
         <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 serial text-[11px] text-ink/80">
           <span>ArcSlot · Non-custodial USDC payments on Arc</span>
           <div className="flex items-center gap-5">
+            <a href="#/docs" className="underline underline-offset-2 hover:text-serial">
+              Docs
+            </a>
             <a href="https://github.com/Sakibimam/ArcSlot" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">
               Open source on GitHub
             </a>

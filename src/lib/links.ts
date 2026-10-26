@@ -4,6 +4,8 @@
 //   #/app                               merchant dashboard
 //   #/pay/<chainId>/<slot>?amount=&for= sender payment page
 //   #/collect                           collector leaderboard
+//   #/docs                              docs home
+//   #/docs/<id>                         specific docs section
 
 import { getAddress, isAddress } from 'viem'
 import { isSupportedChain, type SupportedChainId } from './chains'
@@ -17,6 +19,9 @@ export type Route =
   | { page: 'collectors' }
   | { page: 'invalid-pay' }
   | { page: 'pay'; chainId: SupportedChainId; slot: string; amount: bigint | undefined; label: string | undefined }
+  | { page: 'docs'; section: string | undefined }
+
+const SAFE_ID = /^[a-z][a-z0-9-]*$/
 
 export function buildPayHash(p: { chainId: number; slot: string; amount?: bigint; label?: string }): string {
   const q = new URLSearchParams()
@@ -30,6 +35,12 @@ export function parseRoute(hash: string): Route {
   if (hash === '' || hash === '#/')   return { page: 'landing' }
   if (hash === '#/app')               return { page: 'merchant' }
   if (hash === '#/collect')           return { page: 'collectors' }
+  if (hash === '#/docs' || hash === '#/docs/') return { page: 'docs', section: undefined }
+  const docsM = /^#\/docs\/([^/?]+)$/.exec(hash)
+  if (docsM) {
+    const id = docsM[1]
+    return { page: 'docs', section: SAFE_ID.test(id) ? id : undefined }
+  }
   const m = /^#\/pay\/(\d+)\/([^/?]+)(?:\?(.*))?$/.exec(hash)
   if (!m) return { page: 'landing' }
   const chainId = Number(m[1])

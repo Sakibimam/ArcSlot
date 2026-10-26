@@ -49,3 +49,14 @@ describe('parseRoute — collectors', () => {
     expect(parseRoute('#/collect')).toEqual({ page: 'collectors' })
   })
 })
+
+describe('parseRoute — docs', () => {
+  it('routes #/docs to the docs home and #/docs/<id> to a section', () => {
+    expect(parseRoute('#/docs')).toEqual({ page: 'docs', section: undefined })
+    expect(parseRoute('#/docs/')).toEqual({ page: 'docs', section: undefined })
+    expect(parseRoute('#/docs/architecture')).toEqual({ page: 'docs', section: 'architecture' })
+  })
+  it('keeps only a url-safe section id', () => {
+    expect(parseRoute('#/docs/<script>')).toEqual({ page: 'docs', section: undefined })
+  })
+})

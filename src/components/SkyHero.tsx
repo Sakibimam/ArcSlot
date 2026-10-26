@@ -114,9 +114,14 @@ function Nav() {
         <LogoMark className="size-9" paper="#DCE8F0" />
         <span className="engraved text-[19px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
       </a>
-      <a href="#/app" className="inline-flex items-center h-11 px-6 rounded-full text-[15px] font-semibold text-white bg-ink hover:bg-[#164537] transition-colors">
-        Open app
-      </a>
+      <div className="flex items-center gap-2 sm:gap-4">
+        <a href="#/docs" className="inline-flex items-center h-11 px-3 rounded-full text-[15px] font-semibold text-ink hover:bg-ink/[0.07] transition-colors">
+          Docs
+        </a>
+        <a href="#/app" className="inline-flex items-center h-11 px-6 rounded-full text-[15px] font-semibold text-white bg-ink hover:bg-[#164537] transition-colors">
+          Open app
+        </a>
+      </div>
     </nav>
   )
 }

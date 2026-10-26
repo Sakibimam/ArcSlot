@@ -126,3 +126,25 @@ describe('App — collectors page', () => {
     expect(screen.queryByRole('heading', { name: /create a payment link/i })).not.toBeInTheDocument()
   })
 })
+
+describe('App — docs', () => {
+  it('shows the docs at #/docs/<id>', () => {
+    window.location.hash = '#/docs/architecture'
+    render(<App />)
+    expect(screen.getByRole('heading', { level: 1, name: 'Architecture' })).toBeInTheDocument()
+  })
+
+  it('the dashboard links to the docs, on phones too (footer)', () => {
+    window.location.hash = '#/app'
+    render(<App />)
+    const links = screen.getAllByRole('link', { name: /^docs$/i })
+    expect(links.length).toBeGreaterThanOrEqual(2)
+    for (const l of links) expect(l).toHaveAttribute('href', '#/docs')
+  })
+
+  it('the landing page links to the docs', () => {
+    window.location.hash = '#/'
+    render(<App />)
+    expect(screen.getAllByRole('link', { name: /^docs$/i })[0]).toHaveAttribute('href', '#/docs')
+  })
+})

@@ -36,6 +36,12 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
             >
               Collectors
             </a>
+            <a
+              href="#/docs"
+              className="px-3 py-1.5 rounded-full text-ink/75 hover:text-ink hover:bg-ink/[0.07] transition-colors"
+            >
+              Docs
+            </a>
           </nav>
         )}
 
@@ -82,6 +88,9 @@ export function AppFooter() {
       <div className="mx-auto max-w-[1120px] px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 serial text-[11px] text-ink/80">
         <span>ArcSlot · Non-custodial USDC payments on Arc</span>
         <div className="flex items-center gap-4">
+          <a href="#/docs" className="underline underline-offset-2 hover:text-serial">
+            Docs
+          </a>
           <a
             href="https://github.com/Sakibimam/ArcSlot"
             target="_blank"
