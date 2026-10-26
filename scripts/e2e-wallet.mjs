@@ -16,7 +16,8 @@ const CHAINS = {
   [baseSepolia.id]: { chain: baseSepolia, rpc: 'https://sepolia.base.org' },
 }
 
-export async function walletPage(browser, key, name) {
+// contextOptions: extra Playwright context options (e.g. a viewport or recordVideo for demo recordings).
+export async function walletPage(browser, key, name, contextOptions = {}) {
   const account = privateKeyToAccount(hexKey(key))
   let current = arcTestnet.id
   const clients = (id) => {
@@ -26,7 +27,7 @@ export async function walletPage(browser, key, name) {
       pub: createPublicClient({ chain, transport: http(rpc) }),
     }
   }
-  const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } })
+  const ctx = await browser.newContext({ viewport: { width: 420, height: 900 }, ...contextOptions })
   const page = await ctx.newPage()
   page.on('pageerror', (e) => console.log(`[${name}] pageerror`, e.message))
   await page.exposeFunction('__walletRpc', async (method, params) => {
@@ -77,7 +78,7 @@ export async function walletPage(browser, key, name) {
       removeListener: (e, f) => { listeners[e] = (listeners[e] ?? []).filter((x) => x !== f) },
     }
   })
-  return { page, address: account.address }
+  return { page, ctx, address: account.address }
 }
 
 export async function connect(page) {
