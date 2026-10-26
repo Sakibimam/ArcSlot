@@ -22,12 +22,11 @@ interface RecoverPanelProps {
 
 const STEP_TEXT: Record<RecoveryStep, (chain: string) => string> = {
   createVault: (c) => `Recreating your vault on ${c}…`,
-  createSlot: (c) => `Deploying the payment address on ${c}…`,
-  collect: () => 'Collecting…',
-  withdraw: () => 'Sign in your wallet to release the funds…',
+  createSlot:  (c) => `Deploying the payment address on ${c}…`,
+  collect:     () => 'Collecting…',
+  withdraw:    () => 'Sign in your wallet to release the funds…',
 }
 
-/** Finds USDC a payer sent to this Slot's address on another chain, and recovers it. */
 export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
   const { address: wallet } = useAccount()
   const { switchChainAsync } = useSwitchChain()
@@ -36,19 +35,18 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
   const chains = sourceChainsFor(arcChainId)
   const usdcOn = (c: SourceChain) => getUsdc(c.chainId)?.address as Hex
 
-  // One batch: who the slot pays on Arc, its reference, who created it (the
-  // address commits to them), and its USDC on every other chain.
-  // Mixed ABIs in one batch: typed as plain call descriptors, results narrowed below.
   const contracts: (ContractFunctionParameters & { chainId: number })[] = [
     { address: slot as Hex, abi: SLOT_ABI, functionName: 'merchant', chainId: arcChainId },
     { address: slot as Hex, abi: SLOT_ABI, functionName: 'payRef', chainId: arcChainId },
-    { address: (getFactoryAddress(arcChainId) ?? slot) as Hex, abi: SLOT_FACTORY_ABI, functionName: 'creatorOf', args: [slot], chainId: arcChainId },
-    ...chains.map((c) => ({ address: usdcOn(c), abi: erc20Abi, functionName: 'balanceOf', args: [slot as Hex], chainId: c.chainId })),
+    {
+      address: (getFactoryAddress(arcChainId) ?? slot) as Hex,
+      abi: SLOT_FACTORY_ABI, functionName: 'creatorOf', args: [slot], chainId: arcChainId,
+    },
+    ...chains.map((c) => ({
+      address: usdcOn(c), abi: erc20Abi, functionName: 'balanceOf', args: [slot as Hex], chainId: c.chainId,
+    })),
   ]
-  const { data, refetch } = useReadContracts({
-    contracts,
-    query: { refetchInterval: 30_000 },
-  })
+  const { data, refetch } = useReadContracts({ contracts, query: { refetchInterval: 30_000 } })
   const merchant = data?.[0]?.result as string | undefined
   const payRef = data?.[1]?.result as string | undefined
   const creator = data?.[2]?.result as string | undefined
@@ -84,52 +82,60 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
         write: (args) => writeContractAsync(args as never),
         signMessage: (digest) => signMessageAsync({ message: { raw: digest } }),
       })
-      const found = await probeRecovery(io, {
-        factory, slot, vault: payout === 'vault' ? record?.vault : undefined, creator, merchant: payee, payRef,
-      })
+      const found = await probeRecovery(io, { factory, slot, vault: payout === 'vault' ? record?.vault : undefined, creator, merchant: payee, payRef })
       const plan = planRecovery({ ...found, payout, vault })
       if (!plan.ok) {
-        say(plan.reason === 'not-deployed'
-          ? `Recovery isn't set up on ${chain.name} yet. It will work once Slot is deployed there.`
-          : plan.reason === 'vault-settings-missing'
+        say(
+          plan.reason === 'not-deployed'
+            ? `Recovery isn't set up on ${chain.name} yet. It will work once Slot is deployed there.`
+            : plan.reason === 'vault-settings-missing'
             ? 'Restore your vault backup on this device first; recovery needs its settings.'
             : plan.reason === 'address-mismatch'
-              ? `Recovery on ${chain.name} would not match the paid address, so nothing was sent.`
-              : 'Only the payee can recover this.')
+            ? `Recovery on ${chain.name} would not match the paid address, so nothing was sent.`
+            : 'Only the payee can recover this.',
+        )
         return
       }
-      const { recovered } = await executeRecovery(io, {
-        steps: plan.steps, chainId: chain.chainId, usdc: usdcOn(chain), factory, vaultFactory,
-        slot, merchant: payee, payRef, wallet, creator, vault,
-      }, (step) => say(STEP_TEXT[step](chain.name)))
-      say(`Recovered ${formatUsdc6(recovered)} USDC on ${chain.name} to your wallet.`)
-      setRecovered((r) => ({ ...r, [chain.key]: true }))
+      const { recovered: r } = await executeRecovery(
+        io,
+        { steps: plan.steps, chainId: chain.chainId, usdc: usdcOn(chain), factory, vaultFactory, slot, merchant: payee, payRef, wallet, creator, vault },
+        (s) => say(STEP_TEXT[s](chain.name)),
+      )
+      say(`Recovered ${formatUsdc6(r)} USDC on ${chain.name} to your wallet.`)
+      setRecovered((prev) => ({ ...prev, [chain.key]: true }))
       void refetch()
-      // Put the wallet back on Arc so the rest of the app keeps working.
       await switchChainAsync({ chainId: arcChainId }).catch(() => undefined)
     } catch (e) {
       say(/rejected|denied/i.test(String(e)) ? 'You cancelled the recovery.' : 'Recovery failed. Try again.')
-    } finally {
-      setBusy(null)
-    }
+    } finally { setBusy(null) }
   }
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="px-4 pb-4 space-y-2">
       {stray.map(({ chain, amount }) => (
-        <div key={chain.key} className="rounded-xl p-3 text-xs space-y-2" style={{ background: 'rgba(245,201,122,0.1)', color: 'var(--warning)' }}>
+        <div
+          key={chain.key}
+          className="rounded-sm p-3 text-xs space-y-2"
+          style={{ background: 'rgba(154,91,0,0.07)', color: 'var(--amber)', border: '1px solid rgba(154,91,0,0.15)' }}
+        >
           <p className="flex gap-2">
             <LifeBuoy className="size-4 shrink-0" />
             <span>{formatUsdc6(amount)} USDC was sent on {chain.name} by mistake.</span>
           </p>
           {recovered[chain.key] ? null : payout === 'other' ? (
-            <p style={{ color: 'var(--subtle)' }}>Only the payee can recover this.</p>
+            <p className="text-ink/60">Only the payee can recover this.</p>
           ) : (
-            <Button variant="secondary" className="w-full" loading={busy === chain.key} disabled={!!busy} onClick={() => void recover(chain)}>
+            <Button
+              variant="secondary"
+              className="w-full"
+              loading={busy === chain.key}
+              disabled={!!busy}
+              onClick={() => void recover(chain)}
+            >
               Recover to my wallet
             </Button>
           )}
-          {status[chain.key] && <p style={{ color: 'var(--muted)' }}>{status[chain.key]}</p>}
+          {status[chain.key] && <p className="text-ink/60">{status[chain.key]}</p>}
         </div>
       ))}
     </div>

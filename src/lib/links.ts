@@ -1,7 +1,9 @@
 // Hash-based routes so links work on any static host (Vercel, Arc Studio
 // preview) without server rewrites.
-//   #/                                  merchant dashboard
+//   #/                                  landing page
+//   #/app                               merchant dashboard
 //   #/pay/<chainId>/<slot>?amount=&for= sender payment page
+//   #/collect                           collector leaderboard
 
 import { getAddress, isAddress } from 'viem'
 import { isSupportedChain, type SupportedChainId } from './chains'
@@ -10,6 +12,7 @@ import { formatUsdc6, parseUsdc6 } from './slot-logic'
 const MAX_LABEL = 80
 
 export type Route =
+  | { page: 'landing' }
   | { page: 'merchant' }
   | { page: 'collectors' }
   | { page: 'invalid-pay' }
@@ -24,9 +27,11 @@ export function buildPayHash(p: { chainId: number; slot: string; amount?: bigint
 }
 
 export function parseRoute(hash: string): Route {
-  if (hash === '#/collect') return { page: 'collectors' }
+  if (hash === '' || hash === '#/')   return { page: 'landing' }
+  if (hash === '#/app')               return { page: 'merchant' }
+  if (hash === '#/collect')           return { page: 'collectors' }
   const m = /^#\/pay\/(\d+)\/([^/?]+)(?:\?(.*))?$/.exec(hash)
-  if (!m) return { page: 'merchant' }
+  if (!m) return { page: 'landing' }
   const chainId = Number(m[1])
   if (!isSupportedChain(chainId) || !isAddress(m[2])) return { page: 'invalid-pay' }
   const q = new URLSearchParams(m[3] ?? '')

@@ -2,53 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ───────────────────────────────────────────────────────────
+   Brief palette: Paper / Ink / Carbon blue / Paid green / Waiting amber /
+   Rule / Surface.  These mirror the tailwind.config.js colours so components
+   can reference either form.
+──────────────────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #0d1b2f;
-  --bg-gradient: linear-gradient(180deg, #0d1b2f 0%, #0d1b2f 58%, #122d45 100%);
-  --surface: rgba(255, 255, 255, 0.07);
-  --surface-strong: rgba(255, 255, 255, 0.11);
-  --surface-muted: #1f2f44;
-  --ink: #f9faf3;
-  --ink-2: #e3ecf9;
-  --muted: #cbd5e1;
-  --subtle: #94a3b8;
-  --border: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(203, 219, 242, 0.55);
-  --accent: #acc6e9;
-  --accent-hover: #cbdbf2;
-  --success: #8dd89f;
-  --danger: #e86d7a;
-  --warning: #f5c97a;
+  --paper:   #F2F4F3;
+  --ink:     #13233A;
+  --carbon:  #2445D6;
+  --paid:    #0B7A4B;
+  --amber:   #9A5B00;
+  --rule:    #CDD5DD;
+  --surface: #FFFFFF;
+
+  /* shadcn/ui CSS variable names expected by primitives */
+  --background:   var(--paper);
+  --foreground:   var(--ink);
+  --ring:         var(--carbon);
+  --border:       var(--rule);
+  --input:        var(--rule);
+  --primary:      var(--ink);
+  --primary-foreground: #FFFFFF;
+  --secondary:    var(--rule);
+  --secondary-foreground: var(--ink);
+  --muted:        #E8EBEA;
+  --muted-foreground: #64748B;
+  --accent:       var(--carbon);
+  --accent-foreground: #FFFFFF;
+  --destructive:  #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --card:         var(--surface);
+  --card-foreground: var(--ink);
+  --popover:      var(--surface);
+  --popover-foreground: var(--ink);
+  --radius:       0.5rem;
+
+  /* Legacy app vars kept so existing app screens don't break */
+  --bg:            var(--paper);
+  --surface-muted: #E8EBEA;
+  --ink-2:         #2d3f55;
+  --muted-text:    #64748B;
+  --subtle:        #64748B;
+  --border-strong: var(--rule);
+  --accent-hover:  #1a34b8;
+  --success:       var(--paid);
+  --danger:        #DC2626;
+  --warning:       var(--amber);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Schibsted Grotesk', sans-serif;
   min-height: 100dvh;
-  background: var(--bg);
-  background-image: var(--bg-gradient);
+  background: var(--paper);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Display: Space Grotesk for hero amounts, headings, and titles only.
-   Do NOT apply to all-caps small labels — those need DM Sans + tracking-wider. */
-.display { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.03em; }
-.mono    { font-family: 'JetBrains Mono', Menlo, monospace; }
+/* Tabular figures for amounts — always Schibsted Grotesk, never a monospace fallback */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: 'Schibsted Grotesk', sans-serif;
+}
 
-/* Input placeholder colour matches Arc Dark subtle */
-input::placeholder { color: var(--subtle); opacity: 0.65; }
+/* Focus ring: carbon blue, visible on keyboard only */
+:focus-visible {
+  outline: 2px solid var(--carbon);
+  outline-offset: 2px;
+}
 
-/* Focus ring override: Tailwind focus:ring-2 with CSS var colour */
-input:focus { box-shadow: 0 0 0 2px var(--accent); }
+input:focus { box-shadow: 0 0 0 2px var(--carbon); outline: none; }
+input::placeholder { color: var(--muted-foreground); opacity: 0.65; }
 
-/* Scrollbar polish on dark surfaces */
+/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink)/20; }

@@ -29,7 +29,6 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
   const [sharing, setSharing] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
 
-  // Live state comes only from view calls; one receipt is final on Arc.
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
       { address: addr, abi: SLOT_ABI, functionName: 'quarantined', chainId },
@@ -42,13 +41,15 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
   const quarantined = data?.[0]?.result
   const minSweep = data?.[1]?.result
   const balance = data?.[2]?.result
-
   const collected = data?.[3]?.result
   const status = deriveRequestStatus({ loading: isLoading, quarantined, balance, minSweep, receipt, amount, collected })
   const collectable = canCollect(status, balance, minSweep)
 
   const { writeContract, data: sweepHash, isPending, error } = useWriteContract()
-  const { data: sweepReceipt, isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({ hash: sweepHash, chainId })
+  const { data: sweepReceipt, isLoading: confirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: sweepHash,
+    chainId,
+  })
 
   const handledHash = useRef<string | undefined>(undefined)
   useEffect(() => {
@@ -65,114 +66,187 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
   }, [isSuccess, sweepHash, sweepReceipt, address, onSwept, refetch])
 
   const received = balance ?? 0n
-  const progress = amount && amount > 0n ? Number((received * 100n) / amount) : 0
 
+  // ── Compact ledger row ────────────────────────────────────────────────────────
   return (
-    <article className="rounded-3xl p-5" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="font-semibold truncate">{label ?? 'Payment request'}</h3>
+    <article>
+      {/* Main row — label left, status + amount right */}
+      <div className="flex items-start justify-between gap-3 py-3">
+        {/* Left: label + address */}
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-ink truncate leading-snug">
+            {label ?? 'Payment request'}
+          </p>
           <a
             href={buildAddressExplorerUrl(chainId, address)}
             target="_blank"
             rel="noreferrer"
-            className="mono text-xs inline-flex items-center gap-1"
-            style={{ color: 'var(--subtle)' }}
+            className="font-mono text-xs inline-flex items-center gap-1 text-ink/40 hover:text-carbon mt-0.5"
           >
             {shortAddr(address)} <ExternalLink className="size-3" />
           </a>
         </div>
-        <StatusPill status={status} />
-      </div>
 
-      {status === 'collected' && receipt ? (
-        <div className="mt-4">
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            You received <span className="display text-lg font-semibold" style={{ color: 'var(--ink)' }}>{formatUsdc6(receipt.net)} USDC</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowDetails((v) => !v)}
-            className="mt-2 flex items-center gap-1 text-xs font-medium"
-            style={{ color: 'var(--subtle)' }}
-            aria-expanded={showDetails}
-          >
-            Details <ChevronDown className={`size-3.5 transition-transform ${showDetails ? 'rotate-180' : ''}`} />
-          </button>
-          {showDetails && (
-            <dl className="mt-2 space-y-1.5 rounded-2xl p-3 text-xs" style={{ background: 'var(--surface-muted)' }}>
-              {[
-                ['Paid in', formatUsdc6(receipt.gross)],
-                ['Platform fee', formatUsdc6(receipt.fee)],
-                ['Collector reward', formatUsdc6(receipt.reimbursement)],
-                ['Sent to you', formatUsdc6(receipt.net)],
-                ['Collected by', shortAddr(receipt.sweeper)],
-              ].map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <dt style={{ color: 'var(--subtle)' }}>{k}</dt>
-                  <dd className="mono">{v}</dd>
-                </div>
-              ))}
-              <a href={buildTxExplorerUrl(chainId, receipt.txHash)} target="_blank" rel="noreferrer" className="flex items-center gap-1 pt-1" style={{ color: 'var(--accent)' }}>
-                View transaction <ExternalLink className="size-3" />
-              </a>
-            </dl>
+        {/* Right: status badge + amount */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <StatusPill status={status} />
+          {/* Amount display — varies by state */}
+          {status === 'collected' && receipt ? (
+            <span className="text-sm font-semibold text-ink tabular">
+              {formatUsdc6(receipt.net)} USDC
+            </span>
+          ) : status === 'collected' ? (
+            <span
+              data-testid="collected"
+              className="text-sm font-semibold text-ink tabular"
+            >
+              {formatUsdc6(collected ?? 0n)} USDC collected
+            </span>
+          ) : (
+            <span
+              data-testid="received"
+              className="text-sm text-ink/60 tabular"
+            >
+              {amount
+                ? `${formatUsdc6(received)} of ${formatUsdc6(amount)} USDC received`
+                : `${formatUsdc6(received)} USDC received`}
+            </span>
           )}
         </div>
-      ) : status === 'collected' ? (
-        <p data-testid="collected" className="mt-4 text-sm" style={{ color: 'var(--muted)' }}>
-          <span className="display text-lg font-semibold" style={{ color: 'var(--ink)' }}>{formatUsdc6(collected ?? 0n)}</span> USDC collected
+      </div>
+
+      {/* "You received" line — only when collected with receipt */}
+      {status === 'collected' && receipt && (
+        <p className="text-sm text-ink/60 pb-1">
+          You received{' '}
+          <span className="font-semibold text-ink tabular">{formatUsdc6(receipt.net)} USDC</span>
         </p>
-      ) : (
-        <div className="mt-4">
-          <p data-testid="received" className="text-sm" style={{ color: 'var(--muted)' }}>
-            <span className="display text-2xl font-semibold" style={{ color: 'var(--ink)' }}>{formatUsdc6(received)}</span>
-            {amount ? ` of ${formatUsdc6(amount)} USDC received` : ' USDC received'}
-          </p>
-          {amount ? (
-            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
-              <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(progress, 100)}%`, background: status === 'paid' ? 'var(--success)' : 'var(--accent)' }} />
-            </div>
-          ) : null}
+      )}
+
+      {/* On-hold warning */}
+      {status === 'on-hold' && (
+        <div
+          className="mb-2 flex gap-2 rounded-sm p-3 text-xs"
+          style={{ background: 'rgba(220,38,38,0.07)', color: 'var(--danger)' }}
+        >
+          <ShieldAlert className="size-4 shrink-0" />
+          On hold: the payout address is blocked by USDC. The funds are safe in the request address.
         </div>
       )}
 
-      {status === 'on-hold' && (
-        <p className="mt-3 flex gap-2 rounded-xl p-3 text-xs" style={{ background: 'rgba(232,109,122,0.1)', color: 'var(--danger)' }}>
-          <ShieldAlert className="size-4 shrink-0" />
-          On hold: the payout address is blocked by USDC. The funds are safe in the request address.
-        </p>
-      )}
-
+      {/* Error */}
       {error && (
-        <p className="mt-3 rounded-xl p-3 text-xs" style={{ background: 'rgba(232,109,122,0.1)', color: 'var(--danger)' }}>
-          {/rejected|denied/i.test(error.message) ? 'You cancelled the transaction.' : 'Could not collect right now. Please try again.'}
-        </p>
+        <div
+          className="mb-2 rounded-sm p-3 text-xs"
+          style={{ background: 'rgba(220,38,38,0.07)', color: 'var(--danger)' }}
+        >
+          {/rejected|denied/i.test(error.message)
+            ? 'You cancelled the transaction.'
+            : 'Could not collect right now. Please try again.'}
+        </div>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <Button variant="secondary" onClick={() => setSharing(true)}>
-          <Share2 className="size-4" /> Share
-        </Button>
-        <Button
-          disabled={!collectable}
-          loading={isPending || confirming}
-          onClick={() => writeContract({ address: addr, abi: SLOT_ABI, functionName: 'sweep', chainId })}
-        >
-          {!(isPending || confirming) && <ArrowDownToLine className="size-4" />}
-          {isPending ? 'Confirm…' : confirming ? 'Collecting…' : 'Collect'}
-        </Button>
-      </div>
+      {/* Below-minimum hint */}
       {!collectable && received > 0n && minSweep !== undefined && received < minSweep && (
-        <p className="mt-2 text-xs text-center" style={{ color: 'var(--subtle)' }}>
+        <p className="pb-1 text-xs text-ink/50">
           You can collect from {formatUsdc6(minSweep)} USDC.
         </p>
       )}
 
+      {/* Actions row — always Share icon; Collect only when collectable; Details toggle */}
+      <div className="flex items-center gap-2 pb-3">
+        {/* Share — always visible as icon button */}
+        <button
+          type="button"
+          aria-label="Share"
+          onClick={() => setSharing(true)}
+          className="flex items-center justify-center size-8 rounded-sm border border-rule text-ink/50 hover:text-ink hover:border-ink/30 transition-colors"
+        >
+          <Share2 className="size-4" />
+        </button>
+
+        {/* Collect — always in DOM so tests can assert disabled state.
+            When not collectable it's a quiet ghost so it doesn't dominate. */}
+        {collectable ? (
+          <Button
+            loading={isPending || confirming}
+            onClick={() =>
+              writeContract({ address: addr, abi: SLOT_ABI, functionName: 'sweep', chainId })
+            }
+            className="h-8 text-sm px-3"
+          >
+            {!(isPending || confirming) && <ArrowDownToLine className="size-3.5" />}
+            {isPending ? 'Confirm…' : confirming ? 'Collecting…' : 'Collect'}
+          </Button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="h-8 px-3 text-sm font-medium text-ink/20 cursor-not-allowed select-none"
+            aria-label="Collect"
+          >
+            Collect
+          </button>
+        )}
+
+        {/* Details toggle — shown when collected with receipt */}
+        {status === 'collected' && receipt && (
+          <button
+            type="button"
+            aria-label="Details"
+            onClick={() => setShowDetails((v) => !v)}
+            className="flex items-center gap-1 text-xs font-medium text-ink/50 hover:text-ink ml-auto"
+            aria-expanded={showDetails}
+          >
+            Details
+            <ChevronDown
+              className={`size-3.5 transition-transform ${showDetails ? 'rotate-180' : ''}`}
+            />
+          </button>
+        )}
+      </div>
+
+      {/* Details ledger — collected with receipt only */}
+      {status === 'collected' && receipt && showDetails && (
+        <dl
+          className="mb-3 space-y-1.5 rounded-sm p-3 text-xs"
+          style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+        >
+          {(
+            [
+              ['Paid in', formatUsdc6(receipt.gross)],
+              ['Platform fee', formatUsdc6(receipt.fee)],
+              ['Collector reward', formatUsdc6(receipt.reimbursement)],
+              ['Sent to you', formatUsdc6(receipt.net)],
+              ['Collected by', shortAddr(receipt.sweeper)],
+            ] as [string, string][]
+          ).map(([k, v]) => (
+            <div key={k} className="flex justify-between">
+              <dt className="text-ink/50">{k}</dt>
+              <dd className="tabular">{v}</dd>
+            </div>
+          ))}
+          <a
+            href={buildTxExplorerUrl(chainId, receipt.txHash)}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 pt-1 text-carbon"
+          >
+            View transaction <ExternalLink className="size-3" />
+          </a>
+        </dl>
+      )}
+
+      {/* Hairline separator */}
+      <div className="h-px bg-rule" />
+
       <RecoverPanel arcChainId={chainId as SupportedChainId} slot={address} />
 
       {sharing && (
-        <ShareSheet target={{ chainId, slot: address, amount, label, onchain: request.onchain }} onClose={() => setSharing(false)} />
+        <ShareSheet
+          target={{ chainId, slot: address, amount, label, onchain: request.onchain }}
+          onClose={() => setSharing(false)}
+        />
       )}
     </article>
   )

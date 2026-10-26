@@ -6,12 +6,15 @@ import { toast } from 'sonner'
 import { SLOT_VAULT_ABI, VAULT_FACTORY_ABI } from '@/lib/abis'
 import { type SupportedChainId, USDC_ADDRESS, getVaultFactoryAddress, shortAddr } from '@/lib/chains'
 import { formatUsdc6, parseUsdc6 } from '@/lib/slot-logic'
-import { MIN_VAULT_PASSWORD, decryptSeed, encryptSeed, encryptedBackupText, newVaultSeed, openBackup, signDigest, vaultKeyFromSeed } from '@/lib/pq'
+import {
+  MIN_VAULT_PASSWORD, decryptSeed, encryptSeed, encryptedBackupText,
+  newVaultSeed, openBackup, signDigest, vaultKeyFromSeed,
+} from '@/lib/pq'
 import { type VaultRecord, loadVault, saveVault } from '@/lib/vault-store'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, inputClass, inputStyle } from './ui'
 
-const RECOVERY_DELAY = 7n * 24n * 60n * 60n // 7 days
+const RECOVERY_DELAY = 7n * 24n * 60n * 60n
 const ZERO32 = `0x${'00'.repeat(32)}`
 type Hex = `0x${string}`
 
@@ -20,15 +23,8 @@ interface VaultCardProps {
   onVaultChange: (vault: string | null) => void
 }
 
-interface PendingVault {
-  seed: Hex
-  vk: Hex
-  box: string
-  salt: Hex
-  predicted: Hex
-}
+interface PendingVault { seed: Hex; vk: Hex; box: string; salt: Hex; predicted: Hex }
 
-/** Let the browser paint the "signing…" state before the ~1s SLH-DSA signature. */
 const nextFrame = () => new Promise((r) => setTimeout(r, 30))
 
 export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
@@ -37,14 +33,11 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
   const { signMessageAsync } = useSignMessage()
   const factory = getVaultFactoryAddress(chainId)
 
-  // The vault for this wallet + network. Read from device storage during render;
-  // a just-created/restored vault is kept in state in case storage is unavailable.
   const storeKey = wallet ? `${chainId}:${wallet.toLowerCase()}` : ''
   const [localRecord, setLocalRecord] = useState<{ key: string; record: VaultRecord } | null>(null)
   const record = localRecord?.key === storeKey ? localRecord.record : wallet ? loadVault(chainId, wallet) : null
   const setRecord = (r: VaultRecord) => setLocalRecord({ key: storeKey, record: r })
 
-  // Withdraw / cancel forms
   const [form, setForm] = useState<'withdraw' | 'cancel' | null>(null)
   const [amount, setAmount] = useState('')
   const [to, setTo] = useState('')
@@ -65,7 +58,6 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
   const [err, setErr] = useState<string | null>(null)
   const [restoreText, setRestoreText] = useState('')
 
-  // Live vault state (view calls only).
   const vault = record?.vault as Hex | undefined
   const { data, refetch } = useReadContracts({
     contracts: vault
@@ -85,7 +77,6 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
   const twoKey = (data?.[4]?.result) ?? true
   const recoveryPending = !!pendingKey && pendingKey !== ZERO32
 
-  // Report each confirmed tx once.
   useEffect(() => {
     if (!isSuccess || !txHash || handled.current === txHash || !wallet) return
     handled.current = txHash
@@ -113,58 +104,36 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
   }, [isSuccess, txHash, wallet, chainId, onVaultChange, refetch, storeKey])
 
   if (!wallet) return null
-
-  if (!factory) {
-    return null
-  }
+  if (!factory) return null
 
   const withdrawTo = (to || wallet) as Hex
   const amountRaw = parseUsdc6(amount)
   const canWithdraw =
-    !!record && amountRaw !== null && amountRaw > 0n && balance !== undefined && amountRaw <= balance &&
+    !!record && amountRaw !== null && amountRaw > 0n &&
+    balance !== undefined && amountRaw <= balance &&
     isAddress(withdrawTo) && unlockPw.length > 0 && !busy && !isPending && !confirming
 
   async function unlock(): Promise<Hex | null> {
-    try {
-      return await decryptSeed(record!.box, unlockPw)
-    } catch {
-      setErr('Wrong password')
-      setBusy(null)
-      return null
-    }
+    try { return await decryptSeed(record!.box, unlockPw) }
+    catch { setErr('Wrong password'); setBusy(null); return null }
   }
 
   async function handleWithdraw() {
     if (!record || amountRaw === null || !publicClient) return
-    setErr(null)
-    setBusy('Unlocking your key…')
-    const seed = await unlock()
-    if (!seed) return
+    setErr(null); setBusy('Unlocking your key…')
+    const seed = await unlock(); if (!seed) return
     try {
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600)
-      const digest = (await publicClient.readContract({
-        address: record.vault as Hex,
-        abi: SLOT_VAULT_ABI,
-        functionName: 'withdrawDigest',
-        args: [withdrawTo, amountRaw, 0n, deadline],
-      }))
-      setBusy('Creating quantum-safe signature…')
-      await nextFrame()
+      const digest = await publicClient.readContract({
+        address: record.vault as Hex, abi: SLOT_VAULT_ABI,
+        functionName: 'withdrawDigest', args: [withdrawTo, amountRaw, 0n, deadline],
+      })
+      setBusy('Creating quantum-safe signature…'); await nextFrame()
       const pqSig = signDigest(seed, digest)
       let ownerSig: Hex = '0x'
-      if (twoKey) {
-        setBusy('Confirm the signature in your wallet…')
-        ownerSig = await signMessageAsync({ message: { raw: digest } })
-      }
-      setBusy(null)
-      action.current = 'withdraw'
-      writeContract({
-        address: record.vault as Hex,
-        abi: SLOT_VAULT_ABI,
-        functionName: 'withdraw',
-        args: [withdrawTo, amountRaw, 0n, deadline, pqSig, ownerSig],
-        chainId,
-      })
+      if (twoKey) { setBusy('Confirm the signature in your wallet…'); ownerSig = await signMessageAsync({ message: { raw: digest } }) }
+      setBusy(null); action.current = 'withdraw'
+      writeContract({ address: record.vault as Hex, abi: SLOT_VAULT_ABI, functionName: 'withdraw', args: [withdrawTo, amountRaw, 0n, deadline, pqSig, ownerSig], chainId })
     } catch (e) {
       setBusy(null)
       setErr(/rejected|denied/i.test(String(e)) ? 'You cancelled the signature.' : 'Could not prepare the withdrawal. Try again.')
@@ -173,86 +142,51 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
 
   async function handleCancelRecovery() {
     if (!record || !publicClient) return
-    setErr(null)
-    setBusy('Unlocking your key…')
-    const seed = await unlock()
-    if (!seed) return
+    setErr(null); setBusy('Unlocking your key…')
+    const seed = await unlock(); if (!seed) return
     try {
-      const digest = (await publicClient.readContract({
-        address: record.vault as Hex,
-        abi: SLOT_VAULT_ABI,
-        functionName: 'cancelDigest',
-      }))
-      setBusy('Creating quantum-safe signature…')
-      await nextFrame()
+      const digest = await publicClient.readContract({ address: record.vault as Hex, abi: SLOT_VAULT_ABI, functionName: 'cancelDigest' })
+      setBusy('Creating quantum-safe signature…'); await nextFrame()
       const pqSig = signDigest(seed, digest)
-      setBusy(null)
-      action.current = 'cancel'
+      setBusy(null); action.current = 'cancel'
       writeContract({ address: record.vault as Hex, abi: SLOT_VAULT_ABI, functionName: 'cancelRecovery', args: [pqSig], chainId })
-    } catch {
-      setBusy(null)
-      setErr('Could not cancel the recovery. Try again.')
-    }
+    } catch { setBusy(null); setErr('Could not cancel the recovery. Try again.') }
   }
 
-  // ─── Setup ─────────────────────────────────────────────────────────────────
   async function handleGenerate() {
     if (!publicClient || !factory) return
-    setErr(null)
-    setBusy('Generating your quantum-safe key…')
-    await nextFrame()
+    setErr(null); setBusy('Generating your quantum-safe key…'); await nextFrame()
     try {
-      const seed = newVaultSeed()
-      const vk = vaultKeyFromSeed(seed)
+      const seed = newVaultSeed(); const vk = vaultKeyFromSeed(seed)
       const box = await encryptSeed(seed, pw)
       const salt = toHex(crypto.getRandomValues(new Uint8Array(32)))
-      const predicted = (await publicClient.readContract({
-        address: factory,
-        abi: VAULT_FACTORY_ABI,
-        functionName: 'predict',
-        args: [wallet as Hex, vk, true, RECOVERY_DELAY, salt],
-      }))
+      const predicted = await publicClient.readContract({ address: factory, abi: VAULT_FACTORY_ABI, functionName: 'predict', args: [wallet as Hex, vk, true, RECOVERY_DELAY, salt] })
       const p = { seed, vk, box, salt, predicted }
-      setPending(p)
-      pendingRef.current = p
-      setStep('backup')
-    } catch {
-      setErr('Could not generate the key. Try again.')
-    } finally {
-      setBusy(null)
-    }
+      setPending(p); pendingRef.current = p; setStep('backup')
+    } catch { setErr('Could not generate the key. Try again.') }
+    finally { setBusy(null) }
   }
 
   function handleCreate() {
     if (!pending || !factory) return
     action.current = 'create'
-    writeContract({
-      address: factory,
-      abi: VAULT_FACTORY_ABI,
-      functionName: 'createVault',
-      args: [wallet as Hex, pending.vk, true, RECOVERY_DELAY, pending.salt],
-      chainId,
-    })
+    writeContract({ address: factory, abi: VAULT_FACTORY_ABI, functionName: 'createVault', args: [wallet as Hex, pending.vk, true, RECOVERY_DELAY, pending.salt], chainId })
   }
 
-  function backupFor(p: PendingVault): string {
-    // The file holds the password-encrypted key, never the seed itself.
+  function backupFor(p: PendingVault) {
     return encryptedBackupText({ vault: p.predicted, chainId, seed: p.seed, box: p.box, salt: p.salt, twoKey: true, recoveryDelay: RECOVERY_DELAY.toString() })
   }
 
   function downloadBackup(text: string, vaultAddr: string) {
     const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `slot-vault-${vaultAddr.slice(2, 8)}.json`
-    a.click()
+    const a = document.createElement('a'); a.href = url
+    a.download = `slot-vault-${vaultAddr.slice(2, 8)}.json`; a.click()
     URL.revokeObjectURL(url)
   }
 
   async function handleRestore() {
     if (!publicClient || !wallet) return
-    setErr(null)
-    setBusy('Checking your backup…')
+    setErr(null); setBusy('Checking your backup…')
     try {
       const b = await openBackup(restoreText, pw)
       if (b.chainId !== chainId) throw new Error('This backup is for a different network')
@@ -262,19 +196,11 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
       ])
       if (String(onchainKey).toLowerCase() !== vaultKeyFromSeed(b.seed).toLowerCase()) throw new Error('This backup no longer matches the vault key')
       if (String(owner).toLowerCase() !== wallet.toLowerCase()) throw new Error('This vault belongs to a different wallet')
-      const r: VaultRecord = {
-        chainId, owner: wallet, vault: b.vault, box: await encryptSeed(b.seed, pw),
-        pqKey: vaultKeyFromSeed(b.seed), salt: b.salt, twoKey: b.twoKey, recoveryDelay: b.recoveryDelay,
-      }
-      saveVault(r)
-      setRecord(r)
-      onVaultChange(r.vault)
+      const r: VaultRecord = { chainId, owner: wallet, vault: b.vault, box: await encryptSeed(b.seed, pw), pqKey: vaultKeyFromSeed(b.seed), salt: b.salt, twoKey: b.twoKey, recoveryDelay: b.recoveryDelay }
+      saveVault(r); setRecord(r); onVaultChange(r.vault)
       toast.success('Vault restored on this device')
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Could not restore the backup')
-    } finally {
-      setBusy(null)
-    }
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Could not restore the backup') }
+    finally { setBusy(null) }
   }
 
   const pwOk = pw.length >= MIN_VAULT_PASSWORD && pw === pw2
@@ -285,18 +211,22 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
     return (
       <Card>
         <div className="flex items-center gap-2 mb-1">
-          <Atom className="size-5" style={{ color: 'var(--accent)' }} />
-          <h2 className="display text-lg font-semibold">Quantum-safe vault</h2>
+          <Atom className="size-5 text-carbon" />
+          <h2 className="text-lg font-semibold text-ink">Quantum-safe vault</h2>
         </div>
-        <p className="text-sm mb-4" style={{ color: 'var(--subtle)' }}>
-          Payments land in a vault that only moves money with two keys: your wallet and a quantum-safe key kept on this device.
-          A stolen wallet key alone can't take your funds.
+        <p className="text-sm mb-4 text-ink/60">
+          Payments land in a vault that only moves money with two keys: your wallet and a
+          quantum-safe key kept on this device. A stolen wallet key alone can&apos;t take your funds.
         </p>
 
         {step === 'intro' && (
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setStep('password')}><ShieldCheck className="size-4" /> Set up vault</Button>
-            <Button variant="ghost" onClick={() => setStep('restore')}>Restore from backup</Button>
+            <Button onClick={() => setStep('password')}>
+              <ShieldCheck className="size-4" /> Set up vault
+            </Button>
+            <Button variant="ghost" onClick={() => setStep('restore')}>
+              Restore from backup
+            </Button>
           </div>
         )}
 
@@ -304,14 +234,32 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
           <div className="space-y-3">
             {step === 'restore' && (
               <Field id="vault-restore" label="Backup file contents" hint="Paste the contents of your slot-vault backup file.">
-                <textarea id="vault-restore" rows={4} value={restoreText} onChange={(e) => setRestoreText(e.target.value)} className={`${inputClass} mono text-xs`} style={inputStyle()} />
+                <textarea
+                  id="vault-restore" rows={4} value={restoreText}
+                  onChange={(e) => setRestoreText(e.target.value)}
+                  className={`${inputClass} font-mono text-xs`} style={inputStyle()}
+                />
               </Field>
             )}
-            <Field id="vault-pw" label="Vault password" hint={`Encrypts your key on this device and in your backup file. At least ${MIN_VAULT_PASSWORD} characters.`}>
-              <input id="vault-pw" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} className={inputClass} style={inputStyle()} />
+            <Field
+              id="vault-pw" label="Vault password"
+              hint={`Encrypts your key on this device. At least ${MIN_VAULT_PASSWORD} characters.`}
+            >
+              <input
+                id="vault-pw" type="password" autoComplete="new-password"
+                value={pw} onChange={(e) => setPw(e.target.value)}
+                className={inputClass} style={inputStyle()}
+              />
             </Field>
-            <Field id="vault-pw2" label="Confirm password" error={pw2 && pw !== pw2 ? "Passwords don't match" : undefined}>
-              <input id="vault-pw2" type="password" autoComplete="new-password" value={pw2} onChange={(e) => setPw2(e.target.value)} className={inputClass} style={inputStyle(!!pw2 && pw !== pw2)} />
+            <Field
+              id="vault-pw2" label="Confirm password"
+              error={pw2 && pw !== pw2 ? "Passwords don't match" : undefined}
+            >
+              <input
+                id="vault-pw2" type="password" autoComplete="new-password"
+                value={pw2} onChange={(e) => setPw2(e.target.value)}
+                className={inputClass} style={inputStyle(!!pw2 && pw !== pw2)}
+              />
             </Field>
             {step === 'password' ? (
               <Button className="w-full" disabled={!pwOk} loading={!!busy} onClick={() => void handleGenerate()}>
@@ -327,13 +275,17 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
 
         {step === 'backup' && pending && (
           <div className="space-y-3">
-            <p className="text-sm font-semibold">Save your backup</p>
-            <p className="text-xs" style={{ color: 'var(--subtle)' }}>
-              Your key exists only on this device. Without the backup you can still recover the vault with your wallet after a 7-day waiting period.
+            <p className="text-sm font-semibold text-ink">Save your backup</p>
+            <p className="text-xs text-ink/60">
+              Your key exists only on this device. Without the backup you can still recover the
+              vault with your wallet after a 7-day waiting period.
             </p>
-            <div className="rounded-xl p-3 text-xs" style={{ background: 'var(--surface-muted)' }}>
-              <p style={{ color: 'var(--subtle)' }}>Vault address</p>
-              <p className="mono break-all">{pending.predicted}</p>
+            <div
+              className="rounded-sm p-3 text-xs"
+              style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+            >
+              <p className="text-ink/50">Vault address</p>
+              <p className="font-mono break-all text-ink">{pending.predicted}</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => downloadBackup(backupFor(pending), pending.predicted)}>
@@ -341,17 +293,23 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
               </Button>
               <CopyButton text={backupFor(pending)} label="Copy backup" />
             </div>
-            <label htmlFor="vault-saved" className="flex items-center gap-2 text-sm">
-              <input id="vault-saved" type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
+            <label htmlFor="vault-saved" className="flex items-center gap-2 text-sm text-ink">
+              <input
+                id="vault-saved" type="checkbox" checked={saved}
+                onChange={(e) => setSaved(e.target.checked)}
+              />
               I saved my backup somewhere safe
             </label>
-            <Button className="w-full" disabled={!saved || working} loading={isPending || confirming} onClick={handleCreate}>
+            <Button
+              className="w-full" disabled={!saved || working} loading={isPending || confirming}
+              onClick={handleCreate}
+            >
               {isPending ? 'Confirm in your wallet…' : confirming ? 'Creating vault…' : 'Create vault'}
             </Button>
           </div>
         )}
 
-        {(err || txError) && (
+        {(err ?? txError) && (
           <p className="mt-3 text-sm" style={{ color: 'var(--danger)' }}>
             {err ?? (/rejected|denied/i.test(txError!.message) ? 'You cancelled the transaction.' : 'Transaction failed. Try again.')}
           </p>
@@ -366,29 +324,41 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Atom className="size-5" style={{ color: 'var(--accent)' }} />
-            <h2 className="display text-lg font-semibold whitespace-nowrap">Quantum-safe vault</h2>
+            <Atom className="size-5 text-carbon" />
+            <h2 className="text-lg font-semibold text-ink whitespace-nowrap">Your quantum-safe vault</h2>
           </div>
-          <p className="mono text-xs mt-0.5" style={{ color: 'var(--subtle)' }}>{shortAddr(record.vault)}</p>
+          <p className="font-mono text-xs mt-0.5 text-ink/40">{shortAddr(record.vault)}</p>
         </div>
-        <span className="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap" style={{ background: 'rgba(141,216,159,0.14)', color: 'var(--success)' }}>
+        <span
+          className="px-2.5 py-0.5 rounded text-xs font-semibold whitespace-nowrap"
+          style={{ background: 'rgba(11,122,75,0.10)', color: 'var(--paid)' }}
+        >
           {twoKey ? 'Quantum-safe key + your wallet' : 'Quantum-safe key'}
         </span>
       </div>
 
-      <p data-testid="vault-balance" className="display text-3xl font-bold mt-4 tabular-nums">
-        {balance !== undefined ? formatUsdc6(balance) : '…'} <span className="text-base font-semibold" style={{ color: 'var(--subtle)' }}>USDC</span>
+      <p data-testid="vault-balance" className="text-3xl font-bold mt-4 tabular text-ink">
+        {balance !== undefined ? formatUsdc6(balance) : '…'}{' '}
+        <span className="text-base font-semibold text-ink/50">USDC</span>
       </p>
 
       {recoveryPending && (
-        <div className="mt-4 rounded-xl p-3 text-sm flex gap-2" style={{ background: 'rgba(232,109,122,0.1)', color: 'var(--danger)' }}>
+        <div
+          className="mt-4 rounded-sm p-3 text-sm flex gap-2"
+          style={{ background: 'rgba(220,38,38,0.07)', color: 'var(--danger)' }}
+        >
           <AlertTriangle className="size-4 shrink-0 mt-0.5" />
           <div className="space-y-2">
             <p>
-              A key recovery was started and completes {readyAt ? new Date(Number(readyAt) * 1000).toLocaleString() : 'soon'}.
-              If you didn't start it, cancel it now with your vault key.
+              A key recovery was started and completes{' '}
+              {readyAt ? new Date(Number(readyAt) * 1000).toLocaleString() : 'soon'}.
+              If you didn&apos;t start it, cancel it now with your vault key.
             </p>
-            {form !== 'cancel' && <Button variant="secondary" onClick={() => { setForm('cancel'); setErr(null) }}>Cancel recovery</Button>}
+            {form !== 'cancel' && (
+              <Button variant="secondary" onClick={() => { setForm('cancel'); setErr(null) }}>
+                Cancel recovery
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -404,19 +374,36 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
         <div className="mt-4 space-y-3">
           {form === 'withdraw' && (
             <>
-              <Field id="vault-amount" label="Amount (USDC)" error={amountRaw !== null && balance !== undefined && amountRaw > balance ? 'More than the vault holds' : undefined}>
-                <input id="vault-amount" inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.'))} className={inputClass} style={inputStyle()} />
+              <Field
+                id="vault-amount" label="Amount (USDC)"
+                error={amountRaw !== null && balance !== undefined && amountRaw > balance ? 'More than the vault holds' : undefined}
+              >
+                <input
+                  id="vault-amount" inputMode="decimal" placeholder="0.00"
+                  value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.'))}
+                  className={inputClass} style={inputStyle()}
+                />
               </Field>
               <Field id="vault-to" label="Send to" hint="Defaults to your connected wallet.">
-                <input id="vault-to" placeholder={wallet} spellCheck={false} value={to} onChange={(e) => setTo(e.target.value.trim())} className={`${inputClass} mono text-sm`} style={inputStyle(!!to && !isAddress(to))} />
+                <input
+                  id="vault-to" placeholder={wallet} spellCheck={false}
+                  value={to} onChange={(e) => setTo(e.target.value.trim())}
+                  className={`${inputClass} font-mono text-sm`} style={inputStyle(!!to && !isAddress(to))}
+                />
               </Field>
             </>
           )}
           <Field id="vault-unlock" label="Vault password">
-            <input id="vault-unlock" type="password" autoComplete="current-password" value={unlockPw} onChange={(e) => setUnlockPw(e.target.value)} className={inputClass} style={inputStyle()} />
+            <input
+              id="vault-unlock" type="password" autoComplete="current-password"
+              value={unlockPw} onChange={(e) => setUnlockPw(e.target.value)}
+              className={inputClass} style={inputStyle()}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => { setForm(null); setErr(null); reset() }}>Back</Button>
+            <Button variant="secondary" onClick={() => { setForm(null); setErr(null); reset() }}>
+              Back
+            </Button>
             {form === 'withdraw' ? (
               <Button disabled={!canWithdraw} loading={working} onClick={() => void handleWithdraw()}>
                 {busy ?? (isPending ? 'Confirm…' : confirming ? 'Sending…' : 'Sign & withdraw')}
@@ -427,17 +414,20 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
               </Button>
             )}
           </div>
-          {busy && <p className="text-xs text-center" style={{ color: 'var(--subtle)' }}>{busy}</p>}
+          {busy && <p className="text-xs text-center text-ink/50">{busy}</p>}
         </div>
       )}
 
-      {(err || txError) && (
+      {(err ?? txError) && (
         <p className="mt-3 text-sm" style={{ color: 'var(--danger)' }}>
           {err ?? (/rejected|denied/i.test(txError!.message) ? 'You cancelled the transaction.' : 'Transaction failed. Try again.')}
         </p>
       )}
       {txHash && isSuccess && (
-        <a href={buildTxExplorerUrl(chainId, txHash)} target="_blank" rel="noreferrer" className="block mt-2 text-xs" style={{ color: 'var(--accent)' }}>
+        <a
+          href={buildTxExplorerUrl(chainId, txHash)} target="_blank" rel="noreferrer"
+          className="block mt-2 text-xs text-carbon"
+        >
           View transaction
         </a>
       )}

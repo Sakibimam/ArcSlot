@@ -14,10 +14,15 @@ describe('buildPayHash', () => {
 })
 
 describe('parseRoute', () => {
-  it('defaults to the merchant dashboard', () => {
-    expect(parseRoute('')).toEqual({ page: 'merchant' })
-    expect(parseRoute('#/')).toEqual({ page: 'merchant' })
-    expect(parseRoute('#/nonsense')).toEqual({ page: 'merchant' })
+  it('routes empty hash and #/ to the landing page', () => {
+    expect(parseRoute('')).toEqual({ page: 'landing' })
+    expect(parseRoute('#/')).toEqual({ page: 'landing' })
+  })
+  it('routes #/app to the merchant dashboard', () => {
+    expect(parseRoute('#/app')).toEqual({ page: 'merchant' })
+  })
+  it('routes unknown hashes to the landing page', () => {
+    expect(parseRoute('#/nonsense')).toEqual({ page: 'landing' })
   })
   it('round-trips a pay link', () => {
     const hash = buildPayHash({ chainId: 5042002, slot: SLOT, amount: 1_500_000n, label: 'Invoice #42' })

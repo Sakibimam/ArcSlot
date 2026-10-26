@@ -1,19 +1,22 @@
-// Small shared UI primitives so every screen looks and behaves the same.
+// Shared UI primitives — receipt/ledger design language.
 import { useState, type ReactNode } from 'react'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import type { RequestStatus } from '@/lib/slot-logic'
 
+// ── Card ─────────────────────────────────────────────────────────────────────
+// White surface on Paper background; the receipt motif.
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <section
-      className={`rounded-3xl p-5 sm:p-6 ${className}`}
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}
+      className={`rounded-sm p-5 sm:p-6 ${className}`}
+      style={{ background: 'var(--surface)', border: '1px solid var(--rule)' }}
     >
       {children}
     </section>
   )
 }
 
+// ── Button ────────────────────────────────────────────────────────────────────
 type ButtonProps = {
   children: ReactNode
   onClick?: () => void
@@ -24,19 +27,28 @@ type ButtonProps = {
   className?: string
 }
 
-export function Button({ children, onClick, disabled, loading, variant = 'primary', type = 'button', className = '' }: ButtonProps) {
-  const styles = {
-    primary: { background: 'var(--accent)', color: '#0d1b2f' },
-    secondary: { background: 'var(--surface-strong)', color: 'var(--ink)', border: '1px solid var(--border)' },
-    ghost: { background: 'transparent', color: 'var(--accent)' },
-  }[variant]
+export function Button({
+  children, onClick, disabled, loading,
+  variant = 'primary', type = 'button', className = '',
+}: ButtonProps) {
+  const base =
+    'inline-flex items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold ' +
+    'transition-colors hover:brightness-[0.93] active:scale-[0.99] ' +
+    'disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-carbon'
+
+  const styles: Record<NonNullable<ButtonProps['variant']>, React.CSSProperties> = {
+    primary:   { background: 'var(--ink)', color: '#FFFFFF' },
+    secondary: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--rule)' },
+    ghost:     { background: 'transparent', color: 'var(--carbon)' },
+  }
+
   return (
     <button
       type={type}
       onClick={onClick}
-      disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
-      style={{ minHeight: 44, ...styles }}
+      disabled={disabled ?? loading}
+      className={`${base} ${className}`}
+      style={{ minHeight: 40, ...styles[variant] }}
     >
       {loading && <Loader2 className="size-4 animate-spin" />}
       {children}
@@ -44,51 +56,75 @@ export function Button({ children, onClick, disabled, loading, variant = 'primar
   )
 }
 
-export function Field({ id, label, hint, error, children }: { id: string; label: string; hint?: ReactNode; error?: string; children: ReactNode }) {
+// ── Field ─────────────────────────────────────────────────────────────────────
+export function Field({
+  id, label, hint, error, children,
+}: {
+  id: string; label: string; hint?: ReactNode; error?: string; children: ReactNode
+}) {
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium mb-1.5" style={{ color: 'var(--muted)' }}>
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium mb-1.5"
+        style={{ color: 'var(--ink)' }}
+      >
         {label}
       </label>
       {children}
       {error ? (
-        <p className="mt-1 text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
+        <p className="mt-1.5 text-[13px]" style={{ color: 'var(--danger)' }}>{error}</p>
       ) : hint ? (
-        <p className="mt-1 text-xs" style={{ color: 'var(--subtle)' }}>{hint}</p>
+        <p className="mt-1.5 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>{hint}</p>
       ) : null}
     </div>
   )
 }
 
-export const inputClass = 'w-full rounded-xl px-4 py-3 text-base outline-none transition-all'
+export const inputClass =
+  'w-full rounded-md px-3 py-2.5 text-base outline-none transition-colors ' +
+  'focus:ring-2 focus:ring-carbon focus:ring-offset-0'
+
 export function inputStyle(invalid = false): React.CSSProperties {
   return {
-    background: 'var(--surface-muted)',
+    background: 'var(--surface)',
     color: 'var(--ink)',
-    border: `1px solid ${invalid ? 'var(--danger)' : 'var(--border)'}`,
+    border: `1px solid ${invalid ? 'var(--danger)' : 'var(--rule)'}`,
   }
 }
 
+// ── StatusPill ────────────────────────────────────────────────────────────────
+// Brief: Waiting amber, Paid green, Collected ink, Expired grey.
 const STATUS: Record<RequestStatus, { label: string; color: string; bg: string }> = {
-  loading: { label: 'Loading…', color: 'var(--subtle)', bg: 'var(--surface-muted)' },
-  waiting: { label: 'Waiting for payment', color: 'var(--muted)', bg: 'var(--surface-muted)' },
-  partial: { label: 'Partially paid', color: 'var(--warning)', bg: 'rgba(245,201,122,0.12)' },
-  'below-minimum': { label: 'Received (below minimum)', color: 'var(--warning)', bg: 'rgba(245,201,122,0.12)' },
-  paid: { label: 'Paid', color: 'var(--success)', bg: 'rgba(141,216,159,0.14)' },
-  collected: { label: 'Collected', color: 'var(--accent)', bg: 'rgba(172,198,233,0.14)' },
-  'on-hold': { label: 'On hold', color: 'var(--danger)', bg: 'rgba(232,109,122,0.14)' },
+  loading:          { label: 'Loading…',               color: 'var(--muted-foreground)', bg: '#F2F4F3' },
+  waiting:          { label: 'Waiting for payment',      color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
+  partial:          { label: 'Partially paid',           color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
+  'below-minimum':  { label: 'Below minimum',            color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
+  paid:             { label: 'Paid',                    color: 'var(--paid)',             bg: 'rgba(11,122,75,0.10)' },
+  collected:        { label: 'Collected',               color: 'var(--ink)',              bg: 'rgba(19,35,58,0.07)' },
+  'on-hold':        { label: 'On hold',                 color: '#DC2626',                bg: 'rgba(220,38,38,0.08)' },
 }
 
 export function StatusPill({ status }: { status: RequestStatus }) {
   const s = STATUS[status]
   return (
-    <span className="px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap" style={{ color: s.color, background: s.bg }}>
+    <span
+      className="px-2.5 py-0.5 rounded text-xs font-semibold whitespace-nowrap tabular"
+      style={{ color: s.color, background: s.bg }}
+    >
       {s.label}
     </span>
   )
 }
 
-export function CopyButton({ text, label = 'Copy', copiedLabel = 'Copied', variant = 'secondary', className = '' }: { text: string; label?: string; copiedLabel?: string; variant?: ButtonProps['variant']; className?: string }) {
+// ── CopyButton ────────────────────────────────────────────────────────────────
+export function CopyButton({
+  text, label = 'Copy', copiedLabel = 'Copied',
+  variant = 'secondary', className = '',
+}: {
+  text: string; label?: string; copiedLabel?: string
+  variant?: ButtonProps['variant']; className?: string
+}) {
   const [copied, setCopied] = useState(false)
   const copy = () => {
     void navigator.clipboard?.writeText(text).then(() => {
@@ -104,13 +140,17 @@ export function CopyButton({ text, label = 'Copy', copiedLabel = 'Copied', varia
   )
 }
 
+// ── NetworkBadge ──────────────────────────────────────────────────────────────
 export function NetworkBadge({ name, testnet }: { name: string; testnet: boolean }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-      style={{ background: 'var(--surface-muted)', color: 'var(--muted)' }}
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
+      style={{ background: 'rgba(205,213,221,0.35)', color: 'var(--muted-foreground)' }}
     >
-      <span className="size-1.5 rounded-full" style={{ background: testnet ? 'var(--warning)' : 'var(--success)' }} />
+      <span
+        className="size-1.5 rounded-full"
+        style={{ background: testnet ? 'var(--amber)' : 'var(--paid)' }}
+      />
       {name}
     </span>
   )

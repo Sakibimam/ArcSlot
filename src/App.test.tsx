@@ -17,16 +17,32 @@ beforeEach(() => {
   window.location.hash = ''
 })
 
+describe('App — landing page', () => {
+  it('shows the landing page at the root hash', () => {
+    window.location.hash = ''
+    render(<App />)
+    expect(screen.getByRole('heading', { name: /get paid in usdc/i })).toBeInTheDocument()
+  })
+
+  it('shows the landing page at #/', () => {
+    window.location.hash = '#/'
+    render(<App />)
+    expect(screen.getByRole('heading', { name: /get paid in usdc/i })).toBeInTheDocument()
+  })
+})
+
 describe('App', () => {
+  beforeEach(() => { window.location.hash = '#/app' })
+
   it('opens the merchant view on the network that is live (testnet for now)', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { name: /request a payment/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /create a payment link/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /testnet/i })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows a friendly empty state', () => {
     render(<App />)
-    expect(screen.getByText(/no payment requests yet/i)).toBeInTheDocument()
+    expect(screen.getByText(/no payment links yet/i)).toBeInTheDocument()
   })
 
   it('lists saved requests for the selected network', () => {
@@ -45,7 +61,7 @@ describe('App', () => {
     wagmiState.readContracts = { data: [{ result: '0x6192176de4b9f8Ac224521d13fc3979F7275E63b' }, { result: 0n }, { result: 0n }, { result: undefined }, { result: true }], isLoading: false, isError: false }
     render(<App />)
     expect(screen.getByRole('heading', { name: 'Coffee' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: /request a payment/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /create a payment link/i })).not.toBeInTheDocument()
   })
 
   it('follows hash changes', () => {
@@ -66,6 +82,8 @@ describe('App', () => {
 })
 
 describe('App — vault', () => {
+  beforeEach(() => { window.location.hash = '#/app' })
+
   it('shows the quantum-safe vault panel to a connected merchant', () => {
     wagmiState.account = { address: '0x1111111111111111111111111111111111111111', chainId: 5042002 }
     render(<App />)
@@ -77,11 +95,15 @@ describe('App — vault', () => {
     wagmiState.account = { address: ME, chainId: 5042002 }
     localStorage.setItem(`arc-slot:vault:v1:5042002:${ME}`, JSON.stringify({ chainId: 5042002, owner: ME, vault: '0x00000000000000000000000000000000000000aa', box: '{}' }))
     render(<App />)
-    expect(screen.getByText(/your quantum-safe vault/i)).toBeInTheDocument()
+    // Both the CreateRequest payout line and the VaultCard heading show the vault;
+    // at least one must be present.
+    expect(screen.getAllByText(/your quantum-safe vault/i).length).toBeGreaterThan(0)
   })
 })
 
 describe('App — requests from the chain', () => {
+  beforeEach(() => { window.location.hash = '#/app' })
+
   it('shows requests created on another device', () => {
     const ME = '0x1111111111111111111111111111111111111111'
     wagmiState.account = { address: ME, chainId: 5042002 }
@@ -101,6 +123,6 @@ describe('App — collectors page', () => {
     wagmiState.readContracts = { isLoading: false, isError: false, data: [{ result: 0n }, { result: 0n }, { result: [[], []] }] }
     render(<App />)
     expect(screen.getByRole('heading', { name: /collectors/i })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: /request a payment/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /create a payment link/i })).not.toBeInTheDocument()
   })
 })

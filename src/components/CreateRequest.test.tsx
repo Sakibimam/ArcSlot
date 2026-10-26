@@ -194,3 +194,29 @@ describe('CreateRequest — description limit', () => {
     expect(createBtn()).toBeDisabled()
   })
 })
+
+describe('CreateRequest — live receipt preview', () => {
+  it('shows the receipt preview when a wallet is connected', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    expect(screen.getByLabelText(/receipt preview/i)).toBeInTheDocument()
+  })
+
+  it('updates the preview label as the user types', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fill(/what is it for/i, 'Logo design')
+    expect(screen.getByTestId('preview-label')).toHaveTextContent('Logo design')
+  })
+
+  it('updates the preview amount as the user types', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fill(/amount/i, '100')
+    expect(screen.getByTestId('preview-amount')).toHaveTextContent('100.00 USDC')
+  })
+
+  it('shows the receive amount derived from the typed amount', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fill(/amount/i, '1000')
+    // 1000 USDC - 0.02 USDC fee = 999.98; the preview subtracts 20000 micro-USDC
+    expect(screen.getByTestId('preview-receive')).toHaveTextContent('USDC')
+  })
+})

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowDownToLine, Inbox, Link2, Send } from 'lucide-react'
-import { Header } from '@/components/Header'
+import { Link2, Send, ArrowDownToLine } from 'lucide-react'
+import { Header, AppFooter } from '@/components/Header'
 import { CreateRequest } from '@/components/CreateRequest'
 import { VaultCard } from '@/components/VaultCard'
+import { LandingPage } from '@/components/LandingPage'
 import { useAccount } from 'wagmi'
 import { loadVault } from '@/lib/vault-store'
 import { useChainRequests } from '@/lib/use-chain-requests'
@@ -35,20 +36,25 @@ export default function App() {
   const [chainId, setChainId] = useState<SupportedChainId>(defaultChain)
   const [requests, setRequests] = useState<StoredSlot[]>(loadSlots)
   const { address: wallet } = useAccount()
-  // This wallet's quantum-safe vault on this network: from device storage,
-  // or just reported by VaultCard after create/restore.
   const vaultKey = wallet ? `${chainId}:${wallet.toLowerCase()}` : ''
   const [reportedVault, setReportedVault] = useState<{ key: string; vault: string | null } | null>(null)
   const vault =
-    reportedVault?.key === vaultKey ? reportedVault.vault : wallet ? loadVault(chainId, wallet)?.vault ?? null : null
+    reportedVault?.key === vaultKey
+      ? reportedVault.vault
+      : wallet ? loadVault(chainId, wallet)?.vault ?? null : null
   const chainRequests = useChainRequests(chainId, wallet)
-  const handleVaultChange = useCallback((v: string | null) => setReportedVault({ key: vaultKey, vault: v }), [vaultKey])
+  const handleVaultChange = useCallback(
+    (v: string | null) => setReportedVault({ key: vaultKey, vault: v }),
+    [vaultKey],
+  )
 
   useEffect(() => saveSlots(requests), [requests])
 
   const handleCreated = useCallback((req: StoredSlot) => {
     setRequests((prev) =>
-      prev.some((r) => r.address === req.address && r.chainId === req.chainId) ? prev : [req, ...prev],
+      prev.some((r) => r.address === req.address && r.chainId === req.chainId)
+        ? prev
+        : [req, ...prev],
     )
   }, [])
 
@@ -56,76 +62,103 @@ export default function App() {
     setRequests((prev) => prev.map((r) => (r.address === address ? { ...r, receipt } : r)))
   }, [])
 
+  // ── Landing page ────────────────────────────────────────────────────────────
+  if (route.page === 'landing') {
+    return <LandingPage />
+  }
+
+  // ── Collectors page ─────────────────────────────────────────────────────────
   if (route.page === 'collectors') {
     return (
-      <div className="min-h-dvh flex flex-col">
+      <div className="min-h-dvh flex flex-col bg-paper">
         <Header chainId={chainId} onChainChange={setChainId} />
-        <main className="flex-1 mx-auto w-full max-w-2xl px-4 pt-6 pb-24 sm:pt-10">
+        <main className="flex-1 mx-auto w-full max-w-2xl px-4 pt-8 pb-16 sm:pt-12">
           <Leaderboard chainId={chainId} />
         </main>
+        <AppFooter />
       </div>
     )
   }
 
+  // ── Pay page / invalid link ─────────────────────────────────────────────────
   if (route.page !== 'merchant') {
     return (
-      <div className="min-h-dvh flex flex-col">
-        <Header />
-        <main className="flex-1 mx-auto w-full max-w-md px-4 pt-6 pb-24 sm:pt-10">
+      <div className="min-h-dvh flex flex-col bg-paper">
+        <Header showNav={false} />
+        <main className="flex-1 mx-auto w-full max-w-md px-4 pt-8 pb-16 sm:pt-12">
           {route.page === 'pay' ? (
-            <PayPage chainId={route.chainId} slot={route.slot} amount={route.amount} label={route.label} />
+            <PayPage
+              chainId={route.chainId}
+              slot={route.slot}
+              amount={route.amount}
+              label={route.label}
+            />
           ) : (
             <Card className="text-center">
-              <h1 className="display text-xl font-semibold">This payment link is not valid</h1>
-              <p className="text-sm mt-2" style={{ color: 'var(--subtle)' }}>Check you copied the whole link, or ask for a new one.</p>
+              <h1 className="text-xl font-semibold text-ink">This payment link is not valid</h1>
+              <p className="text-sm mt-2 text-ink/50">
+                Check you copied the whole link, or ask for a new one.
+              </p>
             </Card>
           )}
-          <p className="text-xs text-center mt-6" style={{ color: 'var(--subtle)' }}>
+          <p className="text-xs text-center mt-6 text-ink/40">
             Payments settle in USDC on Arc. Non-custodial: funds go straight to the merchant.
           </p>
         </main>
+        <AppFooter />
       </div>
     )
   }
 
+  // ── Merchant dashboard (#/app) ──────────────────────────────────────────────
   const visible = mergeRequests(
     requests.filter((r) => r.chainId === chainId),
     chainRequests,
   )
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    <div className="min-h-dvh flex flex-col bg-paper">
       <Header chainId={chainId} onChainChange={setChainId} />
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4 pt-6 pb-24 sm:pt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[440px_1fr] gap-6 lg:gap-8 items-start">
+
+      <main className="flex-1 mx-auto w-full max-w-[1120px] px-4 sm:px-6 pt-8 pb-16 sm:pt-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 lg:gap-10 items-start">
+
+          {/* Left column: create + vault */}
           <div className="flex flex-col gap-6">
-            <CreateRequest key={vault ?? 'wallet'} chainId={chainId} vault={vault} onCreated={handleCreated} />
+            <CreateRequest
+              key={vault ?? 'wallet'}
+              chainId={chainId}
+              vault={vault}
+              onCreated={handleCreated}
+            />
             <VaultCard chainId={chainId} onVaultChange={handleVaultChange} />
           </div>
 
+          {/* Right column: request list */}
           <section>
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="display text-xl font-semibold">Your requests</h2>
+            <div className="flex items-baseline justify-between mb-5">
+              <h2 className="text-base font-semibold text-ink">Payment links</h2>
               {visible.length > 0 && (
-                <span className="text-xs" style={{ color: 'var(--subtle)' }}>Updates live</span>
+                <span className="text-xs text-ink/40">Updates live</span>
               )}
             </div>
+
             {visible.length === 0 ? (
-              <Card className="text-center">
-                <Inbox className="size-7 mx-auto mb-2" style={{ color: 'var(--subtle)' }} />
-                <p className="font-medium">No payment requests yet</p>
-                <ol className="mt-5 grid gap-3 sm:grid-cols-3 text-left">
+              <Card>
+                <p className="font-semibold text-ink mb-1">No payment links yet.</p>
+                <p className="text-sm text-ink/60 mb-6">Make your first one.</p>
+                <ol className="grid gap-3 sm:grid-cols-3 text-left">
                   {[
-                    [Link2, 'Create a link', 'Set an amount and what it’s for.'],
-                    [Send, 'Customer pays', 'They open the link and pay with any wallet.'],
-                    [ArrowDownToLine, 'Collect', 'Move the USDC to your wallet in one tap.'],
+                    [Link2,           'Create a link',   "Set an amount and what it's for."],
+                    [Send,            'Customer pays',   'They open the link and pay from any wallet.'],
+                    [ArrowDownToLine, 'Collect',         'Move the USDC to your wallet in one tap.'],
                   ].map(([Icon, title, text], i) => {
                     const I = Icon as typeof Link2
                     return (
-                      <li key={i} className="rounded-2xl p-4" style={{ background: 'var(--surface-muted)' }}>
-                        <I className="size-5 mb-2" style={{ color: 'var(--accent)' }} />
-                        <p className="text-sm font-semibold">{i + 1}. {title as string}</p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--subtle)' }}>{text as string}</p>
+                      <li key={i} className="rounded-sm p-4 bg-paper border border-rule">
+                        <I className="size-5 mb-2 text-carbon" />
+                        <p className="text-sm font-semibold text-ink">{i + 1}. {title as string}</p>
+                        <p className="text-xs mt-1 text-ink/50">{text as string}</p>
                       </li>
                     )
                   })}
@@ -134,16 +167,23 @@ export default function App() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                 {visible.map((r) => (
-                  <RequestCard key={`${r.chainId}:${r.address}`} request={r} onSwept={handleSwept} />
+                  <RequestCard
+                    key={`${r.chainId}:${r.address}`}
+                    request={r}
+                    onSwept={handleSwept}
+                  />
                 ))}
               </div>
             )}
-            <p className="text-xs mt-4" style={{ color: 'var(--subtle)' }}>
-              Requests are remembered in this browser. Each one has its own address, so payments never mix.
+
+            <p className="text-xs mt-4 text-ink/40">
+              Links are remembered in this browser. Each has its own address so payments never mix.
             </p>
           </section>
         </div>
       </main>
+
+      <AppFooter />
     </div>
   )
 }
@@ -155,7 +195,12 @@ function mergeRequests(local: StoredSlot[], chain: StoredSlot[]): StoredSlot[] {
   for (const c of chain) {
     const key = c.address.toLowerCase()
     const l = byAddr.get(key)
-    byAddr.set(key, l ? { ...c, ...l, label: l.label ?? c.label, amount: l.amount ?? c.amount, onchain: true } : { ...c, onchain: true })
+    byAddr.set(
+      key,
+      l
+        ? { ...c, ...l, label: l.label ?? c.label, amount: l.amount ?? c.amount, onchain: true }
+        : { ...c, onchain: true },
+    )
   }
   return [...byAddr.values()].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
 }
