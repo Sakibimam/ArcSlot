@@ -1,23 +1,55 @@
-# Arc Slot
+# ArcSlot
 
-A deposit-address system built on [Arc](https://arc.io) — the blockchain where USDC is the native gas token.
+**Get paid in USDC for cents, not percent.**
 
-Built with [Arc Studio](https://studio.arc.io)
+[**Try it live**](https://arc-slot-three.vercel.app) · on Arc testnet · Built with [Arc Studio](https://studio.arc.io)
 
+---
 
-**Live app (Arc testnet):** https://arc-slot-three.vercel.app
+Every business that invoices online hands 1.5–3% of every payment to a middleman. On a $1,000 invoice:
 
-## What it does
+| How you get paid | What it costs you |
+|---|---|
+| Card | **$23.60** (2.36% average US interchange, [Motley Fool](https://www.fool.com/money/research/average-credit-card-processing-fees-costs-america/)) |
+| Stablecoin processor | **$15.00** (1.5% per payment, [Yahoo Finance](https://finance.yahoo.com/news/stripe-charges-1-5-stablecoin-145737023.html)) |
+| **ArcSlot** | **~$0.02** network fee. That's it. |
 
-Arc Slot lets you generate unique, deterministic USDC deposit addresses for merchants. Each address is a minimal proxy clone deployed by `SlotFactory`. Anyone can call `sweep()` on a funded slot — the caller is reimbursed for gas in USDC, an optional protocol fee goes to `feeRecipient`, and the remainder lands with the merchant. A blacklist-quarantine path handles Circle USDC compliance edge cases automatically.
+Stablecoins already won the argument: Stripe paid [$1.1 billion](https://www.nbcnewyork.com/news/business/money-report/stripe-closes-1-1-billion-bridge-deal-prepares-for-aggressive-stablecoin-push/6135508/) for a stablecoin company, and business stablecoin payments grew [733% in 2025](https://ambcrypto.com/stablecoin-volumes-surge-to-35-trillion-but-real-world-payments-still-lag-at-1/). The rails cost cents. The toll booths on top of them still charge percent. **ArcSlot removes the toll booth.**
+
+## How it works
+
+1. **Send a link.** Every invoice gets its own address that can only pay you.
+2. **Your client pays from any wallet**: on Arc, or from Ethereum, Base, Arbitrum, OP Mainnet, Polygon or Avalanche through **Circle's CCTP**. Circle's Forwarding Service lands exactly the amount you asked for.
+3. **It's yours in seconds.** No account, no payout schedule, no processor in between.
+
+## Why it wins
+
+- **Nobody holds your money. Not even us.** Funds go from the payer to an address only you can collect from. If this website disappeared tomorrow, every link would still work.
+- **Exact amounts, any chain.** The payer covers the cross-chain fee; you receive the full invoice.
+- **Mistakes are recoverable.** Every request has the same address on every chain, so USDC sent on the wrong network can be recovered.
+- **Built for software, not just people.** Any app or AI agent can create and pay invoices with one contract call. No API key, no sign-up.
+- **Security you can check.** An optional quantum-safe vault (post-quantum signatures, verified on Arc), and Circle's USDC compliance controls respected on every payout.
+
+## Proof
+
+- **Live and working** on Arc testnet: create a link, pay it from Arc or from Ethereum Sepolia, collect it. Real payments, every step on-chain ([create](https://explorer.testnet.arc.io/tx/0xb1c63ec19f9746d9b4dd12154962fd091a00953390a4614e9f518f88d0ecd012), [pay](https://explorer.testnet.arc.io/tx/0xdb755498676c516178543af264de05aea67c60cf621fb2dfd049e482bbff847a), [collect](https://explorer.testnet.arc.io/tx/0x9aabaec545abd14e75d135442b5b2664d11a3a0d34669998cec855716f2732f7)).
+- **Hardened:** 300+ automated tests, a 1,000-actor randomized stress campaign, two security reviews in Arc Studio and an independent white-hat review, with every finding fixed. (No third-party audit yet.)
+- **Fully public code:** everything that touches money is in this repo, readable by anyone.
+
+---
+
+# Under the hood
+
+For builders and reviewers: the contracts, the cross-chain flow and how to run it.
 
 ## Tech stack
 
 - **Frontend:** React 18, Vite 6, TypeScript, Tailwind CSS v3
 - **Onchain:** wagmi v2, viem v2, ConnectKit
+- **Cross-chain:** Circle App Kit, CCTP v2 + Forwarding Service (receive-exact, `feePayment: 'source'`)
 - **Contracts:** Solidity 0.8.28, Foundry, OpenZeppelin 5.x (EIP-1167 Clones, ReentrancyGuard, SafeERC20)
 - **Chain:** Arc mainnet (5042) + Arc Testnet (5042002)
-- **Token:** USDC at `0x3600000000000000000000000000000000000000` (6 decimals — also the native gas token on Arc)
+- **Token:** USDC at `0x3600000000000000000000000000000000000000` (6 decimals, also the native gas token on Arc)
 
 ## Contracts
 
@@ -30,7 +62,7 @@ Arc Slot lets you generate unique, deterministic USDC deposit addresses for merc
 
 - **Merchant:** connect a wallet → enter an amount and what it's for → get a payment link + QR. Funds go to the connected wallet by default (no separate merchant address needed). Each request card shows live progress (`0.40 of 1.00 USDC received`) and a **Collect** button that moves the USDC to the wallet in one transaction.
 - **Payer:** open the link → see the amount, what it's for, and the payee address read from the contract (not from the link) → **Pay with wallet** in one click, or **Send manually** to the address/QR from any exchange or wallet. The page confirms live when the payment lands. On testnet it links to the Circle faucet.
-- Links are hash routes (`/#/pay/<chainId>/<slot>?amount=&for=`) so they work on any static host.
+- Links are hash routes (`/#/pay/<chainId>/<slot>`) so they work on any static host. They carry only the address: amount and description are read from the chain, so nobody can edit them in a link.
 
 ### On-chain requests
 
@@ -90,9 +122,8 @@ Merchants can route payouts into a `SlotVault` that only releases funds with a *
 - **Merchant can always sweep** — the merchant sweeping their own slot takes no reimbursement and bypasses the cap, so funds can never be locked by a gas spike (verified live on testnet at ~530 gwei).
 - **Calibrated gas overhead** — Arc USDC transfers run through the native-coin precompile (~40k gas each), so the unmeasured overhead is `55k + 42k × transfers`, calibrated on an Arc mainnet fork and asserted to cover real cost within +15%.
 - **No `msg.value`** — all amounts use the USDC ERC-20 interface exclusively. Arc's native balance and ERC-20 balance represent the same pool but differ by 1e12; the contracts only ever touch the 6-decimal ERC-20 view.
-- **Fail-closed blacklist check** — before sweeping, `Slot` probes `isBlacklisted(address)` on the USDC contract via staticcall. A probe failure quarantines the slot rather than proceeding, preventing accidental transfers to blacklisted addresses.
-- **Quarantine resolution** — the merchant can call `resolveQuarantine(newMerchant, newFeeRecipient, newFeeBps)` to replace either payout address and re-enable sweeping.
-- **No selfdestruct, nothing payable** — both contracts reject native-value calls; no path exists to drain a slot's USDC via the native balance.
+- **Respects USDC compliance** — before paying out, `Slot` checks Circle's blacklist. If the merchant is blacklisted, the slot freezes and the funds stay put until Circle clears the address (nobody can redirect them). A blacklisted fee wallet doesn't block the merchant: its share is held in `heldFees` and released later with `releaseHeldFees`.
+- **No selfdestruct** — on Arc a slot accepts USDC sent as the native coin too (it's the same balance); on other chains native value is rejected, and stray non-USDC tokens can only be rescued to the merchant.
 
 ### Constructor args
 
