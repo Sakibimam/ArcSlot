@@ -106,6 +106,32 @@ describe('PayPage', () => {
     expect(screen.getByRole('link', { name: /view transaction/i })).toHaveAttribute('href', expect.stringContaining('/tx/0xbeef'))
   })
 
+  it('drops a coin into the slot on the Pay button while the payment confirms', () => {
+    wagmiState.account = { address: ME, chainId: 5042002 }
+    wagmiState.readByFn = { balanceOf: 5_000_000n }
+    wagmiState.write = { data: '0xbeef', isPending: false, error: null }
+    wagmiState.waitReceipt = { data: undefined, isLoading: true, isSuccess: false }
+    render(<PayPage {...props} />)
+    const btn = screen.getByRole('button', { name: /sending/i })
+    expect(btn).toBeDisabled()
+    expect(btn.querySelector('svg[aria-label="Sending payment"]')).not.toBeNull()
+  })
+
+  it('lands the coin, green, when the payment is sent or received', () => {
+    wagmiState.account = { address: ME, chainId: 5042002 }
+    wagmiState.readByFn = { balanceOf: 5_000_000n }
+    wagmiState.write = { data: '0xbeef', isPending: false, error: null }
+    wagmiState.waitReceipt = { data: {}, isLoading: false, isSuccess: true }
+    const { unmount } = render(<PayPage {...props} />)
+    expect(screen.getByRole('img', { name: /^paid$/i })).toBeInTheDocument()
+    unmount()
+    resetWagmi()
+    slotReads({ balance: 1_500_000n })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/payment received/i)).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /^paid$/i })).toBeInTheDocument()
+  })
+
   it('rejects a link that does not point at a payment slot', () => {
     // The address answers no merchant(): not a slot at all.
     slotReads({ merchant: null as unknown as string })

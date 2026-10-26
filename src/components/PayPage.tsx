@@ -7,7 +7,7 @@ import { ConnectKitButton } from 'connectkit'
 import { type ContractFunctionParameters, erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
 import {
-  AlertTriangle, Atom, BadgeCheck, CircleCheck,
+  AlertTriangle, Atom, BadgeCheck,
   ExternalLink, QrCode, ShieldCheck, Shuffle, Wallet,
 } from 'lucide-react'
 import { SLOT_ABI, SLOT_FACTORY_ABI, SLOT_VAULT_ABI } from '@/lib/abis'
@@ -21,6 +21,7 @@ import { formatUsdc6, isMinimalProxyTo, isRequestPaid, parseUsdc6, requestTrust,
 import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, NetworkBadge, inputClass, inputStyle } from './ui'
 import { CrossChainPay } from './CrossChainPay'
+import { DropMark } from './Logo'
 
 interface PayPageProps {
   chainId: SupportedChainId
@@ -347,7 +348,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         </Card>
       ) : fullyPaid || sent ? (
         <Card className="text-center">
-          <CircleCheck className="size-10 mx-auto mb-2 text-paid" />
+          <DropMark state="paid" className="size-16 mx-auto mb-1" />
           <h2 className="text-xl font-semibold text-ink">
             {sent ? 'Payment sent' : 'Payment received'}
           </h2>
@@ -441,10 +442,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                   )}
                   <Button
                     className="w-full text-base"
-                    disabled={!payAmount || insufficient}
-                    loading={isPending || confirming}
+                    disabled={!payAmount || insufficient || isPending || confirming}
                     onClick={pay}
                   >
+                    {(isPending || confirming) && <DropMark state="sending" tone="current" className="size-6" />}
                     {isPending
                       ? 'Confirm in your wallet…'
                       : confirming
