@@ -2,7 +2,7 @@
 
 **Get paid in USDC for cents, not percent.**
 
-[**Try it live**](https://arc-slot-three.vercel.app) · on Arc testnet · Built with [Arc Studio](https://studio.arc.io)
+[**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · on Arc testnet · Built with [Arc Studio](https://studio.arc.io)
 
 ---
 
@@ -40,7 +40,49 @@ Stablecoins already won the argument: Stripe paid [$1.1 billion](https://www.nbc
 
 # Under the hood
 
-For builders and reviewers: the contracts, the cross-chain flow and how to run it.
+For builders and reviewers: the contracts, the cross-chain flow and how to run it. The full guide lives at **[arc-slot-three.vercel.app/#/docs](https://arc-slot-three.vercel.app/#/docs)** (source: [`src/content/docs.ts`](src/content/docs.ts)).
+
+## Architecture
+
+ArcSlot has no backend. A static web app talks straight to four contracts on Arc, and to Circle's CCTP for payments from other chains. Every piece of state the app shows is read from the chain.
+
+```mermaid
+flowchart LR
+  subgraph Payer
+    W[Wallet or exchange on Arc]
+    X[USDC on Base, Ethereum,<br/>Arbitrum, OP, Polygon, Avalanche]
+  end
+  subgraph Circle
+    C[CCTP v2 burn + attestation<br/>Forwarding Service mint]
+  end
+  subgraph Arc
+    F[SlotFactory<br/>requests, leaderboard]
+    S[Slot<br/>one per request]
+    V[SlotVault<br/>optional, post-quantum]
+  end
+  M[Merchant wallet]
+  K[Collector<br/>merchant, anyone, or bot]
+  APP[Web app<br/>static, no server] -- createRequest --> F
+  F -- deploys clone --> S
+  W -- USDC --> S
+  X --> C -- mints exact amount --> S
+  K -- sweep --> S
+  S -- net payment --> M
+  S -- or --> V
+  S -- gas refund + tip --> K
+```
+
+| Component | What it does |
+|---|---|
+| **Web app** (`src/`) | React + Vite static site. wagmi/viem for reads and writes, ConnectKit for wallets, Circle App Kit for cross-chain payments. Hash routes (`#/pay/<chainId>/<slot>`) so it runs on any static host. |
+| **`SlotFactory`** | Deploys one EIP-1167 `Slot` clone per request at `predict(creator, merchant, payRef)`, stores amount, label and expiry on-chain, indexes requests by creator, keeps the collector leaderboard. |
+| **`Slot`** | Receives USDC. `sweep()` checks Circle's blocklist, splits an optional fee, refunds the collector's gas (base-fee priced, capped) plus a tip, and pays the merchant. The payout address is fixed at creation. |
+| **`VaultFactory` / `SlotVault`** | Optional payout vault: funds move only with an SLH-DSA signature verified by Arc's post-quantum precompile, plus the owner's wallet signature. |
+| **`ChainConfig`** | Looks up USDC per chain at runtime, so init code is chain-agnostic and every contract has the same CREATE2 address on every chain. That makes wrong-network recovery possible. |
+| **Circle CCTP + Forwarding Service** | Burns USDC on the payer's chain and mints exactly the requested amount into the Slot on Arc. No Arc wallet or gas needed. |
+| **Collector bot** (`scripts/collector.ts`) | Optional. Anyone can run it to deliver paid requests and earn the tip. |
+
+**Life of a payment:** `createRequest` deploys the Slot → the payer sends USDC (on Arc, or via CCTP) → anyone calls `sweep()` → the merchant receives the payment minus a cent or two of gas. Step-by-step detail: [Life of a payment](https://arc-slot-three.vercel.app/#/docs/lifecycle).
 
 ## Tech stack
 
@@ -56,7 +98,10 @@ For builders and reviewers: the contracts, the cross-chain flow and how to run i
 | Contract | Role |
 |---|---|
 | `contracts/Slot.sol` | EIP-1167 clone implementation — one shared bytecode, one clone per deposit address |
-| `contracts/SlotFactory.sol` | Deploys and tracks clones deterministically via `Clones.cloneDeterministic` |
+| `contracts/SlotFactory.sol` | Deploys and tracks clones deterministically, stores on-chain requests and collector stats |
+| `contracts/SlotVault.sol` | Quantum-safe payout vault (SLH-DSA via Arc's precompile) |
+| `contracts/VaultFactory.sol` | Deploys vault clones at addresses that commit to owner, key and settings |
+| `contracts/ChainConfig.sol` | Resolves USDC per chain at runtime (chain-agnostic init code) |
 
 ### How it works for people
 
@@ -177,7 +222,7 @@ bun install
 bun run dev
 ```
 
-Opens at `http://localhost:5173`. Connect a wallet on Arc Testnet to use the app. Use the **Get test USDC** button in Arc Studio's sidebar to fund a test wallet.
+Opens at `http://localhost:5173`. Connect a wallet on Arc Testnet to use the app. Get test USDC from the [Circle faucet](https://faucet.circle.com).
 
 ### Build
 
@@ -188,29 +233,30 @@ bun run build        # Vite production build → dist/
 ### Contracts
 
 ```bash
-bun run contracts:test        # 127 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
-bun run contracts:test:fork   # 16 fork tests: Arc mainnet (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; --ffi) + a two-chain Arc testnet/Sepolia recovery test
-bun run test                  # 183 Vitest unit + component integration tests
+bun run contracts:test        # 169 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
+bun run contracts:test:fork   # 21 fork tests: Arc mainnet (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; --ffi) + a two-chain Arc testnet/Sepolia recovery test
+bun run contracts:test:stress # 1,000-actor invariant suite + 20k-action simulation (slow)
+bun run test                  # 300+ Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```
 
 Fork tests need [Arc Foundry](https://docs.arc.io/arc/tutorials/install-arc-foundry.md) (`arc-forge`): stock Foundry can't execute Arc's native-coin precompile that USDC transfers go through.
 
-Browser end-to-end on Arc testnet — drives the real UI with two wallets (merchant creates a link → payer pays → merchant collects). Needs the dev server on :5179:
+Browser end-to-end on Arc testnet — drives the real UI with two wallets (merchant creates a link → payer pays → merchant collects). The first wallet is `PRIVATE_KEY` from `.env`; put the second wallet's key in your environment (not on the command line). Needs the app on :5179, or set `APP_URL`:
 
 ```bash
-PAYER_PRIVATE_KEY=0x... bun run test:e2e:ui
-PAYER_PRIVATE_KEY=0x... node scripts/e2e-ui-vault.mjs     # quantum-safe vault journey
-MERCHANT_PRIVATE_KEY=0x... bun run test:e2e:crosschain  # pay a Slot from Ethereum Sepolia (payer needs Sepolia ETH + USDC)
-bun run test:e2e:recovery                                 # recover USDC sent on Sepolia by mistake (needs Sepolia ETH + USDC)
-VAULT_FACTORY=0x31057DE0e8E7Dba29C34A2Ac0ED1ddfd5A74C986 node scripts/e2e-vault.mjs  # contract-level, live testnet
+bun run test:e2e:ui              # second wallet: PAYER_PRIVATE_KEY
+bun run test:e2e:crosschain      # pay a Slot from Ethereum Sepolia; second wallet: MERCHANT_PRIVATE_KEY (payer needs Sepolia ETH + USDC)
+bun run test:e2e:recovery        # recover USDC sent on Sepolia by mistake (needs Sepolia ETH + USDC)
+node scripts/e2e-ui-vault.mjs    # quantum-safe vault journey; second wallet: PAYER_PRIVATE_KEY
+VAULT_FACTORY=0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97 node scripts/e2e-vault.mjs  # contract-level vault check, live testnet
 ```
 
-Live end-to-end check against a deployed factory (signs with `PRIVATE_KEY` from `.env`):
+Live contract-level check against the deployed factory (signs with `PRIVATE_KEY` from `.env`):
 
 ```bash
-RPC=https://rpc.testnet.arc.io FACTORY=0x387eA56c76Ea72320b32C540eCf1cb74AA95474c \
+RPC=https://rpc.testnet.arc.io FACTORY=0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49 \
   MERCHANT=<another address> bash scripts/e2e-live.sh
 ```
 
@@ -245,7 +291,8 @@ scripts/
   gen-abis.ts               Regenerates src/lib/abis.ts (bun run abis)
   e2e-*.mjs                 Browser E2E runs against testnet
 src/
-  App.tsx                   Routing (merchant / pay / collectors), vault state, request merge
+  App.tsx                   Routing (landing / merchant / pay / collectors / docs), vault state, request merge
+  content/docs.ts           The docs site content (#/docs); tests keep its addresses in sync with chains.ts and this README
   components/
     CreateRequest.tsx       New payment request form
     RequestCard.tsx         Per-request card: status, QR, share, collect
