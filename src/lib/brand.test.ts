@@ -15,6 +15,8 @@ describe('brand', () => {
     expect(html).toMatch(/family=IBM\+Plex\+Mono/)
     expect(html).toMatch(/family=DotGothic16/)
     expect(html).toMatch(/family=Instrument\+Serif:ital@0;1/)
+    // Inter Tight added for body copy and headings in the hybrid redesign
+    expect(html).toMatch(/family=Inter\+Tight/)
     expect(html).not.toMatch(/Schibsted/)
   })
   it('tints the browser chrome bank-note green', () => {

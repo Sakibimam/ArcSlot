@@ -2,197 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { LogoMark } from '@/components/Logo'
 import { getFactoryAddress, ARC_MAINNET_ID } from '@/lib/chains'
+import { SkyHero, useMorphMode, HERO_RECEIPTS } from '@/components/SkyHero'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+export { HERO_RECEIPTS }
 
-function useNetworkStatus(): string {
-  const mainnetLive = getFactoryAddress(ARC_MAINNET_ID) !== null
-  return mainnetLive ? 'Live on Arc mainnet' : 'Live on Arc testnet'
-}
-
-/** Read prefers-reduced-motion once at mount. */
-function usePrefersReducedMotion(): boolean {
-  const [reduced] = useState(
-    () => typeof window !== 'undefined' && (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false),
-  )
-  return reduced
-}
-
-/** True once the element has scrolled into view (always true without IntersectionObserver). */
-function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
-  const ref = useRef<T>(null)
-  const [inView, setInView] = useState(() => typeof window === 'undefined' || !('IntersectionObserver' in window))
-  useEffect(() => {
-    if (inView || !ref.current) return
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) setInView(true)
-    }, { threshold: 0.35 })
-    io.observe(ref.current)
-    return () => io.disconnect()
-  }, [inView])
-  return [ref, inView]
-}
-
-const usd = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
-// ── Rosette ──────────────────────────────────────────────────────────────────
-// The guilloché of a bank note: ellipses turned around one centre, plus rings.
-// It turns very slowly, like an engraving lathe (motion-safe only).
-
-export function Rosette({ className = '', petals = 18, rx = 420, ry = 130 }: {
-  className?: string; petals?: number; rx?: number; ry?: number
-}) {
-  const r = rx + 30
-  return (
-    <svg viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`} className={className} aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeWidth="0.8" className="motion-safe:animate-rosette">
-        {Array.from({ length: petals }, (_, i) => (
-          <ellipse key={i} rx={rx} ry={ry} transform={`rotate(${(180 / petals) * i})`} />
-        ))}
-        <circle r={rx * 0.62} />
-        <circle r={rx * 0.635} />
-        <circle r={rx * 0.36} />
-      </g>
-    </svg>
-  )
-}
-
-// ── Hero receipt ─────────────────────────────────────────────────────────────
-// A thermal receipt printing out of its slot. Every few seconds the next one
-// prints, with the next serial. Under reduced motion it stays on the first.
-
-export const HERO_RECEIPTS = [
-  { payee: 'Rachel Mayer', item: 'Logo design', amount: 1000, net: 999.98 },
-  { payee: 'Tomás Lindqvist', item: 'Translation', amount: 240, net: 239.98 },
-  { payee: 'Aiko Tanaka', item: 'Product photos', amount: 680, net: 679.98 },
-  { payee: 'Nørre Studio', item: 'Website retainer', amount: 2500, net: 2499.98 },
-]
-const RECEIPT_MS = 5_500
-
-const RULE = '- - - - - - - - - - - - - - - - - - - -'
-const TORN_EDGE =
-  'M0 0H400' + Array.from({ length: 34 }, (_, i) => `L${400 - i * 12 - 6} 10L${400 - (i + 1) * 12} 0`).join('') + 'Z'
-
-function HeroReceipt() {
-  const reduced = usePrefersReducedMotion()
-  const [n, setN] = useState(0)
-  useEffect(() => {
-    if (reduced) return
-    const t = setInterval(() => setN((i) => i + 1), RECEIPT_MS)
-    return () => clearInterval(t)
-  }, [reduced])
-  const r = HERO_RECEIPTS[n % HERO_RECEIPTS.length]
-  const serial = `No. AS ${String(42 + n).padStart(4, '0')}`
-
-  return (
-    <figure className="flex flex-col items-center select-none" aria-label={`Example receipt: ${r.payee} receives ${usd(r.net)} USDC for a ${usd(r.amount)} invoice`}>
-      {/* The slot */}
-      <div className="relative z-10 flex h-[30px] w-full max-w-[480px] items-center justify-center rounded-full bg-ink shadow-[0_10px_24px_-12px_rgba(11,42,33,0.6)]">
-        <div className="h-1 w-[84%] rounded-full bg-[#061611]" />
-      </div>
-
-      {/* Keyed by n, so each new receipt prints from the top again. */}
-      <div key={n} className="-mt-[15px] w-[86%] max-w-[400px] motion-safe:animate-receipt-unroll" aria-live="off">
-        <div className="relative overflow-hidden bg-surface px-6 sm:px-8 pb-7 pt-10 font-mono text-[13px] sm:text-[14px] text-ink shadow-[inset_1px_0_0_var(--rule),inset_-1px_0_0_var(--rule)]">
-          <Rosette className="pointer-events-none absolute left-1/2 top-[42%] w-[300px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.06]" petals={9} rx={140} ry={44} />
-
-          <div className="relative flex items-baseline justify-between">
-            <span className="engraved text-[17px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
-            <span className="tracking-[0.1em] text-serial">{serial}</span>
-          </div>
-          <p className="relative mt-2 text-[11px] tracking-[0.06em] text-ink/80">ISSUED ON ARC · USDC</p>
-          <p className="relative my-3 overflow-hidden whitespace-nowrap text-rule" aria-hidden="true">{RULE}</p>
-
-          <dl className="relative space-y-2.5">
-            <div className="flex justify-between gap-4"><dt>PAY TO</dt><dd className="text-right uppercase">{r.payee}</dd></div>
-            <div className="flex justify-between gap-4"><dt className="uppercase">{r.item}</dt><dd className="tabular">{usd(r.amount)}</dd></div>
-            <div className="flex justify-between gap-4"><dt>NETWORK FEE</dt><dd className="tabular">~0.02</dd></div>
-            <div className="flex justify-between gap-4"><dt>PROCESSOR FEE</dt><dd className="tabular">0.00</dd></div>
-          </dl>
-
-          <p className="relative my-3 overflow-hidden whitespace-nowrap text-rule" aria-hidden="true">{RULE}</p>
-          <div className="relative flex items-baseline justify-between gap-4">
-            <span>YOU GET · USDC</span>
-            <span className="dot text-[36px] sm:text-[42px] leading-none">{usd(r.net)}</span>
-          </div>
-          <p className="relative mt-3 text-[11px] leading-relaxed text-ink/80">
-            WITH A 1.5% PROCESSOR: {usd(r.amount * 0.985)}
-          </p>
-          <p className="relative mt-4 text-center dot text-[28px] tracking-[0.3em] text-serial motion-safe:animate-stamp-in">
-            *PAID*
-          </p>
-        </div>
-        {/* Torn edge */}
-        <svg viewBox="0 0 400 10" preserveAspectRatio="none" className="block h-2.5 w-full" aria-hidden="true">
-          <path d={TORN_EDGE} fill="var(--surface)" />
-        </svg>
-      </div>
-    </figure>
-  )
-}
-
-// ── Ledger ────────────────────────────────────────────────────────────────────
-
-interface LedgerRowProps {
-  label: string
-  sublabel: string
-  amount: string
-  barPct: number      // 0-100, proportional to fee
-  highlight?: boolean
-  drawn: boolean      // bars draw in once the ledger is in view
-  delayMs: number
-}
-
-function LedgerRow({ label, sublabel, amount, barPct, highlight, drawn, delayMs }: LedgerRowProps) {
-  return (
-    <div className="py-5 border-b border-ink/25">
-      <div className="flex items-baseline justify-between gap-4">
-        <div className="min-w-0">
-          <p className={['serial text-[13px] font-medium', highlight ? 'text-serial' : 'text-ink'].join(' ')}>
-            {label}
-          </p>
-          <p className="text-[14px] mt-1 text-ink/80">{sublabel}</p>
-        </div>
-        <span
-          className={['engraved tabular flex-none', highlight ? 'text-serial' : 'text-ink'].join(' ')}
-          style={{ fontSize: 'clamp(26px,3.4vw,40px)', lineHeight: 1 }}
-        >
-          {amount}
-        </span>
-      </div>
-      {/* Proportional bar, engraved as fine hatching */}
-      <div className="mt-3 h-2 border border-ink/30">
-        <div
-          data-part="fee-bar"
-          className={[highlight ? 'h-full bg-serial' : 'h-full', 'motion-safe:transition-[width] motion-safe:duration-1000 motion-safe:ease-out'].join(' ')}
-          style={{
-            width: drawn ? `${barPct}%` : '0%',
-            minWidth: highlight && drawn ? 3 : undefined,
-            transitionDelay: `${delayMs}ms`,
-            backgroundImage: highlight ? undefined : 'repeating-linear-gradient(135deg, var(--ink) 0 1px, transparent 1px 4px)',
-          }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function Ledger() {
-  const [ref, drawn] = useInView<HTMLDivElement>()
-  return (
-    <div ref={ref}>
-      <LedgerRow label="Card payment" sublabel="2.36% average US credit interchange" amount="$23.60" barPct={100} drawn={drawn} delayMs={0} />
-      <LedgerRow label="Stablecoin processor" sublabel="1.5% of every payment" amount="$15.00" barPct={64} drawn={drawn} delayMs={250} />
-      <LedgerRow label="ArcSlot" sublabel="Network fee only" amount="~$0.02" barPct={0.09} highlight drawn={drawn} delayMs={700} />
-    </div>
-  )
-}
-
-// ── How it works ──────────────────────────────────────────────────────────────
+// ── How it works ─────────────────────────────────────────────────────────────
 
 const STEPS = [
   { n: '01', title: 'Make a link', body: "Amount, what it's for, and an optional expiry. It takes ten seconds.", tag: 'arc-slot.app/#/pay/…' },
-  { n: '02', title: 'Your customer pays', body: 'They scan the QR code or open the link, and pay from any wallet, on Arc or from Ethereum, Base or Arbitrum.', tag: 'Scan or click' },
+  { n: '02', title: 'Your customer pays', body: "They scan the QR code or open the link and pay from any wallet: on Arc, or from Ethereum, Base or Arbitrum through Circle's CCTP.", tag: 'Scan or click' },
   { n: '03', title: 'The money is yours', body: 'It lands in your wallet, usually within seconds. Nobody can redirect it.', tag: '*PAID*' },
 ]
 
@@ -228,126 +46,304 @@ const hash = await walletClient.writeContract({
 
 const FAQ = [
   { q: 'Do I need an account?', a: 'No. Just a wallet.' },
+  { q: 'Can customers pay from another chain?', a: "Yes. Circle's CCTP moves their USDC from Ethereum, Base, Arbitrum, OP Mainnet, Polygon or Avalanche, and Circle's Forwarding Service delivers exactly the requested amount into your request on Arc. They cover a small relayer fee on their side; you receive the full amount." },
   { q: 'Do I get dollars in my bank?', a: 'Not directly. You receive USDC, and you can cash out with any exchange.' },
   { q: 'What does it cost?', a: 'About 2 cents of network fees per payment. A collector pays the network fee to deliver your money and keeps a small tip from the payment, capped at 10%. You can always collect it yourself and pay only the network fee.' },
   { q: 'Is it audited?', a: 'Two security audits in Arc Studio and an independent review, with every finding fixed. There is no third-party audit yet.' },
   { q: 'What if a customer pays on the wrong network?', a: 'You can recover it from your dashboard.' },
 ]
 
-const ctaPrimary =
-  'inline-flex items-center justify-center h-14 px-7 bg-ink text-paper text-[16px] font-bold hover:bg-[#164537] active:translate-y-px transition-colors'
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function useNetworkStatus(): string {
+  const mainnetLive = getFactoryAddress(ARC_MAINNET_ID) !== null
+  return mainnetLive ? 'Live on Arc mainnet' : 'Live on Arc testnet'
+}
+
+/** Read prefers-reduced-motion once at mount. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced] = useState(
+    () => typeof window !== 'undefined' && (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false),
+  )
+  return reduced
+}
+
+/** True once the element has scrolled into view (always true without IntersectionObserver). */
+function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
+  const ref = useRef<T>(null)
+  const [inView, setInView] = useState(() => typeof window === 'undefined' || !('IntersectionObserver' in window))
+  useEffect(() => {
+    if (inView || !ref.current) return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setInView(true)
+    }, { threshold: 0.35 })
+    io.observe(ref.current)
+    return () => io.disconnect()
+  }, [inView])
+  return [ref, inView]
+}
+
+
+// ── Rosette ───────────────────────────────────────────────────────────────────
+
+export function Rosette({ className = '', petals = 18, rx = 420, ry = 130 }: {
+  className?: string; petals?: number; rx?: number; ry?: number
+}) {
+  const r = rx + 30
+  return (
+    <svg viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`} className={className} aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeWidth="0.8" className="motion-safe:animate-rosette">
+        {Array.from({ length: petals }, (_, i) => (
+          <ellipse key={i} rx={rx} ry={ry} transform={`rotate(${(180 / petals) * i})`} />
+        ))}
+        <circle r={rx * 0.62} />
+        <circle r={rx * 0.635} />
+        <circle r={rx * 0.36} />
+      </g>
+    </svg>
+  )
+}
+
+// ── Ledger ────────────────────────────────────────────────────────────────────
+
+interface LedgerRowProps {
+  label: string
+  sublabel: string
+  amount: string
+  barPct: number
+  highlight?: boolean
+  drawn: boolean
+  delayMs: number
+}
+
+function LedgerRow({ label, sublabel, amount, barPct, highlight, drawn, delayMs }: LedgerRowProps) {
+  return (
+    <div className="py-5 border-b border-ink/25">
+      <div className="flex items-baseline justify-between gap-4">
+        <div className="min-w-0">
+          <p className={['serial text-[13px] font-medium', highlight ? 'text-serial' : 'text-ink'].join(' ')}>
+            {label}
+          </p>
+          <p className="text-[14px] mt-1 text-ink/80">{sublabel}</p>
+        </div>
+        <span
+          className={['engraved tabular flex-none', highlight ? 'text-serial' : 'text-ink'].join(' ')}
+          style={{ fontSize: 'clamp(26px,3.4vw,40px)', lineHeight: 1 }}
+        >
+          {amount}
+        </span>
+      </div>
+      <div className="mt-3 h-2 border border-ink/30">
+        <div
+          data-part="fee-bar"
+          className={[highlight ? 'h-full bg-serial' : 'h-full', 'motion-safe:transition-[width] motion-safe:duration-1000 motion-safe:ease-out'].join(' ')}
+          style={{
+            width: drawn ? `${barPct}%` : '0%',
+            minWidth: highlight && drawn ? 3 : undefined,
+            transitionDelay: `${delayMs}ms`,
+            backgroundImage: highlight ? undefined : 'repeating-linear-gradient(135deg, var(--ink) 0 1px, transparent 1px 4px)',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function Ledger() {
+  const [ref, drawn] = useInView<HTMLDivElement>()
+  return (
+    <div ref={ref}>
+      <LedgerRow label="Card payment" sublabel="2.36% average US credit interchange" amount="$23.60" barPct={100} drawn={drawn} delayMs={0} />
+      <LedgerRow label="Stablecoin processor" sublabel="1.5% of every payment" amount="$15.00" barPct={64} drawn={drawn} delayMs={250} />
+      <LedgerRow label="ArcSlot" sublabel="Network fee only" amount="~$0.02" barPct={0.09} highlight drawn={drawn} delayMs={700} />
+    </div>
+  )
+}
+
+// ── Photo card ────────────────────────────────────────────────────────────────
+
+interface PhotoCardProps {
+  src: string
+  alt: string
+  role: string
+  tall?: boolean
+  children: React.ReactNode
+}
+
+function PhotoCard({ src, alt, role, tall = false, children }: PhotoCardProps) {
+  const [ref, inView] = useInView<HTMLDivElement>()
+  const height = tall ? 470 : 420
+
+  return (
+    <div
+      ref={ref}
+      className="relative overflow-hidden transition-all duration-300 motion-safe:hover:-translate-y-1"
+      style={{
+        width: tall ? 340 : 300,
+        height,
+        maxWidth: '100%',
+        borderRadius: 22,
+        background: '#4B5651',
+        flexShrink: 0,
+      }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{
+          objectPosition: role === 'DESIGNER' ? '66% 40%' : role === 'STRATEGIST' ? '50% 30%' : '30% 35%',
+          ...(inView
+            ? { animation: 'card-reveal 700ms cubic-bezier(.15,.5,.5,1) both' }
+            : { clipPath: 'inset(18% 12% round 24px)', transform: 'scale(1.06)' }),
+        }}
+      />
+
+      {/* Gradient overlay */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(180deg, rgba(0,0,0,0) 45%, rgba(0,0,0,0.50) 100%)',
+          borderRadius: 22,
+        }}
+      />
+
+      {/* Role chip */}
+      <span
+        className="absolute left-4 top-4 rounded-full px-3 py-1.5 serial text-[11px] font-medium text-ink"
+        style={{ background: 'rgba(255,255,255,0.92)' }}
+      >
+        {role}
+      </span>
+
+      {children}
+    </div>
+  )
+}
+
+// ── Section blur-in wrapper ───────────────────────────────────────────────────
+
+function BlurIn({ children, delay = 0, className = '' }: { children: React.ReactNode; delay?: number; className?: string }) {
+  const [ref, inView] = useInView<HTMLDivElement>()
+  const reduced = usePrefersReducedMotion()
+  return (
+    <div
+      ref={ref}
+      data-reveal
+      className={className}
+      style={reduced ? undefined : inView
+        ? { animation: `blur-in 600ms cubic-bezier(.15,.5,.5,1) ${delay}ms both` }
+        : { opacity: 0 }}
+    >
+      {children}
+    </div>
+  )
+}
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export function LandingPage() {
   const networkStatus = useNetworkStatus()
+  const morph = useMorphMode()
   const stepsRef = useRef<HTMLElement>(null)
 
-  function scrollToSteps(e: React.MouseEvent) {
-    e.preventDefault()
-    stepsRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
   return (
-    <div className="min-h-dvh bg-paper text-ink overflow-x-hidden">
+    <div className="min-h-dvh bg-paper text-ink [overflow-x:clip]">
 
-      {/* ── Nav ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-paper/95 backdrop-blur-sm border-b border-ink/20">
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-8 h-16 flex items-center justify-between gap-4">
-          <a href="#/" className="inline-flex items-center gap-2.5 text-ink">
-            <LogoMark className="size-9" />
-            <span className="engraved text-[19px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
-          </a>
-          <nav className="flex items-center gap-6 serial text-[12px]" aria-label="Site">
-            <a href="#how-it-works" onClick={scrollToSteps} className="hidden md:inline hover:text-serial">How it works</a>
-            <a href="#fees" className="hidden md:inline hover:text-serial">Fees</a>
-            <a href="#agents" className="hidden md:inline hover:text-serial">For agents</a>
-            <a href="#/app" className="inline-flex items-center h-10 px-4 bg-ink text-paper hover:bg-ink/90">Open app</a>
-          </nav>
-        </div>
-      </header>
+      {/* Desktop with motion: the pinned sky hero that morphs into the cards row.
+          Phones, tablets and reduced motion: a static hero. Only one is ever rendered. */}
+      <SkyHero morph={morph} networkStatus={networkStatus} />
 
       <main>
 
-        {/* ── Hero ────────────────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden">
-          <Rosette className="pointer-events-none absolute -right-[22rem] -top-40 w-[900px] text-ink opacity-[0.08]" />
-          <div className="relative mx-auto max-w-[1200px] px-4 sm:px-8 pt-14 pb-20 lg:pt-24 lg:pb-28">
-            <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-14 lg:gap-12 items-start">
+        {/* ── At a glance ───────────────────────────────────────────────────── */}
+        <section className="border-t border-ink/20">
+          <div className="mx-auto max-w-[1200px] px-4 sm:px-8">
+            <ul
+              aria-label="At a glance"
+              className="grid grid-cols-3 divide-x divide-ink/15 border-b border-ink/15"
+            >
+              {([
+                ['Fee per payment', '~$0.02'],
+                ['Settles', 'under a second'],
+                ['Who holds it', 'No custody'],
+              ] as const).map(([k, v]) => (
+                <li key={k} className="py-6 px-4 sm:px-8 first:pl-0 last:pr-0">
+                  <p className="serial text-[10px] sm:text-[11px] text-ink/75">{k}</p>
+                  <p className="mt-2 text-[15px] sm:text-[17px] font-semibold text-ink">{v}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
 
-              <div className="lg:pt-6">
-                <p className="serial text-[12px] sm:text-[13px] text-serial">Series 5042 · Issued on Arc</p>
-                <h1 className="mt-5">
-                  <span
-                    data-part="headline-lead"
-                    className="engraved block leading-none tracking-[0.01em]"
-                    style={{ fontSize: 'clamp(26px, 3.3vw, 44px)', fontStretch: '125%' }}
-                  >
-                    Get paid in USDC
-                  </span>{' '}
-                  <span
-                    data-part="headline-turn"
-                    className="font-serif italic block mt-1 font-normal leading-[0.92] tracking-[-0.02em]"
-                    style={{ fontSize: 'clamp(58px, 7.6vw, 112px)' }}
-                  >
-                    for cents, not{' '}
-                    <s className="decoration-serial" style={{ textDecorationThickness: '0.06em' }}>percent</s>.
-                  </span>
-                </h1>
-                <p className="mt-8 text-[19px] text-ink/80 leading-[1.55] max-w-[38ch]">
-                  Every invoice gets its own address that can only pay you. Customers pay from
-                  any wallet, on Arc, Ethereum, Base or Arbitrum.
-                </p>
-                <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
-                  <a href="#/app" className={ctaPrimary}>Create a payment link</a>
-                  <a
-                    href="#how-it-works"
-                    onClick={scrollToSteps}
-                    className="group inline-flex items-center gap-2 text-[16px] font-semibold text-ink"
-                  >
-                    <span className="underline decoration-ink/30 underline-offset-[6px] group-hover:decoration-serial">See how it works</span>
-                    <span aria-hidden="true" className="motion-safe:transition-transform group-hover:translate-x-1">→</span>
-                  </a>
+        {/* ── Get paid by anyone, anywhere ─────────────────────────────────── */}
+        {/* In morph mode this row is part of the pinned hero stage instead. */}
+        {!morph && (
+        <section className="py-20 sm:py-24 px-4 sm:px-8 bg-white">
+          <div className="mx-auto max-w-[1200px]">
+            <BlurIn className="text-center mb-12 sm:mb-16">
+              <p className="serial text-[12px] text-serial mb-4">Series 5042 · Issued on Arc</p>
+              <h2
+                className="heading-tight mx-auto"
+                style={{ fontSize: 'clamp(36px,5vw,64px)', lineHeight: 1, maxWidth: '16ch' }}
+              >
+                Get paid by anyone,{' '}
+                <span className="font-serif italic" style={{ fontWeight: 400 }}>anywhere.</span>
+              </h2>
+              <p className="mt-5 text-[17px] sm:text-[20px] leading-[1.45] text-ink/80 mx-auto max-w-[52ch]">
+                Every invoice gets its own address that can only pay you. Clients pay from Arc,
+                Ethereum, Base or Arbitrum. You keep all of it, minus about two cents.
+              </p>
+              <a
+                href="#/app"
+                className="mt-7 inline-flex items-center h-12 px-7 rounded-full text-[15px] font-semibold text-paper bg-ink hover:bg-ink/90 transition-all hover:-translate-y-px hover:shadow-md"
+              >
+                Create a payment link
+              </a>
+            </BlurIn>
+
+            {/* Photo cards */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-center gap-5 sm:gap-6">
+
+              <PhotoCard src="/images/card-designer.jpg" alt="" role="DESIGNER">
+                <div className="absolute left-3 right-3 bottom-3 bg-white rounded-[14px] px-3.5 py-3 flex items-center gap-3 shadow-[0_12px_30px_-14px_rgba(0,0,0,0.5)]">
+                  <span className="shrink-0 w-8 h-8 rounded-full bg-ink flex items-center justify-center"><LogoMark className="size-4 text-white" /></span>
+                  <div className="grow min-w-0"><p className="text-[14px] font-semibold text-ink leading-tight">Packaging design</p><p className="text-[11px] text-ink/80 mt-0.5">From Ethereum · today, 09:02</p></div>
+                  <div className="text-right shrink-0"><p className="dot text-[16px] text-ink">+850.00</p><p className="dot text-[10px] tracking-[0.2em] text-serial mt-0.5">*PAID*</p></div>
                 </div>
-                <ul aria-label="At a glance" className="mt-12 grid grid-cols-3 border-y border-ink/20 divide-x divide-ink/20 max-w-[560px]">
-                  {[
-                    ['Fee per payment', '~$0.02'],
-                    ['Settles', 'under a second'],
-                    ['Who holds it', 'No custody'],
-                  ].map(([k, v]) => (
-                    <li key={k} className="py-4 px-3 sm:px-5 first:pl-0">
-                      <p className="serial text-[10px] sm:text-[11px] text-ink/80">{k}</p>
-                      <p className="mt-1.5 text-[15px] sm:text-[17px] font-semibold text-ink">{v}</p>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-6 inline-flex items-center gap-2 serial text-[11px] text-ink/80">
-                  <span className="relative flex size-2" aria-hidden="true">
-                    <span className="absolute inline-flex size-full rounded-full bg-paid opacity-60 motion-safe:animate-ping" />
-                    <span className="relative inline-flex size-2 rounded-full bg-paid" />
-                  </span>
-                  {networkStatus}
-                </p>
-              </div>
+              </PhotoCard>
 
-              <HeroReceipt />
+
+              <PhotoCard src="/images/card-consultant.jpg" alt="" role="CONSULTANT">
+                <div className="absolute left-3 right-3 bottom-3 bg-white rounded-[14px] px-3.5 py-3 flex items-center gap-3 shadow-[0_12px_30px_-14px_rgba(0,0,0,0.5)]">
+                  <span className="shrink-0 w-8 h-8 rounded-full bg-ink flex items-center justify-center"><LogoMark className="size-4 text-white" /></span>
+                  <div className="grow min-w-0"><p className="text-[14px] font-semibold text-ink leading-tight">Strategy session</p><p className="text-[11px] text-ink/80 mt-0.5">Waiting · link sent 10:40</p></div>
+                  <div className="text-right shrink-0"><p className="dot text-[16px] text-ink">300.00</p><p className="serial text-[10px] mt-0.5" style={{ color: '#8A5300' }}>PENDING</p></div>
+                </div>
+              </PhotoCard>
+
             </div>
           </div>
         </section>
+        )}
 
         {/* ── Ledger ──────────────────────────────────────────────────────── */}
         <section id="fees" className="border-t border-ink/20">
           <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 lg:gap-20">
-            <div>
+            <BlurIn>
               <p className="serial text-[12px] text-serial">Schedule of fees</p>
-              <h2 className="engraved mt-4 leading-[0.98]" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>
+              <h2 className="heading-tight mt-4 leading-[0.98]" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>
                 What a $1,000 invoice costs
               </h2>
-              <p className="mt-5 text-[16px] text-ink/75 max-w-[40ch] leading-relaxed">
+              <p className="mt-5 text-[16px] text-ink/80 max-w-[40ch] leading-relaxed">
                 Per payment, for comparison. Processors pay you out in dollars to a bank. ArcSlot
                 pays you in USDC, straight to your wallet.
               </p>
-            </div>
+            </BlurIn>
             <div>
               <Ledger />
               <p className="mt-5 text-[13px] text-ink/80">
@@ -363,29 +359,37 @@ export function LandingPage() {
         {/* ── How it works ────────────────────────────────────────────────── */}
         <section id="how-it-works" ref={stepsRef} className="border-t border-ink/20">
           <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20">
-            <p className="serial text-[12px] text-serial">Terms of issue</p>
-            <h2 className="engraved mt-4 mb-12" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>How it works</h2>
+            <BlurIn>
+              <p className="serial text-[12px] text-serial">Terms of issue</p>
+              <h2 className="heading-tight mt-4 mb-12" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>
+                How it works
+              </h2>
+            </BlurIn>
             <ol className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {STEPS.map((s) => (
-                <li key={s.n} className="note-frame bg-surface p-7 flex flex-col gap-4 motion-safe:transition-transform motion-safe:duration-200 hover:-translate-y-1">
+                <li
+                  key={s.n}
+                  className="bg-surface rounded-[18px] p-7 flex flex-col gap-4 transition-all duration-200 motion-safe:hover:-translate-y-1"
+                  style={{ border: '1px solid rgba(11,42,33,0.10)', boxShadow: '0 30px 60px -20px rgba(11,42,33,0.25)' }}
+                >
                   <div className="flex items-baseline justify-between">
                     <span className="serial text-[12px] text-serial">No. {s.n}</span>
                     <span className={s.tag === '*PAID*' ? 'dot text-[15px] tracking-[0.2em] text-serial' : 'font-mono text-[12px] text-ink/80'}>{s.tag}</span>
                   </div>
-                  <h3 className="engraved text-[22px] leading-tight">{s.title}</h3>
-                  <p className="text-[15px] text-ink/75 leading-relaxed">{s.body}</p>
+                  <h3 className="heading-tight text-[22px] leading-tight">{s.title}</h3>
+                  <p className="text-[15px] text-ink/80 leading-relaxed">{s.body}</p>
                 </li>
               ))}
             </ol>
           </div>
         </section>
 
-        {/* ── Nobody holds your money + Why trust it ──────────────────────── */}
+        {/* ── Nobody holds your money ──────────────────────────────────────── */}
         <section className="relative overflow-hidden bg-ink text-paper">
           <Rosette className="pointer-events-none absolute -left-80 -bottom-80 w-[900px] text-paper opacity-[0.08]" />
           <div className="relative mx-auto max-w-[1200px] px-4 sm:px-8 py-20 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
-            <div>
-              <h2 className="engraved leading-[0.97]" style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '14ch' }}>
+            <BlurIn>
+              <h2 className="heading-tight leading-[0.97] text-paper" style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '14ch' }}>
                 Nobody holds your money. Not even us.
               </h2>
               <ul className="mt-10 space-y-5">
@@ -401,8 +405,8 @@ export function LandingPage() {
                   </li>
                 ))}
               </ul>
-            </div>
-            <div className="lg:border-l lg:border-paper/20 lg:pl-16">
+            </BlurIn>
+            <BlurIn delay={120} className="lg:border-l lg:border-paper/20 lg:pl-16">
               <h3 className="serial text-[12px] text-paper/80 mb-8">Why trust it</h3>
               <ul className="space-y-7">
                 {[
@@ -412,25 +416,28 @@ export function LandingPage() {
                 ].map((fact) => (
                   <li key={fact.href} className="border-t border-paper/20 pt-5 text-[16px] text-paper/85 leading-relaxed">
                     {fact.text}{' '}
-                    <a href={fact.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 text-paper hover:text-[#F08A7E]">
-                      {fact.linkText}
-                    </a>
+                    <a href={fact.href} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 text-paper hover:text-[#F08A7E]">{fact.linkText}</a>
                   </li>
                 ))}
               </ul>
-            </div>
+            </BlurIn>
           </div>
         </section>
 
         {/* ── For apps and AI agents ───────────────────────────────────────── */}
         <section id="agents">
           <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20">
-            <p className="serial text-[12px] text-serial">For apps and AI agents</p>
-            <h2 className="engraved mt-4 mb-4" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>No API key. No sign-up.</h2>
-            <p className="text-[17px] text-ink/75 mb-9 max-w-[52ch] leading-relaxed">
-              Any app or agent can create and pay links on-chain. One contract call issues a link.
-            </p>
-            <div className="note-frame bg-ink text-paper">
+            <BlurIn>
+              <p className="serial text-[12px] text-serial">For apps and AI agents</p>
+              <h2 className="heading-tight mt-4 mb-4" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>No API key. No sign-up.</h2>
+              <p className="text-[17px] text-ink/80 mb-9 max-w-[52ch] leading-relaxed">
+                Any app or agent can create and pay links on-chain. One contract call issues a link.
+              </p>
+            </BlurIn>
+            <div
+              className="bg-ink text-paper rounded-[18px] overflow-hidden"
+              style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+            >
               <div className="flex items-center justify-between border-b border-paper/15 px-5 py-3 serial text-[11px] text-paper/80">
                 <span>createRequest · viem</span><span>Arc testnet</span>
               </div>
@@ -446,17 +453,17 @@ export function LandingPage() {
         {/* ── FAQ ─────────────────────────────────────────────────────────── */}
         <section className="border-t border-ink/20">
           <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-20 grid grid-cols-1 lg:grid-cols-[1fr_1.4fr] gap-10 lg:gap-20">
-            <div>
+            <BlurIn>
               <p className="serial text-[12px] text-serial">Small print</p>
-              <h2 className="engraved mt-4" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>Questions</h2>
-            </div>
+              <h2 className="heading-tight mt-4" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>Questions</h2>
+            </BlurIn>
             <Accordion type="single" collapsible>
               {FAQ.map((item, i) => (
                 <AccordionItem key={i} value={`faq-${i}`} className="border-ink/25">
                   <AccordionTrigger className="text-left text-[17px] font-semibold text-ink hover:no-underline">
                     {item.q}
                   </AccordionTrigger>
-                  <AccordionContent className="text-[16px] text-ink/75 leading-relaxed">
+                  <AccordionContent className="text-[16px] text-ink/80 leading-relaxed">
                     {item.a}
                   </AccordionContent>
                 </AccordionItem>
@@ -467,13 +474,24 @@ export function LandingPage() {
 
         {/* ── Final CTA ───────────────────────────────────────────────────── */}
         <section className="px-4 sm:px-8 pb-20">
-          <div className="note-frame relative overflow-hidden mx-auto max-w-[1200px] bg-surface px-6 py-16 sm:py-20 text-center">
+          <div
+            className="relative overflow-hidden mx-auto max-w-[1200px] bg-surface px-6 py-16 sm:py-20 text-center rounded-[24px]"
+            style={{ border: '1px solid rgba(11,42,33,0.10)', boxShadow: '0 30px 60px -20px rgba(11,42,33,0.25)' }}
+          >
             <Rosette className="pointer-events-none absolute left-1/2 top-1/2 w-[760px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.06]" />
             <p className="relative serial text-[12px] text-serial">Series 5042 · Next issue</p>
-            <h2 className="relative engraved mt-5 mb-9 mx-auto leading-[0.97]" style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '18ch' }}>
+            <h2
+              className="relative heading-tight mt-5 mb-9 mx-auto leading-[0.97]"
+              style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '18ch' }}
+            >
               Your next invoice could cost two cents.
             </h2>
-            <a href="#/app" className={`relative ${ctaPrimary}`}>Create a payment link</a>
+            <a
+              href="#/app"
+              className="relative inline-flex items-center h-12 px-8 rounded-full text-[15px] font-semibold text-paper bg-ink hover:bg-ink/90 transition-all hover:-translate-y-px hover:shadow-md"
+            >
+              Create a payment link
+            </a>
           </div>
         </section>
       </main>

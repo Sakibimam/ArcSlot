@@ -22,6 +22,13 @@ describe('The Issue logo', () => {
     for (const [k, v] of Object.entries(ISSUE_SLOT)) expect(slot).toHaveAttribute(k, String(v))
   })
 
+  it('can be drawn light-on-dark (white outline and slot, dark paper) for dark icon chips', () => {
+    const { container } = render(<LogoMark ink="#FFFFFF" paper="#0B2A21" />)
+    const strokes = [...container.querySelectorAll(`path[d="${ISSUE_PAPER}"]`)].map((p) => p.getAttribute('stroke'))
+    expect(strokes).toEqual(['#FFFFFF', '#0B2A21', '#FFFFFF'])
+    expect(container.querySelector('rect')).toHaveAttribute('fill', '#FFFFFF')
+  })
+
   it('the favicon is the same mark: paper strip, red slot, on bank-note green', () => {
     const fav = readFileSync('public/favicon.svg', 'utf8')
     expect(fav).toContain(`d="${ISSUE_PAPER}"`)
@@ -34,6 +41,13 @@ describe('The Issue logo', () => {
     const home = screen.getByRole('link', { name: 'ArcSlot' })
     expect(home).toHaveAttribute('href', '#/')
     expect(home.querySelector('svg[viewBox="0 0 64 64"]')).not.toBeNull()
+  })
+
+  it('on phones the app header shows just the mark, but screen readers still hear "ArcSlot"', () => {
+    render(<Header />)
+    const word = screen.getByRole('link', { name: 'ArcSlot' }).querySelector('span')!
+    expect(word).toHaveTextContent('ArcSlot')
+    expect(word).toHaveClass('sr-only', 'sm:not-sr-only')
   })
 
   it('the landing nav shows the mark next to the name', () => {

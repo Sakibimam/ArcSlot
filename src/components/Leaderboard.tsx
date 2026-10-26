@@ -54,8 +54,8 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
         </p>
         <div className="grid grid-cols-2 gap-3 mt-5">
           <div
-            className="rounded-sm p-4"
-            style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+            className="rounded-[14px] p-4"
+            style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}
           >
             <p className="text-xs text-ink/80">Collections</p>
             <p data-testid="total-collections" className="text-2xl font-bold tabular text-ink">
@@ -63,8 +63,8 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
             </p>
           </div>
           <div
-            className="rounded-sm p-4"
-            style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+            className="rounded-[14px] p-4"
+            style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}
           >
             <p className="text-xs text-ink/80">Delivered to merchants</p>
             <p data-testid="total-delivered" className="text-2xl font-bold tabular text-ink">
@@ -75,7 +75,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
       </Card>
 
       <Card>
-        <h2 className="engraved text-[19px] leading-tight text-ink mb-1">Leaderboard</h2>
+        <h2 className="heading-tight text-[22px] leading-tight text-ink mb-1">Leaderboard</h2>
         <p className="text-xs mb-3 text-ink/80">
           Raw on-chain activity: each collector can only credit itself, but anyone can collect their
           own payments too.
@@ -90,10 +90,10 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
                 <li
                   key={r.collector}
                   data-testid="collector-row"
-                  className="flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm"
+                  className="flex items-center gap-3 rounded-[12px] px-3 py-2.5 text-sm"
                   style={{
                     background: me ? 'rgba(36,69,214,0.06)' : 'var(--paper)',
-                    border: '1px solid var(--rule)',
+                    border: '1px solid rgba(11,42,33,0.10)',
                   }}
                 >
                   <span
@@ -125,7 +125,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
       <Card>
         <div className="flex items-center gap-2 mb-2">
           <Bot className="size-5 text-carbon" />
-          <h2 className="engraved text-[19px] leading-tight text-ink">Run a collector</h2>
+          <h2 className="heading-tight text-[22px] leading-tight text-ink">Run a collector</h2>
         </div>
         <ol className="list-decimal pl-5 space-y-1.5 text-sm text-ink/80">
           <li>Use a fresh wallet with a little USDC on {networkName(chainId)} for gas.</li>
@@ -134,8 +134,8 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
           </li>
         </ol>
         <p
-          className="font-mono text-xs break-all rounded-sm p-3 my-3"
-          style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+          className="font-mono text-xs break-all rounded-[12px] p-3 my-3"
+          style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}
         >
           {RUN}
         </p>

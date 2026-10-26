@@ -219,11 +219,11 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
     <div className="space-y-4">
       {/* ── Receipt card ─────────────────────────────────────────────────── */}
       <div
-        className="rounded-sm overflow-hidden"
+        className="rounded-[16px] overflow-hidden"
         style={{
           background: 'var(--surface)',
-          border: '1.5px solid var(--ink)',
-          filter: 'drop-shadow(0 18px 30px rgba(11,42,33,0.18))',
+          border: '1px solid rgba(11,42,33,0.10)',
+          boxShadow: '0 30px 60px -20px rgba(11,42,33,0.25)',
         }}
       >
         {/* Torn top edge */}
@@ -246,7 +246,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
           </div>
 
           {/* H1 = request label */}
-          <h1 className="engraved text-[26px] leading-tight text-ink break-words">{label || 'Payment'}</h1>
+          <h1 className="heading-tight text-[28px] leading-tight text-ink break-words">{label || 'Payment'}</h1>
           {label && (
             <p className="text-xs mt-1 text-ink/80">
               Description written by whoever created this request.
@@ -307,7 +307,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
 
           {trust === 'unverified' && (
             <div
-              className="mt-3 flex gap-2 rounded-sm p-3 text-xs"
+              className="mt-3 flex gap-2 rounded-[12px] p-3 text-xs"
               style={{ background: 'rgba(154,91,0,0.08)', color: 'var(--amber)' }}
             >
               <AlertTriangle className="size-4 shrink-0" />
@@ -370,10 +370,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         </Card>
       ) : (
         <Card>
-          {/* Tab bar */}
+          {/* Tab bar — pill segmented control */}
           <div
-            className="grid grid-cols-3 gap-1 rounded-sm p-1 mb-5"
-            style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+            className="grid grid-cols-3 gap-0.5 rounded-full p-1 mb-5"
+            style={{ background: 'rgba(11,42,33,0.07)', border: '1px solid rgba(11,42,33,0.12)' }}
             role="tablist"
           >
             {(
@@ -388,10 +388,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                 role="tab"
                 aria-selected={mode === key}
                 onClick={() => setMode(key)}
-                className="flex items-center justify-center gap-1.5 rounded-sm px-1 py-2 text-xs sm:text-sm font-semibold transition-colors"
+                className="flex items-center justify-center gap-1.5 rounded-full px-1 py-2 text-xs sm:text-sm font-semibold transition-all"
                 style={
                   mode === key
-                    ? { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--rule)' }
+                    ? { background: 'var(--surface)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(11,42,33,0.15)' }
                     : { color: 'var(--muted-foreground)' }
                 }
               >
@@ -481,19 +481,19 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
           ) : (
             <div className="space-y-4">
               <div className="flex justify-center">
-                <div className="rounded-sm p-3 bg-white border border-rule">
+                <div className="rounded-[14px] p-3 bg-white border border-rule">
                   <QRCodeSVG value={slot} size={168} />
                 </div>
               </div>
               <p
-                className="font-mono text-xs break-all rounded-sm p-3 text-center"
-                style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+                className="font-mono text-xs break-all rounded-[12px] p-3 text-center"
+                style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}
               >
                 {slot}
               </p>
               <CopyButton text={slot} label="Copy address" variant="primary" className="w-full" />
               <div
-                className="flex gap-2 rounded-sm p-3 text-xs"
+                className="flex gap-2 rounded-[12px] p-3 text-xs"
                 style={{ background: 'rgba(154,91,0,0.08)', color: 'var(--amber)' }}
               >
                 <AlertTriangle className="size-4 shrink-0" />

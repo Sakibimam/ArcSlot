@@ -115,7 +115,7 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
       {stray.map(({ chain, amount }) => (
         <div
           key={chain.key}
-          className="rounded-sm p-3 text-xs space-y-2"
+          className="rounded-[14px] p-3 text-xs space-y-2"
           style={{ background: 'rgba(154,91,0,0.07)', color: 'var(--amber)', border: '1px solid rgba(154,91,0,0.15)' }}
         >
           <p className="flex gap-2">

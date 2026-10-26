@@ -140,7 +140,7 @@ export default function App() {
           {/* Right column: request list */}
           <section>
             <div className="flex items-baseline justify-between mb-5">
-              <h2 className="engraved text-[19px] text-ink">Payment links</h2>
+              <h2 className="heading-tight text-[22px] text-ink">Payment links</h2>
               {visible.length > 0 && (
                 <span className="serial text-[10.5px] text-ink/80">Updates live</span>
               )}
@@ -158,7 +158,11 @@ export default function App() {
                   ].map(([Icon, title, text], i) => {
                     const I = Icon as typeof Link2
                     return (
-                      <li key={i} className="rounded-sm p-4 bg-paper border border-rule">
+                      <li
+                        key={i}
+                        className="rounded-[14px] p-4 bg-paper"
+                        style={{ border: '1px solid rgba(11,42,33,0.10)' }}
+                      >
                         <I className="size-5 mb-2 text-carbon" />
                         <p className="text-sm font-semibold text-ink">{i + 1}. {title as string}</p>
                         <p className="text-xs mt-1 text-ink/80">{text as string}</p>

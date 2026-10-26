@@ -19,7 +19,9 @@ export default {
         surface: '#FFFFFF',
       },
       fontFamily: {
-        sans: ['Archivo', 'sans-serif'],
+        sans:  ['"Inter Tight"', 'Archivo', 'sans-serif'],
+        tight: ['"Inter Tight"', 'sans-serif'],
+        engraved: ['Archivo', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
         dot:  ['DotGothic16', 'ui-monospace', 'monospace'],
         serif: ['"Instrument Serif"', 'Georgia', 'serif'],
@@ -62,6 +64,26 @@ export default {
           '75%':  { transform: 'rotate(-8deg) scale(1.04)', opacity: '0.85' },
           '100%': { transform: 'rotate(-8deg) scale(1)',    opacity: '0.85' },
         },
+        // Hybrid: scroll-driven blur-in reveal for sections/headings
+        'blur-in': {
+          '0%':   { opacity: '0', filter: 'blur(8px)', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', filter: 'blur(0)',   transform: 'translateY(0)' },
+        },
+        // Hybrid: photo card image reveals on scroll (clip-path)
+        'card-reveal': {
+          '0%':   { clipPath: 'inset(18% 12% round 24px)', transform: 'scale(1.06)' },
+          '100%': { clipPath: 'inset(0% 0% round 24px)',   transform: 'scale(1)' },
+        },
+        // Hybrid: "Received" pill slides up after receipt prints
+        'slide-up': {
+          '0%':   { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        // Hybrid: hero photo fades+scales on load
+        'hero-load': {
+          '0%':   { opacity: '0', transform: 'scale(1.04)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -72,6 +94,10 @@ export default {
         'stamp-in':       'stamp-in 0.3s cubic-bezier(0.34,1.56,0.64,1) 1.7s both',
         rosette:          'rosette 180s linear infinite',
         'stamp-press':    'stamp-press 0.45s cubic-bezier(0.34,1.56,0.64,1) 0.35s both',
+        'blur-in':        'blur-in 600ms cubic-bezier(.15,.5,.5,1) both',
+        'card-reveal':    'card-reveal 700ms cubic-bezier(.15,.5,.5,1) both',
+        'slide-up':       'slide-up 400ms cubic-bezier(.15,.5,.5,1) 2.2s both',
+        'hero-load':      'hero-load 900ms ease-out both',
       },
     },
   },

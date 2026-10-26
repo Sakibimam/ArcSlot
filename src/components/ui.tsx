@@ -4,12 +4,16 @@ import { Check, Copy, Loader2 } from 'lucide-react'
 import type { RequestStatus } from '@/lib/slot-logic'
 
 // ── Card ─────────────────────────────────────────────────────────────────────
-// Note-paper surface with an ink rule; the bank-note motif.
+// White surface with a soft shadow; hybrid motif.
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <section
-      className={`p-5 sm:p-6 ${className}`}
-      style={{ background: 'var(--surface)', border: '1.5px solid var(--ink)' }}
+      className={`p-5 sm:p-6 rounded-[18px] ${className}`}
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid rgba(11,42,33,0.10)',
+        boxShadow: '0 30px 60px -20px rgba(11,42,33,0.25)',
+      }}
     >
       {children}
     </section>
@@ -32,9 +36,11 @@ export function Button({
   variant = 'primary', type = 'button', className = '',
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center gap-2 px-4 text-sm font-bold ' +
-    'transition-colors hover:brightness-[0.93] active:scale-[0.99] ' +
-    'disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-carbon'
+    'inline-flex items-center justify-center gap-2 px-4 text-sm font-semibold ' +
+    'rounded-[999px] transition-all hover:brightness-[0.93] hover:-translate-y-px hover:shadow-md ' +
+    'active:scale-[0.99] active:translate-y-0 ' +
+    'disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none ' +
+    'focus-visible:outline-2 focus-visible:outline-carbon'
 
   const styles: Record<NonNullable<ButtonProps['variant']>, React.CSSProperties> = {
     primary:   { background: 'var(--ink)', color: 'var(--paper)' },
@@ -82,7 +88,7 @@ export function Field({
 }
 
 export const inputClass =
-  'w-full px-3 py-2.5 text-base outline-none transition-colors ' +
+  'w-full px-3 py-2.5 text-base outline-none transition-colors rounded-[12px] ' +
   'focus:ring-2 focus:ring-carbon focus:ring-offset-0'
 
 export function inputStyle(invalid = false): React.CSSProperties {
@@ -90,6 +96,7 @@ export function inputStyle(invalid = false): React.CSSProperties {
     background: 'var(--surface)',
     color: 'var(--ink)',
     border: `1.5px solid ${invalid ? 'var(--danger)' : 'rgba(11,42,33,0.45)'}`,
+    borderRadius: '12px',
   }
 }
 
@@ -109,7 +116,7 @@ export function StatusPill({ status }: { status: RequestStatus }) {
   const s = STATUS[status]
   return (
     <span
-      className="px-2 py-0.5 serial text-[10.5px] font-medium whitespace-nowrap"
+      className="px-2.5 py-0.5 rounded-full serial text-[10.5px] font-medium whitespace-nowrap"
       style={{ color: s.color, background: s.bg }}
     >
       {s.label}
@@ -144,7 +151,7 @@ export function CopyButton({
 export function NetworkBadge({ name, testnet }: { name: string; testnet: boolean }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 serial text-[10.5px] font-medium"
+      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full serial text-[10.5px] font-medium"
       style={{ border: '1px solid rgba(11,42,33,0.35)', color: 'var(--muted-foreground)' }}
     >
       <span

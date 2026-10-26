@@ -56,12 +56,19 @@
 
 body {
   margin: 0;
-  font-family: 'Archivo', sans-serif;
+  font-family: 'Inter Tight', Archivo, sans-serif;
   min-height: 100dvh;
   background: var(--paper);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hybrid heading style: Inter Tight, medium weight, tight tracking */
+.heading-tight {
+  font-family: 'Inter Tight', sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
 }
 
 /* Tabular figures for amounts and columns */

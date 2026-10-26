@@ -10,13 +10,13 @@ const INK = '#0B2A21'
 const NOTE = '#F6F7F2'
 const SERIAL = '#B3261E'
 
-export function LogoMark({ className = 'size-8', paper = NOTE }: { className?: string; paper?: string }) {
+export function LogoMark({ className = 'size-8', paper = NOTE, ink = INK }: { className?: string; paper?: string; ink?: string }) {
   return (
     <svg viewBox="0 0 64 64" className={className} aria-hidden="true">
-      <path d={ISSUE_PAPER} fill="none" stroke={INK} strokeWidth="10" />
+      <path d={ISSUE_PAPER} fill="none" stroke={ink} strokeWidth="10" />
       <path d={ISSUE_PAPER} fill="none" stroke={paper} strokeWidth="6" />
-      <path d={ISSUE_PAPER} fill="none" stroke={INK} strokeWidth="1" />
-      <rect {...ISSUE_SLOT} fill={INK} />
+      <path d={ISSUE_PAPER} fill="none" stroke={ink} strokeWidth="1" />
+      <rect {...ISSUE_SLOT} fill={ink} />
     </svg>
   )
 }

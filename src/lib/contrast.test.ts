@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync } from 'node:fs'
+import { createElement } from 'react'
+import { render } from '@testing-library/react'
+import { Card } from '@/components/ui'
 
 // WCAG 2 relative luminance and contrast ratio.
 const lum = (hex: string) => {
@@ -29,8 +32,11 @@ describe('contrast', () => {
     expect(lum(token('paper'))).toBeGreaterThanOrEqual(0.88)
     expect(token('surface').toUpperCase()).toBe('#FFFFFF')
   })
-  it('cards are separated from the page by an ink rule, not by tint alone', () => {
-    expect(readFileSync('src/components/ui.tsx', 'utf8')).toMatch(/border: '1\.5px solid var\(--ink\)'/)
+  it('cards are separated from the page by a visible hairline and a soft shadow', () => {
+    const { container } = render(createElement(Card, null, 'x'))
+    const card = container.querySelector('section')!
+    expect(card.style.border).toMatch(/1px solid rgba\(11, ?42, ?33, ?0\.1\d*\)/)
+    expect(card.style.boxShadow).toMatch(/rgba\(11, ?42, ?33/)
   })
   it('no faded text: ink and paper text never drop below 75% opacity', () => {
     const files = ['src/App.tsx', ...readdirSync('src/components').filter((f) => f.endsWith('.tsx') && !f.includes('.test.')).map((f) => `src/components/${f}`)]

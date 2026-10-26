@@ -47,10 +47,11 @@ function ReceiptPreview({ amount, label }: { amount: string; label: string }) {
   return (
     <div
       aria-label="Receipt preview"
-      className="select-none rounded-sm overflow-hidden"
+      className="select-none rounded-[16px] overflow-hidden"
       style={{
         background: 'var(--surface)',
-        border: '1px solid var(--rule)',
+        border: '1px solid rgba(11,42,33,0.10)',
+        boxShadow: '0 20px 40px -15px rgba(11,42,33,0.20)',
         transform: 'rotate(-0.5deg)',
       }}
     >
@@ -229,7 +230,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
       <Card>
         <div className="flex items-center gap-2 mb-1 text-paid">
           <CircleCheck className="size-5" />
-          <h2 className="engraved text-[19px] leading-tight">Payment link ready</h2>
+          <h2 className="heading-tight text-[22px] leading-tight">Payment link ready</h2>
         </div>
         <p className="text-sm mb-5 text-ink/80">
           Send this link or show the QR code.
@@ -257,14 +258,14 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
     <div className="space-y-4">
       {/* Form card */}
       <Card>
-        <h2 className="engraved text-[19px] leading-tight text-ink mb-1">Create a payment link</h2>
+        <h2 className="heading-tight text-[22px] leading-tight text-ink mb-1">Create a payment link</h2>
         <p className="text-sm text-ink/80 mb-5">
           Get a link and QR code your customer can pay in USDC.
         </p>
 
         {!factory && (
           <div
-            className="rounded-sm p-4 mb-5 text-sm"
+            className="rounded-[14px] p-4 mb-5 text-sm"
             style={{ background: 'rgba(154,91,0,0.08)', color: 'var(--amber)', border: '1px solid rgba(154,91,0,0.18)' }}
           >
             Payments are not live on {networkName(chainId)} yet. Switch to Arc Testnet at the top of the page.
@@ -273,8 +274,8 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
 
         {!wallet ? (
           <div
-            className="rounded-sm p-5 text-center space-y-3"
-            style={{ background: 'var(--paper)' }}
+            className="rounded-[14px] p-5 text-center space-y-3"
+            style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}
           >
             <Wallet className="size-6 mx-auto text-carbon" />
             <p className="text-sm text-ink/80">Connect the wallet you want to get paid in.</p>
@@ -339,7 +340,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
             </Field>
 
             {/* Payout destination */}
-            <div className="rounded-sm px-3 py-2.5" style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}>
+            <div className="rounded-[14px] px-3 py-2.5" style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}>
               {customPayout === null ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -424,8 +425,8 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
 
             {showAdvanced && (
               <div
-                className="space-y-4 rounded-sm p-4"
-                style={{ border: '1px dashed var(--rule)' }}
+                className="space-y-4 rounded-[14px] p-4"
+                style={{ border: '1px dashed rgba(11,42,33,0.20)' }}
               >
                 <Field
                   id="cr-fee"
@@ -484,7 +485,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
 
             {error && (
               <p
-                className="rounded-sm p-3 text-sm"
+                className="rounded-[12px] p-3 text-sm"
                 style={{ background: 'rgba(220,38,38,0.08)', color: 'var(--danger)' }}
               >
                 {/rejected|denied/i.test(error.message)

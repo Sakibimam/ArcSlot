@@ -10,7 +10,7 @@ describe('LandingPage', () => {
   it('renders the hero H1', () => {
     render(<LandingPage />)
     expect(
-      screen.getByRole('heading', { level: 1, name: /get paid in usdc for cents, not percent/i }),
+      screen.getByRole('heading', { level: 1, name: /cents, not percent/i }),
     ).toBeInTheDocument()
   })
 
@@ -29,21 +29,26 @@ describe('LandingPage', () => {
     expect(screen.getAllByText(/~\$0\.02/i).length).toBeGreaterThan(0)
   })
 
-  it('the hero receipt is issued to Rachel Mayer, serial and all', () => {
+  it('the hero frame shows the first payment: item (no person names), serial and PAID', () => {
     render(<LandingPage />)
-    expect(screen.getByText(/rachel mayer/i)).toBeInTheDocument()
-    expect(screen.queryByText(/priya/i)).not.toBeInTheDocument()
-    expect(screen.getAllByText(/AS 0042/).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/\*PAID\*/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Brand strategy')).toBeInTheDocument()
+    expect(screen.getByText('No. AS 0042')).toBeInTheDocument()
+    expect(screen.getByText('*PAID*', { selector: '[data-part="hero-frame"] *' })).toBeInTheDocument()
+    expect(screen.queryByText(/rachel mayer|priya/i)).not.toBeInTheDocument()
   })
 
-  it('the headline pairs engraved capitals with an italic serif turn, "percent" struck out', () => {
+  it('the headline has "Cents," lead and an italic serif turn with "percent" struck out', () => {
     render(<LandingPage />)
     const h1 = screen.getByRole('heading', { level: 1 })
-    expect(h1.querySelector('[data-part="headline-lead"]')).toHaveTextContent(/^Get paid in USDC$/)
+    expect(h1.querySelector('[data-part="headline-lead"]')).toHaveTextContent(/^Cents,$/)
     const turn = h1.querySelector('[data-part="headline-turn"]')!
     expect(turn).toHaveClass('font-serif', 'italic')
     expect(turn.querySelector('s')).toHaveTextContent('percent')
+  })
+
+  it('shows the hero subline once: "One link. Any wallet. USDC in seconds."', () => {
+    render(<LandingPage />)
+    expect(screen.getByText('One link. Any wallet. USDC in seconds.')).toBeInTheDocument()
   })
 
   it('backs the hero with three plain facts', () => {
@@ -53,6 +58,12 @@ describe('LandingPage', () => {
     expect(facts).toHaveTextContent(/~\$0\.02/)
     expect(facts).toHaveTextContent(/under a second/i)
     expect(facts).toHaveTextContent(/no custody/i)
+  })
+
+  it('credits Circle CCTP for paying from other chains (how it works + FAQ)', () => {
+    render(<LandingPage />)
+    expect(screen.getByText(/from Ethereum, Base or Arbitrum through Circle.s CCTP/i)).toBeInTheDocument()
+    expect(screen.getByText(/can customers pay from another chain\?/i)).toBeInTheDocument()
   })
 
   it('shows the FAQ accordion', () => {

@@ -21,13 +21,13 @@ describe('App — landing page', () => {
   it('shows the landing page at the root hash', () => {
     window.location.hash = ''
     render(<App />)
-    expect(screen.getByRole('heading', { name: /get paid in usdc/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /cents, not percent/i })).toBeInTheDocument()
   })
 
   it('shows the landing page at #/', () => {
     window.location.hash = '#/'
     render(<App />)
-    expect(screen.getByRole('heading', { name: /get paid in usdc/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /cents, not percent/i })).toBeInTheDocument()
   })
 })
 

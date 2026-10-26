@@ -126,7 +126,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
       {/* On-hold warning */}
       {status === 'on-hold' && (
         <div
-          className="mb-2 flex gap-2 rounded-sm p-3 text-xs"
+          className="mb-2 flex gap-2 rounded-[12px] p-3 text-xs"
           style={{ background: 'rgba(220,38,38,0.07)', color: 'var(--danger)' }}
         >
           <ShieldAlert className="size-4 shrink-0" />
@@ -137,7 +137,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
       {/* Error */}
       {error && (
         <div
-          className="mb-2 rounded-sm p-3 text-xs"
+          className="mb-2 rounded-[12px] p-3 text-xs"
           style={{ background: 'rgba(220,38,38,0.07)', color: 'var(--danger)' }}
         >
           {/rejected|denied/i.test(error.message)
@@ -160,7 +160,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
           type="button"
           aria-label="Share"
           onClick={() => setSharing(true)}
-          className="flex items-center justify-center size-8 rounded-sm border border-rule text-ink/80 hover:text-ink hover:border-ink/30 transition-colors"
+          className="flex items-center justify-center size-8 rounded-full border border-rule text-ink/80 hover:text-ink hover:border-ink/30 transition-colors"
         >
           <Share2 className="size-4" />
         </button>
@@ -199,8 +199,8 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
       {/* Details ledger — collected with receipt only */}
       {status === 'collected' && receipt && showDetails && (
         <dl
-          className="mb-3 space-y-1.5 rounded-sm p-3 text-xs"
-          style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+          className="mb-3 space-y-1.5 rounded-[12px] p-3 text-xs"
+          style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}
         >
           {(
             [

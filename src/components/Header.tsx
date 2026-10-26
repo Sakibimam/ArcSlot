@@ -14,11 +14,11 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
     <header
       className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-ink/20"
     >
-      <div className="mx-auto max-w-[1120px] flex items-center justify-between gap-4 px-4 sm:px-6 h-14">
+      <div className="mx-auto max-w-[1120px] flex items-center justify-between gap-2 sm:gap-4 px-4 sm:px-6 h-14">
         {/* Wordmark */}
         <a href="#/" className="inline-flex items-center gap-2.5 text-ink shrink-0">
           <LogoMark className="size-9" />
-          <span className="engraved text-[17px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
+          <span className="sr-only sm:not-sr-only engraved text-[17px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
         </a>
 
         {/* Center nav */}
@@ -26,13 +26,13 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
           <nav className="hidden sm:flex items-center gap-1 serial text-[12px]" aria-label="App navigation">
             <a
               href="#/app"
-              className="px-3 py-1.5 text-ink/75 hover:text-serial transition-colors"
+              className="px-3 py-1.5 rounded-full text-ink/75 hover:text-ink hover:bg-ink/[0.07] transition-colors"
             >
               Dashboard
             </a>
             <a
               href="#/collect"
-              className="px-3 py-1.5 text-ink/75 hover:text-serial transition-colors"
+              className="px-3 py-1.5 rounded-full text-ink/75 hover:text-ink hover:bg-ink/[0.07] transition-colors"
             >
               Collectors
             </a>
@@ -43,8 +43,8 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
         <div className="flex items-center gap-2 shrink-0">
           {chainId !== undefined && onChainChange && (
             <div
-              className="flex overflow-hidden serial"
-              style={{ border: '1.5px solid var(--ink)' }}
+              className="flex items-center gap-0.5 rounded-full p-0.5 serial"
+              style={{ background: 'rgba(11,42,33,0.07)', border: '1px solid rgba(11,42,33,0.12)' }}
               role="group"
               aria-label="Network"
             >
@@ -56,10 +56,10 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
                   key={id}
                   aria-pressed={chainId === id}
                   onClick={() => onChainChange(id)}
-                  className="px-3 py-1.5 text-[11px] font-medium transition-colors"
+                  className="px-3 py-1 text-[11px] font-medium rounded-full transition-all"
                   style={
                     chainId === id
-                      ? { background: 'var(--ink)', color: 'var(--paper)' }
+                      ? { background: 'var(--ink)', color: 'var(--paper)', boxShadow: '0 1px 3px rgba(11,42,33,0.18)' }
                       : { background: 'transparent', color: 'var(--muted-foreground)' }
                   }
                 >

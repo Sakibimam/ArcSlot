@@ -32,14 +32,14 @@ export function SharePanel({ target }: { target: ShareTarget }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-center">
-        <div className="rounded-sm p-3 bg-white border border-rule">
+        <div className="rounded-[14px] p-3 bg-white border border-rule">
           <QRCodeSVG value={link} size={176} />
         </div>
       </div>
       <p
         data-testid="pay-link"
-        className="font-mono text-xs break-all rounded-sm p-3"
-        style={{ background: 'var(--paper)', border: '1px solid var(--rule)', color: 'var(--ink)' }}
+        className="font-mono text-xs break-all rounded-[12px] p-3"
+        style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)', color: 'var(--ink)' }}
       >
         {link}
       </p>
@@ -88,8 +88,8 @@ export function ShareSheet({ target, onClose }: { target: ShareTarget; onClose: 
       <div
         role="dialog"
         aria-label="Share payment link"
-        className="relative w-full sm:max-w-sm rounded-t-sm sm:rounded-sm p-6"
-        style={{ background: 'var(--surface)', border: '1px solid var(--rule)' }}
+        className="relative w-full sm:max-w-sm rounded-t-[20px] sm:rounded-[20px] p-6"
+        style={{ background: 'var(--surface)', border: '1px solid rgba(11,42,33,0.10)', boxShadow: '0 30px 60px -20px rgba(11,42,33,0.30)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
