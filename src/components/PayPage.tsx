@@ -89,7 +89,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
       address: f, abi: SLOT_FACTORY_ABI, functionName: 'isSlot', args: [addr], chainId,
     })),
   ]
-  const { data, isError, isLoading } = useReadContracts({
+  const { data, isError, isLoading, refetch } = useReadContracts({
     contracts,
     query: {
       refetchInterval: (query) => {
@@ -114,7 +114,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
   const request = chainReq?.exists ? chainReq : undefined
   const legacySlot = data?.[4]?.result !== true && !!data?.slice(5).some((r) => r?.result === true)
   const isFactorySlot = data?.[4]?.result === true || legacySlot
-  const invalid = isError || (!isLoading && data !== undefined && (!merchant || !isFactorySlot))
+  // A failed request to Arc (rate limit, ad blocker, network) is NOT an invalid
+  // link: say so and retry, instead of telling the payer the link is bad.
+  const unreachable = isError && data === undefined
+  const invalid = !unreachable && !isLoading && data !== undefined && (!merchant || !isFactorySlot)
 
   const requested = request ? (request.amount > 0n ? request.amount : undefined) : linkAmount
   const rawLabel = request ? request.label : linkLabel
@@ -174,6 +177,19 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
     requested !== undefined &&
     slotBalance !== undefined &&
     isRequestPaid(requested, slotBalance, collected)
+
+  if (unreachable) {
+    return (
+      <Card className="text-center">
+        <AlertTriangle className="size-8 mx-auto mb-3" style={{ color: 'var(--amber)' }} />
+        <h1 className="text-xl font-semibold text-ink">Can&apos;t reach Arc right now</h1>
+        <p className="text-sm mt-2 text-ink/60">
+          We&apos;re retrying automatically. If this keeps happening, check your connection or allow this site in your ad blocker.
+        </p>
+        <Button variant="secondary" className="mt-4" onClick={() => void refetch()}>Try again</Button>
+      </Card>
+    )
+  }
 
   if (invalid) {
     return (

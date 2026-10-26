@@ -107,10 +107,23 @@ describe('PayPage', () => {
   })
 
   it('rejects a link that does not point at a payment slot', () => {
-    slotReads({ isError: true })
+    // The address answers no merchant(): not a slot at all.
+    slotReads({ merchant: null as unknown as string })
     render(<PayPage {...props} />)
     expect(screen.getByText(/this payment link is not valid/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument()
+  })
+
+  // Bug seen live: when the Arc RPC couldn't be reached (rate limit, ad blocker,
+  // flaky network), a perfectly valid link was reported as "not valid".
+  it('says Arc cannot be reached, not that the link is invalid, when the RPC fails', () => {
+    slotReads({ isError: true })
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/can.t reach arc/i)).toBeInTheDocument()
+    expect(screen.queryByText(/not valid/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^pay/i })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+    expect(wagmiState.refetch).toHaveBeenCalled()
   })
 
   // White-hat PoC (contracts/test/WhiteHat.t.sol): any contract can answer
