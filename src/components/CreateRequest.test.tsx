@@ -195,6 +195,13 @@ describe('CreateRequest — description limit', () => {
   })
 })
 
+describe('CreateRequest — accessible amount field', () => {
+  it('names the amount field with its unit, "Amount (USDC)"', () => {
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    expect(screen.getByLabelText(/^amount \(usdc\)$/i)).toBeInTheDocument()
+  })
+})
+
 describe('CreateRequest — live receipt preview', () => {
   it('shows the receipt preview when a wallet is connected', () => {
     render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
@@ -216,7 +223,8 @@ describe('CreateRequest — live receipt preview', () => {
   it('shows the receive amount derived from the typed amount', () => {
     render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
     fill(/amount/i, '1000')
-    // 1000 USDC - 0.02 USDC fee = 999.98; the preview subtracts 20000 micro-USDC
-    expect(screen.getByTestId('preview-receive')).toHaveTextContent('USDC')
+    // An estimate (the real fee depends on gas), so it must say so.
+    expect(screen.getByTestId('preview-receive')).toHaveTextContent(/^about 999\.98 USDC$/)
+    expect(screen.getByText(/after network fees/i)).toBeInTheDocument()
   })
 })

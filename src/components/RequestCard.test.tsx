@@ -23,6 +23,8 @@ function reads({ balance, quarantined = false, minSweep = 100_000n, collected = 
   }
 }
 const collectBtn = () => screen.getByRole('button', { name: /collect/i })
+// Nothing to collect → no Collect button at all (it would only be noise).
+const noCollectBtn = () => expect(screen.queryByRole('button', { name: /collect/i })).not.toBeInTheDocument()
 
 beforeEach(() => {
   resetWagmi()
@@ -36,7 +38,7 @@ describe('RequestCard', () => {
     expect(screen.getByText('Invoice #42')).toBeInTheDocument()
     expect(screen.getByText('Waiting for payment')).toBeInTheDocument()
     expect(screen.getByTestId('received')).toHaveTextContent('0.00 of 1.00 USDC received')
-    expect(collectBtn()).toBeDisabled()
+    noCollectBtn()
   })
 
   it('shows partial progress and allows collecting what arrived', () => {
@@ -50,7 +52,7 @@ describe('RequestCard', () => {
   it('explains the minimum when too little has arrived to collect', () => {
     reads({ balance: 50_000n })
     render(<RequestCard request={request} onSwept={vi.fn()} />)
-    expect(collectBtn()).toBeDisabled()
+    noCollectBtn()
     expect(screen.getByText(/collect from 0\.10 USDC/i)).toBeInTheDocument()
   })
 
@@ -68,7 +70,7 @@ describe('RequestCard', () => {
     reads({ balance: 1_000_000n, quarantined: true })
     render(<RequestCard request={request} onSwept={vi.fn()} />)
     expect(screen.getByText('On hold')).toBeInTheDocument()
-    expect(collectBtn()).toBeDisabled()
+    noCollectBtn()
   })
 
   it('opens the share sheet with the payment link', () => {

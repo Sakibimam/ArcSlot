@@ -33,7 +33,7 @@ try {
   console.log('merchant', merchant.address, '\npayer   ', payer.address)
 
   step('merchant creates a request on Arc testnet')
-  await merchant.page.goto(APP_URL)
+  await merchant.page.goto(`${APP_URL}#/app`)
   await connect(merchant.page)
   await merchant.page.getByLabel(/^amount \(usdc\)$/i).first().fill(AMOUNT)
   await merchant.page.getByLabel(/what is it for/i).fill(LABEL)

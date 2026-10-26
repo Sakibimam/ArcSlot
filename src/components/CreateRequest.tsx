@@ -37,9 +37,11 @@ function ReceiptPreview({ amount, label }: { amount: string; label: string }) {
   const amountRaw = parseUsdc6(amount.trim())
   const displayAmount = amountRaw && amountRaw > 0n ? formatUsdc6(amountRaw) : '—'
   const fee = amountRaw && amountRaw > 0n ? '~$0.02' : '—'
+  // Estimate only: the collector's network fee depends on gas at the time.
+  const ESTIMATED_FEE = 20_000n // about 0.02 USDC
   const receive =
     amountRaw && amountRaw > 0n
-      ? formatUsdc6(amountRaw > 20000n ? amountRaw - 20000n : amountRaw)
+      ? formatUsdc6(amountRaw > ESTIMATED_FEE ? amountRaw - ESTIMATED_FEE : amountRaw)
       : '—'
 
   return (
@@ -87,9 +89,10 @@ function ReceiptPreview({ amount, label }: { amount: string; label: string }) {
           >
             <span>You receive</span>
             <span data-testid="preview-receive">
-              {receive !== '—' ? `${receive} USDC` : '—'}
+              {receive !== '—' ? `about ${receive} USDC` : '—'}
             </span>
           </div>
+          <p className="text-xs text-ink/60 mt-1 text-right">after network fees</p>
         </div>
       </div>
     </div>
@@ -283,7 +286,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
           <div className="space-y-4">
             <Field
               id="cr-amount"
-              label="Amount"
+              label="Amount (USDC)"
               hint="Leave empty to let the payer choose."
               error={amountInvalid ? 'Enter an amount like 25 or 12.50' : undefined}
             >

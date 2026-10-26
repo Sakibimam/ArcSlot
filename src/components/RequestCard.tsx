@@ -165,9 +165,8 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
           <Share2 className="size-4" />
         </button>
 
-        {/* Collect — always in DOM so tests can assert disabled state.
-            When not collectable it's a quiet ghost so it doesn't dominate. */}
-        {collectable ? (
+        {/* Collect only appears when there is something to collect. */}
+        {collectable && (
           <Button
             loading={isPending || confirming}
             onClick={() =>
@@ -178,15 +177,6 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
             {!(isPending || confirming) && <ArrowDownToLine className="size-3.5" />}
             {isPending ? 'Confirm…' : confirming ? 'Collecting…' : 'Collect'}
           </Button>
-        ) : (
-          <button
-            type="button"
-            disabled
-            className="h-8 px-3 text-sm font-medium text-ink/20 cursor-not-allowed select-none"
-            aria-label="Collect"
-          >
-            Collect
-          </button>
         )}
 
         {/* Details toggle — shown when collected with receipt */}

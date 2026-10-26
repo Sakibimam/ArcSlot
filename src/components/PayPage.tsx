@@ -241,7 +241,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
             <div className="flex items-center gap-3 mt-3 flex-wrap">
               <p
                 data-testid="pay-amount"
-                className="text-4xl font-bold tabular text-ink"
+                className="text-4xl font-bold display-num text-ink"
               >
                 {formatUsdc6(requested)}{' '}
                 <span className="text-xl font-semibold text-ink/50">USDC</span>

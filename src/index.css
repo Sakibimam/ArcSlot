@@ -69,6 +69,13 @@ body {
   font-family: 'Schibsted Grotesk', sans-serif;
 }
 
+/* Display-size amounts: proportional figures, so the decimal point doesn't
+   leave a digit-wide gap. Columns of amounts keep .tabular. */
+.display-num {
+  font-variant-numeric: proportional-nums lining-nums;
+  font-family: 'Schibsted Grotesk', sans-serif;
+}
+
 /* Focus ring: carbon blue, visible on keyboard only */
 :focus-visible {
   outline: 2px solid var(--carbon);

@@ -36,7 +36,7 @@ try {
   const m = merchant.page
 
   step('merchant creates a request on Arc testnet')
-  await m.goto(APP_URL)
+  await m.goto(`${APP_URL}#/app`)
   await connect(m)
   await m.getByLabel(/^amount \(usdc\)$/i).first().fill('1')
   await m.getByLabel(/what is it for/i).fill(LABEL)

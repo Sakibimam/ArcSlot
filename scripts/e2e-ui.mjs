@@ -34,7 +34,7 @@ try {
   console.log('merchant', merchant.address, '\npayer   ', payer.address)
 
   step('merchant creates a request')
-  await merchant.page.goto(APP_URL)
+  await merchant.page.goto(`${APP_URL}#/app`)
   await connect(merchant.page)
   await merchant.page.getByLabel(/amount/i).first().fill(AMOUNT)
   await merchant.page.getByLabel(/what is it for/i).fill(LABEL)
@@ -78,7 +78,7 @@ try {
 
   step('merchant on a new device sees the request from the chain')
   const device2 = await walletPage(browser, env.PRIVATE_KEY, 'merchant-device-2')
-  await device2.page.goto(APP_URL)
+  await device2.page.goto(`${APP_URL}#/app`)
   await connect(device2.page)
   const card2 = device2.page.locator('article', { hasText: LABEL })
   await card2.getByText('Collected', { exact: true }).waitFor({ timeout: 30_000 })

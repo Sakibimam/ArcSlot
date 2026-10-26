@@ -28,7 +28,7 @@ try {
   const m = merchant.page
 
   step('merchant sets up a quantum-safe vault')
-  await m.goto(APP_URL)
+  await m.goto(`${APP_URL}#/app`)
   await m.evaluate(() => localStorage.clear())
   await m.reload()
   await connect(m)
@@ -44,7 +44,7 @@ try {
   console.log('vault created')
 
   step('request defaults to the vault')
-  await m.getByText(/your quantum-safe vault/i).waitFor()
+  await m.getByText(/your quantum-safe vault/i).first().waitFor()
   await m.getByLabel(/^amount \(usdc\)$/i).first().fill('0.15')
   await m.getByLabel(/what is it for/i).fill(LABEL)
   await m.getByRole('button', { name: /create payment link/i }).click()

@@ -84,7 +84,7 @@ function HeroReceipt() {
           <div className="flex justify-between items-baseline">
             <span className="text-[15px] font-bold text-ink">You receive</span>
             <span
-              className="font-extrabold text-ink"
+              className="font-extrabold text-ink display-num"
               style={{ fontSize: '32px', lineHeight: 1, letterSpacing: '-0.01em' }}
             >
               $999.98
