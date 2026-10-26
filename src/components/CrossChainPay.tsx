@@ -104,7 +104,7 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
       <div className="text-center space-y-2 py-2">
         <CircleCheck className="size-8 mx-auto text-paid" />
         <p className="font-semibold text-ink">Payment on its way</p>
-        <p className="text-sm text-ink/60">
+        <p className="text-sm text-ink/80">
           It lands on Arc in about 20 seconds. This page updates when it arrives.
         </p>
       </div>
@@ -114,7 +114,7 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
   if (!wallet) {
     return (
       <div className="text-center space-y-3">
-        <p className="text-sm text-ink/60">Connect a wallet that holds USDC on another chain.</p>
+        <p className="text-sm text-ink/80">Connect a wallet that holds USDC on another chain.</p>
         <div className="flex justify-center"><ConnectKitButton /></div>
       </div>
     )
@@ -136,7 +136,7 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
       </Field>
 
       {!amount && (
-        <p className="text-xs text-ink/50">Enter an amount under "Pay with wallet" first.</p>
+        <p className="text-xs text-ink/80">Enter an amount under "Pay with wallet" first.</p>
       )}
 
       {quote && (status === 'quoted' || status === 'sending' || status === 'stopped') && (
@@ -145,11 +145,11 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
           style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
         >
           <div className="flex justify-between gap-3">
-            <dt className="text-ink/50">You send on {source.name}</dt>
+            <dt className="text-ink/80">You send on {source.name}</dt>
             <dd data-testid="xc-debit" className="font-mono">{formatUsdc6(quote.summary.debit)} USDC</dd>
           </div>
           <div className="flex justify-between gap-3">
-            <dt className="text-ink/50">Network fee (Circle relayer)</dt>
+            <dt className="text-ink/80">Network fee (Circle relayer)</dt>
             <dd data-testid="xc-fee" className="font-mono">{formatUsdc6(quote.summary.fee)} USDC</dd>
           </div>
           <p className="pt-1 font-medium text-paid">
@@ -181,7 +181,7 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
       )}
 
       {error && <p className="text-sm" style={{ color: 'var(--danger)' }}>{error}</p>}
-      <p className="flex gap-2 text-xs text-ink/50">
+      <p className="flex gap-2 text-xs text-ink/80">
         <Info className="size-4 shrink-0" />
         <span>
           Uses Circle&apos;s CCTP. You need USDC and a little gas on {source.name}. No Arc wallet

@@ -95,11 +95,11 @@ export function ShareSheet({ target, onClose }: { target: ShareTarget; onClose: 
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 p-1 text-ink/40 hover:text-ink"
+          className="absolute top-4 right-4 p-1 text-ink/80 hover:text-ink"
         >
           <X className="size-5" />
         </button>
-        <p className="text-sm text-ink/50 mb-1">Share with your payer</p>
+        <p className="text-sm text-ink/80 mb-1">Share with your payer</p>
         <p className="text-xl font-semibold mb-4 pr-8 truncate text-ink">
           {target.label ?? 'Payment request'}
           {target.amount ? ` · ${formatUsdc6(target.amount)} USDC` : ''}

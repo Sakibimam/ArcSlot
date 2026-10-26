@@ -8,14 +8,14 @@
    either form.
 ──────────────────────────────────────────────────────────────────────────── */
 :root {
-  --paper:   #ECEEE4;
-  --ink:     #12352B;
+  --paper:   #E4E8DA;
+  --ink:     #0B2A21;
   --carbon:  #2F6B57;
-  --serial:  #C8372D;
+  --serial:  #B3261E;
   --paid:    #1E7A4C;
   --amber:   #9A5B00;
-  --rule:    #C5CCBA;
-  --surface: #F7F7EF;
+  --rule:    #B5BDA8;
+  --surface: #FFFFFB;
 
   /* shadcn/ui CSS variable names expected by primitives */
   --background:   var(--paper);
@@ -27,8 +27,8 @@
   --primary-foreground: #FFFFFF;
   --secondary:    var(--rule);
   --secondary-foreground: var(--ink);
-  --muted:        #E2E5D8;
-  --muted-foreground: #4C665D;
+  --muted:        #DCE0D0;
+  --muted-foreground: #2F4A41;
   --accent:       var(--carbon);
   --accent-foreground: #FFFFFF;
   --destructive:  #DC2626;
@@ -41,10 +41,10 @@
 
   /* Legacy app vars kept so existing app screens don't break */
   --bg:            var(--paper);
-  --surface-muted: #E2E5D8;
-  --ink-2:         #2E4E44;
-  --muted-text:    #4C665D;
-  --subtle:        #4C665D;
+  --surface-muted: #DCE0D0;
+  --ink-2:         #1F3B32;
+  --muted-text:    #2F4A41;
+  --subtle:        #2F4A41;
   --border-strong: var(--rule);
   --accent-hover:  #24584A;
   --success:       var(--paid);

@@ -99,12 +99,12 @@ export default function App() {
           ) : (
             <Card className="text-center">
               <h1 className="text-xl font-semibold text-ink">This payment link is not valid</h1>
-              <p className="text-sm mt-2 text-ink/50">
+              <p className="text-sm mt-2 text-ink/80">
                 Check you copied the whole link, or ask for a new one.
               </p>
             </Card>
           )}
-          <p className="text-xs text-center mt-6 text-ink/40">
+          <p className="text-xs text-center mt-6 text-ink/80">
             Payments settle in USDC on Arc. Non-custodial: funds go straight to the merchant.
           </p>
         </main>
@@ -142,14 +142,14 @@ export default function App() {
             <div className="flex items-baseline justify-between mb-5">
               <h2 className="engraved text-[19px] text-ink">Payment links</h2>
               {visible.length > 0 && (
-                <span className="serial text-[10.5px] text-ink/60">Updates live</span>
+                <span className="serial text-[10.5px] text-ink/80">Updates live</span>
               )}
             </div>
 
             {visible.length === 0 ? (
               <Card>
                 <p className="font-semibold text-ink mb-1">No payment links yet.</p>
-                <p className="text-sm text-ink/60 mb-6">Make your first one.</p>
+                <p className="text-sm text-ink/80 mb-6">Make your first one.</p>
                 <ol className="grid gap-3 sm:grid-cols-3 text-left">
                   {[
                     [Link2,           'Create a link',   "Set an amount and what it's for."],
@@ -161,7 +161,7 @@ export default function App() {
                       <li key={i} className="rounded-sm p-4 bg-paper border border-rule">
                         <I className="size-5 mb-2 text-carbon" />
                         <p className="text-sm font-semibold text-ink">{i + 1}. {title as string}</p>
-                        <p className="text-xs mt-1 text-ink/50">{text as string}</p>
+                        <p className="text-xs mt-1 text-ink/80">{text as string}</p>
                       </li>
                     )
                   })}
@@ -179,7 +179,7 @@ export default function App() {
               </div>
             )}
 
-            <p className="text-xs mt-4 text-ink/40">
+            <p className="text-xs mt-4 text-ink/80">
               Links are remembered in this browser. Each has its own address so payments never mix.
             </p>
           </section>

@@ -6,9 +6,9 @@ describe('brand', () => {
   const css = readFileSync('src/index.css', 'utf8')
   const html = readFileSync('index.html', 'utf8')
   it('uses the bank-note palette', () => {
-    expect(css).toMatch(/--paper:\s*#ECEEE4/)
-    expect(css).toMatch(/--ink:\s*#12352B/)
-    expect(css).toMatch(/--serial:\s*#C8372D/)
+    expect(css).toMatch(/--paper:\s*#E4E8DA/)
+    expect(css).toMatch(/--ink:\s*#0B2A21/)
+    expect(css).toMatch(/--serial:\s*#B3261E/)
   })
   it('loads the engraved display, typewriter and dot-matrix faces', () => {
     expect(html).toMatch(/family=Archivo:wdth,wght@/)
@@ -17,6 +17,6 @@ describe('brand', () => {
     expect(html).not.toMatch(/Schibsted/)
   })
   it('tints the browser chrome bank-note green', () => {
-    expect(html).toMatch(/<meta name="theme-color" content="#12352B"/)
+    expect(html).toMatch(/<meta name="theme-color" content="#0B2A21"/)
   })
 })

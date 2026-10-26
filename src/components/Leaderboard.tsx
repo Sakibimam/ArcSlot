@@ -47,7 +47,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
           <Trophy className="size-5 text-carbon" />
           <h1 className="text-2xl font-semibold text-ink">Collectors</h1>
         </div>
-        <p className="text-sm text-ink/60">
+        <p className="text-sm text-ink/80">
           Anyone can collect a paid request and send it to the merchant. Collectors earn the USDC
           gas refund plus a tip, so merchants get paid without lifting a finger. Live on{' '}
           {networkName(chainId)}.
@@ -57,7 +57,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
             className="rounded-sm p-4"
             style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
           >
-            <p className="text-xs text-ink/50">Collections</p>
+            <p className="text-xs text-ink/80">Collections</p>
             <p data-testid="total-collections" className="text-2xl font-bold tabular text-ink">
               {totalCollections.toString()}
             </p>
@@ -66,7 +66,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
             className="rounded-sm p-4"
             style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
           >
-            <p className="text-xs text-ink/50">Delivered to merchants</p>
+            <p className="text-xs text-ink/80">Delivered to merchants</p>
             <p data-testid="total-delivered" className="text-2xl font-bold tabular text-ink">
               {formatUsdc6(totalDelivered)} USDC
             </p>
@@ -76,12 +76,12 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
 
       <Card>
         <h2 className="engraved text-[19px] leading-tight text-ink mb-1">Leaderboard</h2>
-        <p className="text-xs mb-3 text-ink/50">
+        <p className="text-xs mb-3 text-ink/80">
           Raw on-chain activity: each collector can only credit itself, but anyone can collect their
           own payments too.
         </p>
         {rows.length === 0 ? (
-          <p className="text-sm text-ink/60">No collectors yet. Run the bot below and be first.</p>
+          <p className="text-sm text-ink/80">No collectors yet. Run the bot below and be first.</p>
         ) : (
           <ol className="space-y-1.5">
             {rows.map((r, i) => {
@@ -98,7 +98,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
                 >
                   <span
                     data-testid="rank"
-                    className="w-6 text-right font-bold tabular text-ink/40"
+                    className="w-6 text-right font-bold tabular text-ink/80"
                   >
                     {i + 1}
                   </span>
@@ -112,7 +112,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
                     </span>
                   )}
                   <span className="tabular text-ink">{r.collections.toString()}×</span>
-                  <span className="tabular w-28 text-right text-ink/50">
+                  <span className="tabular w-28 text-right text-ink/80">
                     {formatUsdc6(r.delivered)} USDC
                   </span>
                 </li>
@@ -127,7 +127,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
           <Bot className="size-5 text-carbon" />
           <h2 className="engraved text-[19px] leading-tight text-ink">Run a collector</h2>
         </div>
-        <ol className="list-decimal pl-5 space-y-1.5 text-sm text-ink/60">
+        <ol className="list-decimal pl-5 space-y-1.5 text-sm text-ink/80">
           <li>Use a fresh wallet with a little USDC on {networkName(chainId)} for gas.</li>
           <li>
             Clone the repo, run <code className="font-mono">bun install</code>, then:
@@ -151,7 +151,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
             Read the bot
           </a>
         </div>
-        <p className="text-xs mt-3 text-ink/50">
+        <p className="text-xs mt-3 text-ink/80">
           The bot only collects when its own priority fee is below the tip, so each collection
           should leave you about the tip ahead. It skips requests while gas is above their cap.
           Add NETWORK=mainnet to run on mainnet.

@@ -214,7 +214,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
           <Atom className="size-5 text-carbon" />
           <h2 className="engraved text-[19px] leading-tight text-ink">Quantum-safe vault</h2>
         </div>
-        <p className="text-sm mb-4 text-ink/60">
+        <p className="text-sm mb-4 text-ink/80">
           Payments land in a vault that only moves money with two keys: your wallet and a
           quantum-safe key kept on this device. A stolen wallet key alone can&apos;t take your funds.
         </p>
@@ -276,7 +276,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
         {step === 'backup' && pending && (
           <div className="space-y-3">
             <p className="text-sm font-semibold text-ink">Save your backup</p>
-            <p className="text-xs text-ink/60">
+            <p className="text-xs text-ink/80">
               Your key exists only on this device. Without the backup you can still recover the
               vault with your wallet after a 7-day waiting period.
             </p>
@@ -284,7 +284,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
               className="rounded-sm p-3 text-xs"
               style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
             >
-              <p className="text-ink/50">Vault address</p>
+              <p className="text-ink/80">Vault address</p>
               <p className="font-mono break-all text-ink">{pending.predicted}</p>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -327,7 +327,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
             <Atom className="size-5 text-carbon" />
             <h2 className="engraved text-[19px] leading-tight text-ink whitespace-nowrap">Your quantum-safe vault</h2>
           </div>
-          <p className="font-mono text-xs mt-0.5 text-ink/40">{shortAddr(record.vault)}</p>
+          <p className="font-mono text-xs mt-0.5 text-ink/80">{shortAddr(record.vault)}</p>
         </div>
         <span
           className="px-2.5 py-0.5 rounded text-xs font-semibold whitespace-nowrap"
@@ -339,7 +339,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
 
       <p data-testid="vault-balance" className="text-3xl font-bold mt-4 tabular text-ink">
         {balance !== undefined ? formatUsdc6(balance) : '…'}{' '}
-        <span className="text-base font-semibold text-ink/50">USDC</span>
+        <span className="text-base font-semibold text-ink/80">USDC</span>
       </p>
 
       {recoveryPending && (
@@ -414,7 +414,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
               </Button>
             )}
           </div>
-          {busy && <p className="text-xs text-center text-ink/50">{busy}</p>}
+          {busy && <p className="text-xs text-center text-ink/80">{busy}</p>}
         </div>
       )}
 

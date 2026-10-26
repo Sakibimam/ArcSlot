@@ -9,14 +9,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper:   '#ECEEE4',
-        ink:     '#12352B',
+        paper:   '#E4E8DA',
+        ink:     '#0B2A21',
         carbon:  '#2F6B57',
-        serial:  '#C8372D',
+        serial:  '#B3261E',
         paid:    '#1E7A4C',
         amber:   '#9A5B00',
-        rule:    '#C5CCBA',
-        surface: '#F7F7EF',
+        rule:    '#B5BDA8',
+        surface: '#FFFFFB',
       },
       fontFamily: {
         sans: ['Archivo', 'sans-serif'],

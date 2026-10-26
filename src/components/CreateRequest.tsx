@@ -66,7 +66,7 @@ function ReceiptPreview({ amount, label }: { amount: string; label: string }) {
         }}
       />
       <div className="px-5 pb-5">
-        <p className="text-[11px] text-ink/40 mb-3">Draft receipt</p>
+        <p className="text-[11px] text-ink/80 mb-3">Draft receipt</p>
         <p
           className="text-[15px] font-semibold text-ink mb-4 break-words"
           data-testid="preview-label"
@@ -75,14 +75,14 @@ function ReceiptPreview({ amount, label }: { amount: string; label: string }) {
         </p>
         <div className="space-y-2 tabular text-sm border-t border-rule pt-3">
           <div className="flex justify-between items-baseline">
-            <span className="text-ink/60">Invoice amount</span>
+            <span className="text-ink/80">Invoice amount</span>
             <span className="font-semibold text-ink" data-testid="preview-amount">
               {displayAmount !== '—' ? `${displayAmount} USDC` : '—'}
             </span>
           </div>
           <div className="flex justify-between items-baseline">
-            <span className="text-ink/50 text-xs">Network fee</span>
-            <span className="text-ink/50 text-xs">{fee}</span>
+            <span className="text-ink/80 text-xs">Network fee</span>
+            <span className="text-ink/80 text-xs">{fee}</span>
           </div>
           <div
             className="flex justify-between items-baseline pt-2 border-t border-rule font-bold text-ink"
@@ -92,7 +92,7 @@ function ReceiptPreview({ amount, label }: { amount: string; label: string }) {
               {receive !== '—' ? `about ${receive} USDC` : '—'}
             </span>
           </div>
-          <p className="text-xs text-ink/60 mt-1 text-right">after network fees</p>
+          <p className="text-xs text-ink/80 mt-1 text-right">after network fees</p>
         </div>
       </div>
     </div>
@@ -231,7 +231,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
           <CircleCheck className="size-5" />
           <h2 className="engraved text-[19px] leading-tight">Payment link ready</h2>
         </div>
-        <p className="text-sm mb-5 text-ink/60">
+        <p className="text-sm mb-5 text-ink/80">
           Send this link or show the QR code.
           {created.amount ? (
             <>
@@ -258,7 +258,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
       {/* Form card */}
       <Card>
         <h2 className="engraved text-[19px] leading-tight text-ink mb-1">Create a payment link</h2>
-        <p className="text-sm text-ink/50 mb-5">
+        <p className="text-sm text-ink/80 mb-5">
           Get a link and QR code your customer can pay in USDC.
         </p>
 
@@ -277,7 +277,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
             style={{ background: 'var(--paper)' }}
           >
             <Wallet className="size-6 mx-auto text-carbon" />
-            <p className="text-sm text-ink/60">Connect the wallet you want to get paid in.</p>
+            <p className="text-sm text-ink/80">Connect the wallet you want to get paid in.</p>
             <div className="flex justify-center">
               <ConnectKitButton />
             </div>
@@ -300,7 +300,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
                   className={`${inputClass} pr-16 tabular text-2xl font-semibold`}
                   style={inputStyle(amountInvalid)}
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink/50">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-ink/80">
                   USDC
                 </span>
               </div>
@@ -343,16 +343,16 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
               {customPayout === null ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs text-ink/50">Funds go to</p>
+                    <p className="text-xs text-ink/80">Funds go to</p>
                     {toVault ? (
                       <p className="text-sm font-medium truncate text-ink">
                         Your quantum-safe vault{' '}
-                        <span className="font-mono text-xs text-ink/50">{shortAddr(vault)}</span>
+                        <span className="font-mono text-xs text-ink/80">{shortAddr(vault)}</span>
                       </p>
                     ) : (
                       <p className="text-sm font-medium truncate text-ink">
                         Your wallet{' '}
-                        <span className="font-mono text-xs text-ink/50">{shortAddr(wallet)}</span>
+                        <span className="font-mono text-xs text-ink/80">{shortAddr(wallet)}</span>
                       </p>
                     )}
                   </div>
@@ -413,7 +413,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
-              className="flex items-center gap-1 text-sm font-medium text-ink/50 hover:text-ink"
+              className="flex items-center gap-1 text-sm font-medium text-ink/80 hover:text-ink"
               aria-expanded={showAdvanced}
             >
               Advanced settings

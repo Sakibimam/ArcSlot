@@ -89,7 +89,7 @@ export function inputStyle(invalid = false): React.CSSProperties {
   return {
     background: 'var(--surface)',
     color: 'var(--ink)',
-    border: `1.5px solid ${invalid ? 'var(--danger)' : 'rgba(18,53,43,0.45)'}`,
+    border: `1.5px solid ${invalid ? 'var(--danger)' : 'rgba(11,42,33,0.45)'}`,
   }
 }
 
@@ -101,7 +101,7 @@ const STATUS: Record<RequestStatus, { label: string; color: string; bg: string }
   partial:          { label: 'Partially paid',           color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
   'below-minimum':  { label: 'Below minimum',            color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
   paid:             { label: 'Paid',                    color: 'var(--serial)',           bg: 'rgba(200,55,45,0.09)' },
-  collected:        { label: 'Collected',               color: 'var(--ink)',              bg: 'rgba(18,53,43,0.08)' },
+  collected:        { label: 'Collected',               color: 'var(--ink)',              bg: 'rgba(11,42,33,0.08)' },
   'on-hold':        { label: 'On hold',                 color: 'var(--danger)',           bg: 'rgba(180,35,24,0.08)' },
 }
 
@@ -145,7 +145,7 @@ export function NetworkBadge({ name, testnet }: { name: string; testnet: boolean
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2 py-0.5 serial text-[10.5px] font-medium"
-      style={{ border: '1px solid rgba(18,53,43,0.35)', color: 'var(--muted-foreground)' }}
+      style={{ border: '1px solid rgba(11,42,33,0.35)', color: 'var(--muted-foreground)' }}
     >
       <span
         className="size-1.5 rounded-full"

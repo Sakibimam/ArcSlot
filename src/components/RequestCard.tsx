@@ -81,7 +81,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
             href={buildAddressExplorerUrl(chainId, address)}
             target="_blank"
             rel="noreferrer"
-            className="font-mono text-xs inline-flex items-center gap-1 text-ink/40 hover:text-carbon mt-0.5"
+            className="font-mono text-xs inline-flex items-center gap-1 text-ink/80 hover:text-carbon mt-0.5"
           >
             {shortAddr(address)} <ExternalLink className="size-3" />
           </a>
@@ -105,7 +105,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
           ) : (
             <span
               data-testid="received"
-              className="text-sm text-ink/60 tabular"
+              className="text-sm text-ink/80 tabular"
             >
               {amount
                 ? `${formatUsdc6(received)} of ${formatUsdc6(amount)} USDC received`
@@ -117,7 +117,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
 
       {/* "You received" line — only when collected with receipt */}
       {status === 'collected' && receipt && (
-        <p className="text-sm text-ink/60 pb-1">
+        <p className="text-sm text-ink/80 pb-1">
           You received{' '}
           <span className="font-semibold text-ink tabular">{formatUsdc6(receipt.net)} USDC</span>
         </p>
@@ -148,7 +148,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
 
       {/* Below-minimum hint */}
       {!collectable && received > 0n && minSweep !== undefined && received < minSweep && (
-        <p className="pb-1 text-xs text-ink/50">
+        <p className="pb-1 text-xs text-ink/80">
           You can collect from {formatUsdc6(minSweep)} USDC.
         </p>
       )}
@@ -160,7 +160,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
           type="button"
           aria-label="Share"
           onClick={() => setSharing(true)}
-          className="flex items-center justify-center size-8 rounded-sm border border-rule text-ink/50 hover:text-ink hover:border-ink/30 transition-colors"
+          className="flex items-center justify-center size-8 rounded-sm border border-rule text-ink/80 hover:text-ink hover:border-ink/30 transition-colors"
         >
           <Share2 className="size-4" />
         </button>
@@ -185,7 +185,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
             type="button"
             aria-label="Details"
             onClick={() => setShowDetails((v) => !v)}
-            className="flex items-center gap-1 text-xs font-medium text-ink/50 hover:text-ink ml-auto"
+            className="flex items-center gap-1 text-xs font-medium text-ink/80 hover:text-ink ml-auto"
             aria-expanded={showDetails}
           >
             Details
@@ -212,7 +212,7 @@ export function RequestCard({ request, onSwept }: RequestCardProps) {
             ] as [string, string][]
           ).map(([k, v]) => (
             <div key={k} className="flex justify-between">
-              <dt className="text-ink/50">{k}</dt>
+              <dt className="text-ink/80">{k}</dt>
               <dd className="tabular">{v}</dd>
             </div>
           ))}

@@ -184,7 +184,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
       <Card className="text-center">
         <AlertTriangle className="size-8 mx-auto mb-3" style={{ color: 'var(--amber)' }} />
         <h1 className="text-xl font-semibold text-ink">Can&apos;t reach Arc right now</h1>
-        <p className="text-sm mt-2 text-ink/60">
+        <p className="text-sm mt-2 text-ink/80">
           We&apos;re retrying automatically. If this keeps happening, check your connection or allow this site in your ad blocker.
         </p>
         <Button variant="secondary" className="mt-4" onClick={() => void refetch()}>Try again</Button>
@@ -197,7 +197,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
       <Card className="text-center">
         <AlertTriangle className="size-8 mx-auto mb-3 text-amber-600" style={{ color: 'var(--amber)' }} />
         <h1 className="text-xl font-semibold text-ink">This payment link is not valid</h1>
-        <p className="text-sm mt-2 text-ink/50">
+        <p className="text-sm mt-2 text-ink/80">
           It doesn&apos;t point to a payment request on {network}. Ask the merchant for a new link.
         </p>
       </Card>
@@ -223,7 +223,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         style={{
           background: 'var(--surface)',
           border: '1.5px solid var(--ink)',
-          filter: 'drop-shadow(0 18px 30px rgba(18,53,43,0.18))',
+          filter: 'drop-shadow(0 18px 30px rgba(11,42,33,0.18))',
         }}
       >
         {/* Torn top edge */}
@@ -248,7 +248,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
           {/* H1 = request label */}
           <h1 className="engraved text-[26px] leading-tight text-ink break-words">{label || 'Payment'}</h1>
           {label && (
-            <p className="text-xs mt-1 text-ink/40">
+            <p className="text-xs mt-1 text-ink/80">
               Description written by whoever created this request.
             </p>
           )}
@@ -261,7 +261,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                 className="dot text-[44px] leading-none text-ink"
               >
                 {formatUsdc6(requested)}{' '}
-                <span className="serial text-[14px] text-ink/60">USDC</span>
+                <span className="serial text-[14px] text-ink/80">USDC</span>
               </p>
               <PaidStamp visible={!!(fullyPaid || sent)} />
             </div>
@@ -269,7 +269,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
 
           {/* Trust indicators */}
           <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm text-ink/60">
+            <div className="flex items-center gap-2 text-sm text-ink/80">
               <ShieldCheck className="size-4 shrink-0 text-paid" />
               <span>
                 Pays to{' '}
@@ -299,7 +299,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
               </div>
             )}
             {legacySlot && (
-              <p className="text-xs text-ink/40">
+              <p className="text-xs text-ink/80">
                 This request uses an earlier version of ArcSlot. Payments still reach the payee.
               </p>
             )}
@@ -340,7 +340,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         <Card className="text-center">
           <AlertTriangle className="size-8 mx-auto mb-2" style={{ color: 'var(--amber)' }} />
           <h2 className="text-xl font-semibold text-ink">This request expired</h2>
-          <p className="text-sm mt-1 text-ink/50">
+          <p className="text-sm mt-1 text-ink/80">
             It stopped accepting payments on{' '}
             {new Date(Number(request.expiresAt) * 1000).toLocaleString()}. Ask the merchant for a
             new link.
@@ -352,7 +352,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
           <h2 className="text-xl font-semibold text-ink">
             {sent ? 'Payment sent' : 'Payment received'}
           </h2>
-          <p className="text-sm mt-1 text-ink/50">
+          <p className="text-sm mt-1 text-ink/80">
             {sent
               ? 'Arc confirms in under a second — you\u2019re all set.'
               : 'The merchant has received the full amount.'}
@@ -419,7 +419,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
               )}
               {!wallet ? (
                 <div className="text-center space-y-3">
-                  <p className="text-sm text-ink/60">
+                  <p className="text-sm text-ink/80">
                     Connect a wallet holding USDC on {network}.
                   </p>
                   <div className="flex justify-center">
@@ -464,7 +464,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                 </>
               )}
               {testnet && (wallet === undefined || insufficient) && (
-                <p className="text-xs text-center text-ink/50">
+                <p className="text-xs text-center text-ink/80">
                   Testing?{' '}
                   <a
                     href={TESTNET_FAUCET_URL}
@@ -509,7 +509,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
           )}
 
           {slotBalance !== undefined && slotBalance > 0n && !fullyPaid && (
-            <p className="mt-4 text-xs text-center text-ink/40">
+            <p className="mt-4 text-xs text-center text-ink/80">
               {formatUsdc6(slotBalance)} USDC received so far
             </p>
           )}

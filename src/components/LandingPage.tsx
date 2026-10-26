@@ -49,14 +49,14 @@ function HeroReceipt() {
 
       <div className="-mt-[15px] w-[86%] max-w-[400px] motion-safe:animate-receipt-unroll">
         <div className="relative overflow-hidden bg-surface px-6 sm:px-8 pb-7 pt-10 font-mono text-[13px] sm:text-[14px] text-ink">
-          <Rosette className="pointer-events-none absolute left-1/2 top-[42%] w-[300px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.10]" petals={9} rx={140} ry={44} />
+          <Rosette className="pointer-events-none absolute left-1/2 top-[42%] w-[300px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.07]" petals={9} rx={140} ry={44} />
 
           <div className="relative flex items-baseline justify-between">
             <span className="engraved text-[17px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
             <span className="tracking-[0.1em] text-serial">No. AS 0042</span>
           </div>
-          <p className="relative mt-2 text-[11px] tracking-[0.06em] text-ink/70">ISSUED ON ARC · USDC</p>
-          <p className="relative my-3 overflow-hidden whitespace-nowrap text-ink/35" aria-hidden="true">{RULE}</p>
+          <p className="relative mt-2 text-[11px] tracking-[0.06em] text-ink/80">ISSUED ON ARC · USDC</p>
+          <p className="relative my-3 overflow-hidden whitespace-nowrap text-ink/80" aria-hidden="true">{RULE}</p>
 
           <dl className="relative space-y-2.5">
             <div className="flex justify-between gap-4"><dt>PAY TO</dt><dd className="text-right">RACHEL MAYER</dd></div>
@@ -65,12 +65,12 @@ function HeroReceipt() {
             <div className="flex justify-between gap-4"><dt>PROCESSOR FEE</dt><dd className="tabular">0.00</dd></div>
           </dl>
 
-          <p className="relative my-3 overflow-hidden whitespace-nowrap text-ink/35" aria-hidden="true">{RULE}</p>
+          <p className="relative my-3 overflow-hidden whitespace-nowrap text-ink/80" aria-hidden="true">{RULE}</p>
           <div className="relative flex items-baseline justify-between gap-4">
             <span>YOU GET · USDC</span>
             <span className="dot text-[40px] sm:text-[44px] leading-none">999.98</span>
           </div>
-          <p className="relative mt-3 text-[11px] leading-relaxed text-ink/70">
+          <p className="relative mt-3 text-[11px] leading-relaxed text-ink/80">
             WITH A 1.5% PROCESSOR: 985.00
           </p>
           <p className="relative mt-4 text-center dot text-[28px] tracking-[0.3em] text-serial motion-safe:animate-stamp-in">
@@ -104,7 +104,7 @@ function LedgerRow({ label, sublabel, amount, barPct, highlight }: LedgerRowProp
           <p className={['serial text-[13px] font-medium', highlight ? 'text-serial' : 'text-ink'].join(' ')}>
             {label}
           </p>
-          <p className="text-[14px] mt-1 text-ink/65">{sublabel}</p>
+          <p className="text-[14px] mt-1 text-ink/80">{sublabel}</p>
         </div>
         <span
           className={['engraved tabular flex-none', highlight ? 'text-serial' : 'text-ink'].join(' ')}
@@ -213,7 +213,7 @@ export function LandingPage() {
 
         {/* ── Hero ────────────────────────────────────────────────────────── */}
         <section className="relative overflow-hidden">
-          <Rosette className="pointer-events-none absolute -right-[22rem] -top-40 w-[900px] text-ink opacity-[0.13]" />
+          <Rosette className="pointer-events-none absolute -right-[22rem] -top-40 w-[900px] text-ink opacity-[0.08]" />
           <div className="relative mx-auto max-w-[1200px] px-4 sm:px-8 pt-14 pb-20 lg:pt-24 lg:pb-28">
             <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-14 lg:gap-12 items-start">
 
@@ -234,7 +234,7 @@ export function LandingPage() {
                   <a href="#/app" className={ctaPrimary}>Create a payment link</a>
                   <a href="#how-it-works" onClick={scrollToSteps} className={ctaSecondary}>See how it works</a>
                 </div>
-                <p className="mt-7 serial text-[11px] text-ink/60">{networkStatus}</p>
+                <p className="mt-7 serial text-[11px] text-ink/80">{networkStatus}</p>
               </div>
 
               <HeroReceipt />
@@ -259,7 +259,7 @@ export function LandingPage() {
               <LedgerRow label="Card payment" sublabel="2.36% average US credit interchange" amount="$23.60" barPct={100} />
               <LedgerRow label="Stablecoin processor" sublabel="1.5% of every payment" amount="$15.00" barPct={64} />
               <LedgerRow label="ArcSlot" sublabel="Network fee only" amount="~$0.02" barPct={0.09} highlight />
-              <p className="mt-5 text-[13px] text-ink/65">
+              <p className="mt-5 text-[13px] text-ink/80">
                 Sources:{' '}
                 <a href="https://www.fool.com/money/research/average-credit-card-processing-fees-costs-america/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">Motley Fool Money</a>
                 {' · '}
@@ -279,7 +279,7 @@ export function LandingPage() {
                 <li key={s.n} className="note-frame bg-surface p-7 flex flex-col gap-4">
                   <div className="flex items-baseline justify-between">
                     <span className="serial text-[12px] text-serial">No. {s.n}</span>
-                    <span className={s.tag === '*PAID*' ? 'dot text-[15px] tracking-[0.2em] text-serial' : 'font-mono text-[12px] text-ink/65'}>{s.tag}</span>
+                    <span className={s.tag === '*PAID*' ? 'dot text-[15px] tracking-[0.2em] text-serial' : 'font-mono text-[12px] text-ink/80'}>{s.tag}</span>
                   </div>
                   <h3 className="engraved text-[22px] leading-tight">{s.title}</h3>
                   <p className="text-[15px] text-ink/75 leading-relaxed">{s.body}</p>
@@ -312,7 +312,7 @@ export function LandingPage() {
               </ul>
             </div>
             <div className="lg:border-l lg:border-paper/20 lg:pl-16">
-              <h3 className="serial text-[12px] text-paper/70 mb-8">Why trust it</h3>
+              <h3 className="serial text-[12px] text-paper/80 mb-8">Why trust it</h3>
               <ul className="space-y-7">
                 {[
                   { text: 'Stripe paid $1.1 billion for a stablecoin company and charges 1.5% per payment.', href: 'https://www.nbcnewyork.com/news/business/money-report/stripe-closes-1-1-billion-bridge-deal-prepares-for-aggressive-stablecoin-push/6135508/', linkText: 'NBC New York' },
@@ -340,7 +340,7 @@ export function LandingPage() {
               Any app or agent can create and pay links on-chain. One contract call issues a link.
             </p>
             <div className="note-frame bg-ink text-paper">
-              <div className="flex items-center justify-between border-b border-paper/15 px-5 py-3 serial text-[11px] text-paper/65">
+              <div className="flex items-center justify-between border-b border-paper/15 px-5 py-3 serial text-[11px] text-paper/80">
                 <span>createRequest · viem</span><span>Arc testnet</span>
               </div>
               <div className="overflow-x-auto">
@@ -377,7 +377,7 @@ export function LandingPage() {
         {/* ── Final CTA ───────────────────────────────────────────────────── */}
         <section className="px-4 sm:px-8 pb-20">
           <div className="note-frame relative overflow-hidden mx-auto max-w-[1200px] bg-surface px-6 py-16 sm:py-20 text-center">
-            <Rosette className="pointer-events-none absolute left-1/2 top-1/2 w-[760px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.09]" />
+            <Rosette className="pointer-events-none absolute left-1/2 top-1/2 w-[760px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.06]" />
             <p className="relative serial text-[12px] text-serial">No. AS 0043</p>
             <h2 className="relative engraved mt-5 mb-9 mx-auto leading-[0.97]" style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '18ch' }}>
               Your next invoice could cost two cents.
@@ -389,7 +389,7 @@ export function LandingPage() {
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <footer className="border-t border-ink/20">
-        <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 serial text-[11px] text-ink/65">
+        <div className="mx-auto max-w-[1200px] px-4 sm:px-8 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 serial text-[11px] text-ink/80">
           <span>ArcSlot · Non-custodial USDC payments on Arc</span>
           <div className="flex items-center gap-5">
             <a href="https://github.com/Sakibimam/ArcSlot" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">

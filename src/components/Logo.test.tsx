@@ -8,7 +8,7 @@ import { LogoMark, PrintMark, ISSUE_PAPER, ISSUE_SLOT } from './Logo'
 import { Header } from './Header'
 import { LandingPage } from './LandingPage'
 
-const SERIAL_RED = '#C8372D'
+const SERIAL_RED = '#B3261E'
 
 describe('The Issue logo', () => {
   it('draws a strip of paper arcing out of a slot, engraved (three strokes)', () => {
@@ -25,7 +25,7 @@ describe('The Issue logo', () => {
   it('the favicon is the same mark: paper strip, red slot, on bank-note green', () => {
     const fav = readFileSync('public/favicon.svg', 'utf8')
     expect(fav).toContain(`d="${ISSUE_PAPER}"`)
-    expect(fav).toContain('fill="#12352B"')
+    expect(fav).toContain('fill="#0B2A21"')
     expect(fav).toMatch(new RegExp(`<rect x="7" y="45" width="50" height="10" rx="5" fill="${SERIAL_RED}"`))
   })
 

@@ -123,7 +123,7 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
             <span>{formatUsdc6(amount)} USDC was sent on {chain.name} by mistake.</span>
           </p>
           {recovered[chain.key] ? null : payout === 'other' ? (
-            <p className="text-ink/60">Only the payee can recover this.</p>
+            <p className="text-ink/80">Only the payee can recover this.</p>
           ) : (
             <Button
               variant="secondary"
@@ -135,7 +135,7 @@ export function RecoverPanel({ arcChainId, slot }: RecoverPanelProps) {
               Recover to my wallet
             </Button>
           )}
-          {status[chain.key] && <p className="text-ink/60">{status[chain.key]}</p>}
+          {status[chain.key] && <p className="text-ink/80">{status[chain.key]}</p>}
         </div>
       ))}
     </div>
