@@ -29,6 +29,14 @@ describe('LandingPage', () => {
     expect(screen.getAllByText(/~\$0\.02/i).length).toBeGreaterThan(0)
   })
 
+  it('the hero receipt is issued to Rachel Mayer, serial and all', () => {
+    render(<LandingPage />)
+    expect(screen.getByText(/rachel mayer/i)).toBeInTheDocument()
+    expect(screen.queryByText(/priya/i)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/AS 0042/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/\*PAID\*/).length).toBeGreaterThan(0)
+  })
+
   it('shows the FAQ accordion', () => {
     render(<LandingPage />)
     expect(screen.getByText(/do i need an account/i)).toBeInTheDocument()

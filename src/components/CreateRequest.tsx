@@ -229,7 +229,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
       <Card>
         <div className="flex items-center gap-2 mb-1 text-paid">
           <CircleCheck className="size-5" />
-          <h2 className="text-lg font-semibold">Payment link ready</h2>
+          <h2 className="engraved text-[19px] leading-tight">Payment link ready</h2>
         </div>
         <p className="text-sm mb-5 text-ink/60">
           Send this link or show the QR code.
@@ -257,7 +257,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
     <div className="space-y-4">
       {/* Form card */}
       <Card>
-        <h2 className="text-lg font-semibold text-ink mb-1">Create a payment link</h2>
+        <h2 className="engraved text-[19px] leading-tight text-ink mb-1">Create a payment link</h2>
         <p className="text-sm text-ink/50 mb-5">
           Get a link and QR code your customer can pay in USDC.
         </p>

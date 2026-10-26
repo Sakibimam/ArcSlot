@@ -140,9 +140,9 @@ export default function App() {
           {/* Right column: request list */}
           <section>
             <div className="flex items-baseline justify-between mb-5">
-              <h2 className="text-base font-semibold text-ink">Payment links</h2>
+              <h2 className="engraved text-[19px] text-ink">Payment links</h2>
               {visible.length > 0 && (
-                <span className="text-xs text-ink/40">Updates live</span>
+                <span className="serial text-[10.5px] text-ink/60">Updates live</span>
               )}
             </div>
 

@@ -212,7 +212,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
       <Card>
         <div className="flex items-center gap-2 mb-1">
           <Atom className="size-5 text-carbon" />
-          <h2 className="text-lg font-semibold text-ink">Quantum-safe vault</h2>
+          <h2 className="engraved text-[19px] leading-tight text-ink">Quantum-safe vault</h2>
         </div>
         <p className="text-sm mb-4 text-ink/60">
           Payments land in a vault that only moves money with two keys: your wallet and a
@@ -325,7 +325,7 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <Atom className="size-5 text-carbon" />
-            <h2 className="text-lg font-semibold text-ink whitespace-nowrap">Your quantum-safe vault</h2>
+            <h2 className="engraved text-[19px] leading-tight text-ink whitespace-nowrap">Your quantum-safe vault</h2>
           </div>
           <p className="font-mono text-xs mt-0.5 text-ink/40">{shortAddr(record.vault)}</p>
         </div>

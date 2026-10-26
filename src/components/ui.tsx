@@ -4,12 +4,12 @@ import { Check, Copy, Loader2 } from 'lucide-react'
 import type { RequestStatus } from '@/lib/slot-logic'
 
 // ── Card ─────────────────────────────────────────────────────────────────────
-// White surface on Paper background; the receipt motif.
+// Note-paper surface with an ink rule; the bank-note motif.
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <section
-      className={`rounded-sm p-5 sm:p-6 ${className}`}
-      style={{ background: 'var(--surface)', border: '1px solid var(--rule)' }}
+      className={`p-5 sm:p-6 ${className}`}
+      style={{ background: 'var(--surface)', border: '1.5px solid var(--ink)' }}
     >
       {children}
     </section>
@@ -32,13 +32,13 @@ export function Button({
   variant = 'primary', type = 'button', className = '',
 }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-md px-4 text-sm font-semibold ' +
+    'inline-flex items-center justify-center gap-2 px-4 text-sm font-bold ' +
     'transition-colors hover:brightness-[0.93] active:scale-[0.99] ' +
     'disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-carbon'
 
   const styles: Record<NonNullable<ButtonProps['variant']>, React.CSSProperties> = {
-    primary:   { background: 'var(--ink)', color: '#FFFFFF' },
-    secondary: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--rule)' },
+    primary:   { background: 'var(--ink)', color: 'var(--paper)' },
+    secondary: { background: 'transparent', color: 'var(--ink)', border: '1.5px solid var(--ink)' },
     ghost:     { background: 'transparent', color: 'var(--carbon)' },
   }
 
@@ -66,7 +66,7 @@ export function Field({
     <div>
       <label
         htmlFor={id}
-        className="block text-sm font-medium mb-1.5"
+        className="block serial text-[11px] font-medium mb-1.5"
         style={{ color: 'var(--ink)' }}
       >
         {label}
@@ -82,34 +82,34 @@ export function Field({
 }
 
 export const inputClass =
-  'w-full rounded-md px-3 py-2.5 text-base outline-none transition-colors ' +
+  'w-full px-3 py-2.5 text-base outline-none transition-colors ' +
   'focus:ring-2 focus:ring-carbon focus:ring-offset-0'
 
 export function inputStyle(invalid = false): React.CSSProperties {
   return {
     background: 'var(--surface)',
     color: 'var(--ink)',
-    border: `1px solid ${invalid ? 'var(--danger)' : 'var(--rule)'}`,
+    border: `1.5px solid ${invalid ? 'var(--danger)' : 'rgba(18,53,43,0.45)'}`,
   }
 }
 
 // ── StatusPill ────────────────────────────────────────────────────────────────
 // Brief: Waiting amber, Paid green, Collected ink, Expired grey.
 const STATUS: Record<RequestStatus, { label: string; color: string; bg: string }> = {
-  loading:          { label: 'Loading…',               color: 'var(--muted-foreground)', bg: '#F2F4F3' },
+  loading:          { label: 'Loading…',               color: 'var(--muted-foreground)', bg: 'var(--muted)' },
   waiting:          { label: 'Waiting for payment',      color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
   partial:          { label: 'Partially paid',           color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
   'below-minimum':  { label: 'Below minimum',            color: 'var(--amber)',            bg: 'rgba(154,91,0,0.08)' },
-  paid:             { label: 'Paid',                    color: 'var(--paid)',             bg: 'rgba(11,122,75,0.10)' },
-  collected:        { label: 'Collected',               color: 'var(--ink)',              bg: 'rgba(19,35,58,0.07)' },
-  'on-hold':        { label: 'On hold',                 color: '#DC2626',                bg: 'rgba(220,38,38,0.08)' },
+  paid:             { label: 'Paid',                    color: 'var(--serial)',           bg: 'rgba(200,55,45,0.09)' },
+  collected:        { label: 'Collected',               color: 'var(--ink)',              bg: 'rgba(18,53,43,0.08)' },
+  'on-hold':        { label: 'On hold',                 color: 'var(--danger)',           bg: 'rgba(180,35,24,0.08)' },
 }
 
 export function StatusPill({ status }: { status: RequestStatus }) {
   const s = STATUS[status]
   return (
     <span
-      className="px-2.5 py-0.5 rounded text-xs font-semibold whitespace-nowrap tabular"
+      className="px-2 py-0.5 serial text-[10.5px] font-medium whitespace-nowrap"
       style={{ color: s.color, background: s.bg }}
     >
       {s.label}
@@ -144,8 +144,8 @@ export function CopyButton({
 export function NetworkBadge({ name, testnet }: { name: string; testnet: boolean }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
-      style={{ background: 'rgba(205,213,221,0.35)', color: 'var(--muted-foreground)' }}
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 serial text-[10.5px] font-medium"
+      style={{ border: '1px solid rgba(18,53,43,0.35)', color: 'var(--muted-foreground)' }}
     >
       <span
         className="size-1.5 rounded-full"

@@ -21,7 +21,7 @@ import { formatUsdc6, isMinimalProxyTo, isRequestPaid, parseUsdc6, requestTrust,
 import { buildAddressExplorerUrl, buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, CopyButton, Field, NetworkBadge, inputClass, inputStyle } from './ui'
 import { CrossChainPay } from './CrossChainPay'
-import { DropMark } from './Logo'
+import { PrintMark } from './Logo'
 
 interface PayPageProps {
   chainId: SupportedChainId
@@ -53,12 +53,12 @@ function PaidStamp({ visible }: { visible: boolean }) {
       >
         {/* Double-ring stamp */}
         <div
-          className="rounded-full border-[2.5px] border-paid p-[4px]"
+          className="border-[2.5px] border-serial p-[3px]"
           style={{ opacity: 0.85 }}
         >
-          <div className="rounded-full border-[1.5px] border-paid px-3 py-1">
+          <div className="border-[1.5px] border-serial px-3 py-1">
             <span
-              className="block text-[13px] font-extrabold tracking-[0.18em] text-paid leading-none"
+              className="block dot text-[15px] tracking-[0.22em] text-serial leading-none"
             >
               PAID
             </span>
@@ -222,8 +222,8 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         className="rounded-sm overflow-hidden"
         style={{
           background: 'var(--surface)',
-          border: '1px solid var(--rule)',
-          filter: 'drop-shadow(0 4px 16px rgba(19,35,58,0.10))',
+          border: '1.5px solid var(--ink)',
+          filter: 'drop-shadow(0 18px 30px rgba(18,53,43,0.18))',
         }}
       >
         {/* Torn top edge */}
@@ -241,12 +241,12 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         <div className="px-5 sm:px-6 py-5">
           {/* Network badge + status */}
           <div className="flex items-center justify-between gap-2 mb-4">
-            <span className="text-sm text-ink/50">Payment request</span>
+            <span className="serial text-[11px] text-serial">Payment request</span>
             <NetworkBadge name={network} testnet={testnet} />
           </div>
 
           {/* H1 = request label */}
-          <h1 className="text-2xl font-bold text-ink break-words">{label || 'Payment'}</h1>
+          <h1 className="engraved text-[26px] leading-tight text-ink break-words">{label || 'Payment'}</h1>
           {label && (
             <p className="text-xs mt-1 text-ink/40">
               Description written by whoever created this request.
@@ -258,10 +258,10 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
             <div className="flex items-center gap-3 mt-3 flex-wrap">
               <p
                 data-testid="pay-amount"
-                className="text-4xl font-bold display-num text-ink"
+                className="dot text-[44px] leading-none text-ink"
               >
                 {formatUsdc6(requested)}{' '}
-                <span className="text-xl font-semibold text-ink/50">USDC</span>
+                <span className="serial text-[14px] text-ink/60">USDC</span>
               </p>
               <PaidStamp visible={!!(fullyPaid || sent)} />
             </div>
@@ -348,7 +348,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         </Card>
       ) : fullyPaid || sent ? (
         <Card className="text-center">
-          <DropMark state="paid" className="size-16 mx-auto mb-1" />
+          <PrintMark state="paid" className="size-16 mx-auto mb-1" />
           <h2 className="text-xl font-semibold text-ink">
             {sent ? 'Payment sent' : 'Payment received'}
           </h2>
@@ -445,7 +445,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                     disabled={!payAmount || insufficient || isPending || confirming}
                     onClick={pay}
                   >
-                    {(isPending || confirming) && <DropMark state="sending" tone="current" className="size-6" />}
+                    {(isPending || confirming) && <PrintMark state="sending" tone="current" className="size-6" />}
                     {isPending
                       ? 'Confirm in your wallet…'
                       : confirming

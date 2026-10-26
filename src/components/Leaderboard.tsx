@@ -75,7 +75,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
       </Card>
 
       <Card>
-        <h2 className="text-lg font-semibold text-ink mb-1">Leaderboard</h2>
+        <h2 className="engraved text-[19px] leading-tight text-ink mb-1">Leaderboard</h2>
         <p className="text-xs mb-3 text-ink/50">
           Raw on-chain activity: each collector can only credit itself, but anyone can collect their
           own payments too.
@@ -125,7 +125,7 @@ export function Leaderboard({ chainId }: { chainId: SupportedChainId }) {
       <Card>
         <div className="flex items-center gap-2 mb-2">
           <Bot className="size-5 text-carbon" />
-          <h2 className="text-lg font-semibold text-ink">Run a collector</h2>
+          <h2 className="engraved text-[19px] leading-tight text-ink">Run a collector</h2>
         </div>
         <ol className="list-decimal pl-5 space-y-1.5 text-sm text-ink/60">
           <li>Use a fresh wallet with a little USDC on {networkName(chainId)} for gas.</li>

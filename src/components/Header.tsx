@@ -12,27 +12,27 @@ interface HeaderProps {
 export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) {
   return (
     <header
-      className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-rule"
+      className="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-ink/20"
     >
       <div className="mx-auto max-w-[1120px] flex items-center justify-between gap-4 px-4 sm:px-6 h-14">
         {/* Wordmark */}
-        <a href="#/" className="inline-flex items-center gap-1.5 font-bold text-ink text-[15px] tracking-tight shrink-0">
-          <LogoMark />
-          ArcSlot
+        <a href="#/" className="inline-flex items-center gap-2.5 text-ink shrink-0">
+          <LogoMark className="size-9" />
+          <span className="engraved text-[17px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
         </a>
 
         {/* Center nav */}
         {showNav && (
-          <nav className="hidden sm:flex items-center gap-1" aria-label="App navigation">
+          <nav className="hidden sm:flex items-center gap-1 serial text-[12px]" aria-label="App navigation">
             <a
               href="#/app"
-              className="px-3 py-1.5 rounded-md text-sm font-medium text-ink/70 hover:text-ink hover:bg-rule/30 transition-colors"
+              className="px-3 py-1.5 text-ink/75 hover:text-serial transition-colors"
             >
               Dashboard
             </a>
             <a
               href="#/collect"
-              className="px-3 py-1.5 rounded-md text-sm font-medium text-ink/70 hover:text-ink hover:bg-rule/30 transition-colors"
+              className="px-3 py-1.5 text-ink/75 hover:text-serial transition-colors"
             >
               Collectors
             </a>
@@ -43,8 +43,8 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
         <div className="flex items-center gap-2 shrink-0">
           {chainId !== undefined && onChainChange && (
             <div
-              className="flex rounded-md overflow-hidden"
-              style={{ border: '1px solid var(--rule)' }}
+              className="flex overflow-hidden serial"
+              style={{ border: '1.5px solid var(--ink)' }}
               role="group"
               aria-label="Network"
             >
@@ -56,10 +56,10 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
                   key={id}
                   aria-pressed={chainId === id}
                   onClick={() => onChainChange(id)}
-                  className="px-3 py-1.5 text-xs font-semibold transition-colors"
+                  className="px-3 py-1.5 text-[11px] font-medium transition-colors"
                   style={
                     chainId === id
-                      ? { background: 'var(--ink)', color: '#FFFFFF' }
+                      ? { background: 'var(--ink)', color: 'var(--paper)' }
                       : { background: 'transparent', color: 'var(--muted-foreground)' }
                   }
                 >
@@ -78,15 +78,15 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
 // ── App footer (used in every app shell) ─────────────────────────────────────
 export function AppFooter() {
   return (
-    <footer className="border-t border-rule bg-paper mt-auto">
-      <div className="mx-auto max-w-[1120px] px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-ink/40">
-        <span>ArcSlot. Non-custodial USDC payments on Arc.</span>
+    <footer className="border-t border-ink/20 bg-paper mt-auto">
+      <div className="mx-auto max-w-[1120px] px-4 sm:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 serial text-[11px] text-ink/65">
+        <span>ArcSlot · Non-custodial USDC payments on Arc</span>
         <div className="flex items-center gap-4">
           <a
             href="https://github.com/Sakibimam/ArcSlot"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-carbon"
+            className="underline underline-offset-2 hover:text-serial"
           >
             Open source
           </a>
@@ -94,7 +94,7 @@ export function AppFooter() {
             href="https://studio.arc.io/"
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-carbon"
+            className="underline underline-offset-2 hover:text-serial"
           >
             Built with Arc Studio
           </a>
