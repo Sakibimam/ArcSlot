@@ -25,8 +25,12 @@ describe('contrast', () => {
   it('serial red stays readable (AA) on the page', () => {
     expect(ratio(token('serial'), token('paper'))).toBeGreaterThanOrEqual(4.5)
   })
-  it('cards and receipts stand clearly off the page', () => {
-    expect(ratio(token('surface'), token('paper'))).toBeGreaterThanOrEqual(1.2)
+  it('near-white page, pure white cards and receipts', () => {
+    expect(lum(token('paper'))).toBeGreaterThanOrEqual(0.88)
+    expect(token('surface').toUpperCase()).toBe('#FFFFFF')
+  })
+  it('cards are separated from the page by an ink rule, not by tint alone', () => {
+    expect(readFileSync('src/components/ui.tsx', 'utf8')).toMatch(/border: '1\.5px solid var\(--ink\)'/)
   })
   it('no faded text: ink and paper text never drop below 75% opacity', () => {
     const files = ['src/App.tsx', ...readdirSync('src/components').filter((f) => f.endsWith('.tsx') && !f.includes('.test.')).map((f) => `src/components/${f}`)]

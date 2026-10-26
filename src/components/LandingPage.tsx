@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { LogoMark } from '@/components/Logo'
 import { getFactoryAddress, ARC_MAINNET_ID } from '@/lib/chains'
@@ -10,8 +10,34 @@ function useNetworkStatus(): string {
   return mainnetLive ? 'Live on Arc mainnet' : 'Live on Arc testnet'
 }
 
+/** Read prefers-reduced-motion once at mount. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced] = useState(
+    () => typeof window !== 'undefined' && (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false),
+  )
+  return reduced
+}
+
+/** True once the element has scrolled into view (always true without IntersectionObserver). */
+function useInView<T extends Element>(): [React.RefObject<T>, boolean] {
+  const ref = useRef<T>(null)
+  const [inView, setInView] = useState(() => typeof window === 'undefined' || !('IntersectionObserver' in window))
+  useEffect(() => {
+    if (inView || !ref.current) return
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) setInView(true)
+    }, { threshold: 0.35 })
+    io.observe(ref.current)
+    return () => io.disconnect()
+  }, [inView])
+  return [ref, inView]
+}
+
+const usd = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 // ── Rosette ──────────────────────────────────────────────────────────────────
 // The guilloché of a bank note: ellipses turned around one centre, plus rings.
+// It turns very slowly, like an engraving lathe (motion-safe only).
 
 export function Rosette({ className = '', petals = 18, rx = 420, ry = 130 }: {
   className?: string; petals?: number; rx?: number; ry?: number
@@ -19,7 +45,7 @@ export function Rosette({ className = '', petals = 18, rx = 420, ry = 130 }: {
   const r = rx + 30
   return (
     <svg viewBox={`${-r} ${-r} ${r * 2} ${r * 2}`} className={className} aria-hidden="true">
-      <g fill="none" stroke="currentColor" strokeWidth="0.8">
+      <g fill="none" stroke="currentColor" strokeWidth="0.8" className="motion-safe:animate-rosette">
         {Array.from({ length: petals }, (_, i) => (
           <ellipse key={i} rx={rx} ry={ry} transform={`rotate(${(180 / petals) * i})`} />
         ))}
@@ -32,46 +58,65 @@ export function Rosette({ className = '', petals = 18, rx = 420, ry = 130 }: {
 }
 
 // ── Hero receipt ─────────────────────────────────────────────────────────────
-// A thermal receipt printing out of its slot, on note paper. The unroll and the
-// PAID stamp are pure CSS (motion-safe only), so nothing runs under reduced motion.
+// A thermal receipt printing out of its slot. Every few seconds the next one
+// prints, with the next serial. Under reduced motion it stays on the first.
+
+export const HERO_RECEIPTS = [
+  { payee: 'Rachel Mayer', item: 'Logo design', amount: 1000, net: 999.98 },
+  { payee: 'Tomás Lindqvist', item: 'Translation', amount: 240, net: 239.98 },
+  { payee: 'Aiko Tanaka', item: 'Product photos', amount: 680, net: 679.98 },
+  { payee: 'Nørre Studio', item: 'Website retainer', amount: 2500, net: 2499.98 },
+]
+const RECEIPT_MS = 5_500
 
 const RULE = '- - - - - - - - - - - - - - - - - - - -'
 const TORN_EDGE =
   'M0 0H400' + Array.from({ length: 34 }, (_, i) => `L${400 - i * 12 - 6} 10L${400 - (i + 1) * 12} 0`).join('') + 'Z'
 
 function HeroReceipt() {
+  const reduced = usePrefersReducedMotion()
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    if (reduced) return
+    const t = setInterval(() => setN((i) => i + 1), RECEIPT_MS)
+    return () => clearInterval(t)
+  }, [reduced])
+  const r = HERO_RECEIPTS[n % HERO_RECEIPTS.length]
+  const serial = `No. AS ${String(42 + n).padStart(4, '0')}`
+
   return (
-    <figure className="flex flex-col items-center select-none" aria-label="Example receipt: Rachel Mayer receives 999.98 USDC for a 1,000.00 invoice">
+    <figure className="flex flex-col items-center select-none" aria-label={`Example receipt: ${r.payee} receives ${usd(r.net)} USDC for a ${usd(r.amount)} invoice`}>
       {/* The slot */}
-      <div className="relative z-10 flex h-[30px] w-full max-w-[480px] items-center justify-center rounded-full bg-ink">
+      <div className="relative z-10 flex h-[30px] w-full max-w-[480px] items-center justify-center rounded-full bg-ink shadow-[0_10px_24px_-12px_rgba(11,42,33,0.6)]">
         <div className="h-1 w-[84%] rounded-full bg-[#061611]" />
       </div>
 
-      <div className="-mt-[15px] w-[86%] max-w-[400px] motion-safe:animate-receipt-unroll">
-        <div className="relative overflow-hidden bg-surface px-6 sm:px-8 pb-7 pt-10 font-mono text-[13px] sm:text-[14px] text-ink">
-          <Rosette className="pointer-events-none absolute left-1/2 top-[42%] w-[300px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.07]" petals={9} rx={140} ry={44} />
+      {/* Keyed by n, so each new receipt prints from the top again. */}
+      <div key={n} className="-mt-[15px] w-[86%] max-w-[400px] motion-safe:animate-receipt-unroll" aria-live="off">
+        <div className="relative overflow-hidden bg-surface px-6 sm:px-8 pb-7 pt-10 font-mono text-[13px] sm:text-[14px] text-ink shadow-[inset_1px_0_0_var(--rule),inset_-1px_0_0_var(--rule)]">
+          <Rosette className="pointer-events-none absolute left-1/2 top-[42%] w-[300px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.06]" petals={9} rx={140} ry={44} />
 
           <div className="relative flex items-baseline justify-between">
             <span className="engraved text-[17px] tracking-[0.06em]" style={{ fontStretch: '125%' }}>ArcSlot</span>
-            <span className="tracking-[0.1em] text-serial">No. AS 0042</span>
+            <span className="tracking-[0.1em] text-serial">{serial}</span>
           </div>
           <p className="relative mt-2 text-[11px] tracking-[0.06em] text-ink/80">ISSUED ON ARC · USDC</p>
-          <p className="relative my-3 overflow-hidden whitespace-nowrap text-ink/80" aria-hidden="true">{RULE}</p>
+          <p className="relative my-3 overflow-hidden whitespace-nowrap text-rule" aria-hidden="true">{RULE}</p>
 
           <dl className="relative space-y-2.5">
-            <div className="flex justify-between gap-4"><dt>PAY TO</dt><dd className="text-right">RACHEL MAYER</dd></div>
-            <div className="flex justify-between gap-4"><dt>LOGO DESIGN</dt><dd className="tabular">1,000.00</dd></div>
+            <div className="flex justify-between gap-4"><dt>PAY TO</dt><dd className="text-right uppercase">{r.payee}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="uppercase">{r.item}</dt><dd className="tabular">{usd(r.amount)}</dd></div>
             <div className="flex justify-between gap-4"><dt>NETWORK FEE</dt><dd className="tabular">~0.02</dd></div>
             <div className="flex justify-between gap-4"><dt>PROCESSOR FEE</dt><dd className="tabular">0.00</dd></div>
           </dl>
 
-          <p className="relative my-3 overflow-hidden whitespace-nowrap text-ink/80" aria-hidden="true">{RULE}</p>
+          <p className="relative my-3 overflow-hidden whitespace-nowrap text-rule" aria-hidden="true">{RULE}</p>
           <div className="relative flex items-baseline justify-between gap-4">
             <span>YOU GET · USDC</span>
-            <span className="dot text-[40px] sm:text-[44px] leading-none">999.98</span>
+            <span className="dot text-[36px] sm:text-[42px] leading-none">{usd(r.net)}</span>
           </div>
           <p className="relative mt-3 text-[11px] leading-relaxed text-ink/80">
-            WITH A 1.5% PROCESSOR: 985.00
+            WITH A 1.5% PROCESSOR: {usd(r.amount * 0.985)}
           </p>
           <p className="relative mt-4 text-center dot text-[28px] tracking-[0.3em] text-serial motion-safe:animate-stamp-in">
             *PAID*
@@ -94,9 +139,11 @@ interface LedgerRowProps {
   amount: string
   barPct: number      // 0-100, proportional to fee
   highlight?: boolean
+  drawn: boolean      // bars draw in once the ledger is in view
+  delayMs: number
 }
 
-function LedgerRow({ label, sublabel, amount, barPct, highlight }: LedgerRowProps) {
+function LedgerRow({ label, sublabel, amount, barPct, highlight, drawn, delayMs }: LedgerRowProps) {
   return (
     <div className="py-5 border-b border-ink/25">
       <div className="flex items-baseline justify-between gap-4">
@@ -116,14 +163,27 @@ function LedgerRow({ label, sublabel, amount, barPct, highlight }: LedgerRowProp
       {/* Proportional bar, engraved as fine hatching */}
       <div className="mt-3 h-2 border border-ink/30">
         <div
-          className={highlight ? 'h-full bg-serial' : 'h-full'}
+          data-part="fee-bar"
+          className={[highlight ? 'h-full bg-serial' : 'h-full', 'motion-safe:transition-[width] motion-safe:duration-1000 motion-safe:ease-out'].join(' ')}
           style={{
-            width: `${barPct}%`,
-            minWidth: highlight ? 3 : undefined,
+            width: drawn ? `${barPct}%` : '0%',
+            minWidth: highlight && drawn ? 3 : undefined,
+            transitionDelay: `${delayMs}ms`,
             backgroundImage: highlight ? undefined : 'repeating-linear-gradient(135deg, var(--ink) 0 1px, transparent 1px 4px)',
           }}
         />
       </div>
+    </div>
+  )
+}
+
+function Ledger() {
+  const [ref, drawn] = useInView<HTMLDivElement>()
+  return (
+    <div ref={ref}>
+      <LedgerRow label="Card payment" sublabel="2.36% average US credit interchange" amount="$23.60" barPct={100} drawn={drawn} delayMs={0} />
+      <LedgerRow label="Stablecoin processor" sublabel="1.5% of every payment" amount="$15.00" barPct={64} drawn={drawn} delayMs={250} />
+      <LedgerRow label="ArcSlot" sublabel="Network fee only" amount="~$0.02" barPct={0.09} highlight drawn={drawn} delayMs={700} />
     </div>
   )
 }
@@ -175,9 +235,9 @@ const FAQ = [
 ]
 
 const ctaPrimary =
-  'inline-flex items-center justify-center h-14 px-7 bg-ink text-paper text-[16px] font-bold hover:bg-ink/90 transition-colors'
+  'inline-flex items-center justify-center h-14 px-7 bg-ink text-paper text-[16px] font-bold hover:bg-[#164537] active:translate-y-px transition-colors'
 const ctaSecondary =
-  'inline-flex items-center justify-center h-14 px-7 border-[1.5px] border-ink text-ink text-[16px] font-semibold hover:bg-ink/5 transition-colors'
+  'inline-flex items-center justify-center h-14 px-7 border-[1.5px] border-ink text-ink text-[16px] font-semibold hover:bg-ink hover:text-paper active:translate-y-px transition-colors'
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
@@ -256,9 +316,7 @@ export function LandingPage() {
               </p>
             </div>
             <div>
-              <LedgerRow label="Card payment" sublabel="2.36% average US credit interchange" amount="$23.60" barPct={100} />
-              <LedgerRow label="Stablecoin processor" sublabel="1.5% of every payment" amount="$15.00" barPct={64} />
-              <LedgerRow label="ArcSlot" sublabel="Network fee only" amount="~$0.02" barPct={0.09} highlight />
+              <Ledger />
               <p className="mt-5 text-[13px] text-ink/80">
                 Sources:{' '}
                 <a href="https://www.fool.com/money/research/average-credit-card-processing-fees-costs-america/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-serial">Motley Fool Money</a>
@@ -276,7 +334,7 @@ export function LandingPage() {
             <h2 className="engraved mt-4 mb-12" style={{ fontSize: 'clamp(30px,4vw,52px)' }}>How it works</h2>
             <ol className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {STEPS.map((s) => (
-                <li key={s.n} className="note-frame bg-surface p-7 flex flex-col gap-4">
+                <li key={s.n} className="note-frame bg-surface p-7 flex flex-col gap-4 motion-safe:transition-transform motion-safe:duration-200 hover:-translate-y-1">
                   <div className="flex items-baseline justify-between">
                     <span className="serial text-[12px] text-serial">No. {s.n}</span>
                     <span className={s.tag === '*PAID*' ? 'dot text-[15px] tracking-[0.2em] text-serial' : 'font-mono text-[12px] text-ink/80'}>{s.tag}</span>
@@ -378,7 +436,7 @@ export function LandingPage() {
         <section className="px-4 sm:px-8 pb-20">
           <div className="note-frame relative overflow-hidden mx-auto max-w-[1200px] bg-surface px-6 py-16 sm:py-20 text-center">
             <Rosette className="pointer-events-none absolute left-1/2 top-1/2 w-[760px] -translate-x-1/2 -translate-y-1/2 text-ink opacity-[0.06]" />
-            <p className="relative serial text-[12px] text-serial">No. AS 0043</p>
+            <p className="relative serial text-[12px] text-serial">Series 5042 · Next issue</p>
             <h2 className="relative engraved mt-5 mb-9 mx-auto leading-[0.97]" style={{ fontSize: 'clamp(30px,4.4vw,58px)', maxWidth: '18ch' }}>
               Your next invoice could cost two cents.
             </h2>

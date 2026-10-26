@@ -6,7 +6,7 @@ describe('wallet button theme', () => {
   it('matches the bank-note look: square, ink green, Archivo', () => {
     expect(CONNECTKIT_THEME['--ck-connectbutton-border-radius']).toBe('0px')
     expect(CONNECTKIT_THEME['--ck-connectbutton-background']).toBe('#0B2A21')
-    expect(CONNECTKIT_THEME['--ck-connectbutton-color']).toBe('#E4E8DA')
+    expect(CONNECTKIT_THEME['--ck-connectbutton-color']).toBe('#F6F7F2')
     expect(CONNECTKIT_THEME['--ck-font-family']).toMatch(/^Archivo/)
   })
   it('is applied to the ConnectKit provider', () => {

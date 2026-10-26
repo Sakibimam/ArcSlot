@@ -7,7 +7,7 @@ export const ISSUE_PAPER = 'M21 46V29A13 13 0 0 1 47 29V37'
 export const ISSUE_SLOT = { x: 7, y: 45, width: 50, height: 10, rx: 5 } as const
 
 const INK = '#0B2A21'
-const NOTE = '#E4E8DA'
+const NOTE = '#F6F7F2'
 const SERIAL = '#B3261E'
 
 export function LogoMark({ className = 'size-8', paper = NOTE }: { className?: string; paper?: string }) {
@@ -58,7 +58,7 @@ export function PrintMark({
             x="15" y="13" width="34" height="48"
             fill={current ? 'currentColor' : '#FFFFFF'}
             opacity={current ? 0.55 : undefined}
-            stroke={current ? undefined : '#B5BDA8'}
+            stroke={current ? undefined : '#CDD3C4'}
             strokeWidth="0.75"
           />
           {!current && (

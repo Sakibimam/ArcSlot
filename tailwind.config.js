@@ -9,14 +9,14 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper:   '#E4E8DA',
+        paper:   '#F6F7F2',
         ink:     '#0B2A21',
         carbon:  '#2F6B57',
         serial:  '#B3261E',
         paid:    '#1E7A4C',
         amber:   '#9A5B00',
-        rule:    '#B5BDA8',
-        surface: '#FFFFFB',
+        rule:    '#CDD3C4',
+        surface: '#FFFFFF',
       },
       fontFamily: {
         sans: ['Archivo', 'sans-serif'],
@@ -51,6 +51,10 @@ export default {
           '0%':   { opacity: '0', transform: 'scale(1.25)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        rosette: {
+          from: { transform: 'rotate(0deg)' },
+          to:   { transform: 'rotate(360deg)' },
+        },
         'stamp-press': {
           '0%':   { transform: 'rotate(-8deg) scale(1.4)',  opacity: '0' },
           '55%':  { transform: 'rotate(-8deg) scale(0.93)', opacity: '0.85' },
@@ -65,6 +69,7 @@ export default {
         'receipt-print':  'receipt-print 1.1s steps(12, end) both',
         'receipt-unroll': 'receipt-unroll 1.4s steps(14, end) 0.2s both',
         'stamp-in':       'stamp-in 0.3s cubic-bezier(0.34,1.56,0.64,1) 1.7s both',
+        rosette:          'rosette 180s linear infinite',
         'stamp-press':    'stamp-press 0.45s cubic-bezier(0.34,1.56,0.64,1) 0.35s both',
       },
     },

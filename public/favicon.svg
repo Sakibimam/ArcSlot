@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <title>ArcSlot</title>
   <rect width="64" height="64" rx="14" fill="#0B2A21"/>
-  <path d="M21 46V29A13 13 0 0 1 47 29V37" fill="none" stroke="#E4E8DA" stroke-width="10"/>
+  <path d="M21 46V29A13 13 0 0 1 47 29V37" fill="none" stroke="#F6F7F2" stroke-width="10"/>
   <path d="M21 46V29A13 13 0 0 1 47 29V37" fill="none" stroke="#0B2A21" stroke-width="5"/>
   <rect x="7" y="45" width="50" height="10" rx="5" fill="#B3261E"/>
 </svg>

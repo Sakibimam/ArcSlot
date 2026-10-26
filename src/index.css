@@ -8,14 +8,14 @@
    either form.
 ──────────────────────────────────────────────────────────────────────────── */
 :root {
-  --paper:   #E4E8DA;
+  --paper:   #F6F7F2;
   --ink:     #0B2A21;
   --carbon:  #2F6B57;
   --serial:  #B3261E;
   --paid:    #1E7A4C;
   --amber:   #9A5B00;
-  --rule:    #B5BDA8;
-  --surface: #FFFFFB;
+  --rule:    #CDD3C4;
+  --surface: #FFFFFF;
 
   /* shadcn/ui CSS variable names expected by primitives */
   --background:   var(--paper);
@@ -27,7 +27,7 @@
   --primary-foreground: #FFFFFF;
   --secondary:    var(--rule);
   --secondary-foreground: var(--ink);
-  --muted:        #DCE0D0;
+  --muted:        #EEF0E8;
   --muted-foreground: #2F4A41;
   --accent:       var(--carbon);
   --accent-foreground: #FFFFFF;
@@ -41,7 +41,7 @@
 
   /* Legacy app vars kept so existing app screens don't break */
   --bg:            var(--paper);
-  --surface-muted: #DCE0D0;
+  --surface-muted: #EEF0E8;
   --ink-2:         #1F3B32;
   --muted-text:    #2F4A41;
   --subtle:        #2F4A41;

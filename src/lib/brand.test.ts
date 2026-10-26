@@ -6,7 +6,7 @@ describe('brand', () => {
   const css = readFileSync('src/index.css', 'utf8')
   const html = readFileSync('index.html', 'utf8')
   it('uses the bank-note palette', () => {
-    expect(css).toMatch(/--paper:\s*#E4E8DA/)
+    expect(css).toMatch(/--paper:\s*#F6F7F2/)
     expect(css).toMatch(/--ink:\s*#0B2A21/)
     expect(css).toMatch(/--serial:\s*#B3261E/)
   })
