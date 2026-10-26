@@ -9,7 +9,7 @@ import {
   quoteCrossChainPayment, retryCrossChainPayment, sendCrossChainPayment,
 } from '@/lib/crosschain-pay'
 import { formatUsdc6 } from '@/lib/slot-logic'
-import { checkQuote } from '@/lib/crosschain'
+import { checkQuote, explainCrossChainError } from '@/lib/crosschain'
 import { Button, Field, inputClass, inputStyle } from './ui'
 
 interface CrossChainPayProps {
@@ -26,6 +26,11 @@ const STEP_TEXT: Record<PaymentStep, string> = {
 }
 
 type Status = 'idle' | 'quoting' | 'quoted' | 'sending' | 'stopped' | 'sent'
+
+/** Circle's signed quotes are only firm for a short while; refresh older ones before sending. */
+const QUOTE_FRESH_MS = 60_000
+/** Wall-clock read for event handlers (kept out of the component body). */
+const clockMs = () => Date.now()
 type Result = Awaited<ReturnType<typeof sendCrossChainPayment>>
 
 export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) {
@@ -40,6 +45,7 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
   const [step, setStep] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const burned = useRef(false)
+  const quotedAt = useRef(0)
 
   const provider = async () =>
     (await (connector as { getProvider: () => Promise<unknown> }).getProvider()) as EIP1193Provider
@@ -48,18 +54,30 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
     if (!amount) return
     setError(null); setStatus('quoting')
     try {
-      await switchChainAsync({ chainId: source.chainId })
-      const q = await quoteCrossChainPayment({ provider: await provider(), source: source.key, slot, amount, arcChainId })
-      if (!checkQuote(q.summary, amount).ok) {
-        setStatus('idle')
-        setError(`This quote would deliver ${formatUsdc6(q.summary.receives)} USDC, not the requested ${formatUsdc6(amount)}. Nothing was sent.`)
-        return
-      }
+      const q = await freshQuote()
+      if (!q) { setStatus('idle'); return }
       setQuote(q); setStatus('quoted')
-    } catch {
+    } catch (e) {
+      console.error('[ArcSlot] cross-chain quote failed', e)
       setStatus('idle')
-      setError(`Couldn't get a quote from ${source.name}. Check your wallet is on ${source.name} and try again.`)
+      const why = explainCrossChainError(e, source, '')
+      setError(why.startsWith('Payment failed')
+        ? `Couldn't get a quote from ${source.name}. Check your wallet is on ${source.name} and try again.`
+        : why)
     }
+  }
+
+  /** Switch to the source chain and fetch a quote; null (with an error shown) if it isn't exact. */
+  async function freshQuote(): Promise<CrossChainQuote | null> {
+    if (!amount) return null
+    await switchChainAsync({ chainId: source.chainId })
+    const q = await quoteCrossChainPayment({ provider: await provider(), source: source.key, slot, amount, arcChainId })
+    if (!checkQuote(q.summary, amount).ok) {
+      setError(`This quote would deliver ${formatUsdc6(q.summary.receives)} USDC, not the requested ${formatUsdc6(amount)}. Nothing was sent.`)
+      return null
+    }
+    quotedAt.current = clockMs()
+    return q
   }
 
   function settle(res: Result) {
@@ -77,9 +95,17 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
   async function pay() {
     if (!amount || !quote) return
     setError(null); setStatus('sending')
+    let q = quote
     try {
+      if (clockMs() - quotedAt.current > QUOTE_FRESH_MS) {
+        setStep('Refreshing the quote…')
+        const fresh = await freshQuote()
+        if (!fresh) { setStatus('idle'); setQuote(null); return }
+        q = fresh
+        setQuote(fresh)
+      }
       settle(await sendCrossChainPayment({
-        provider: await provider(), source: source.key, slot, amount, arcChainId, quote: quote.quote,
+        provider: await provider(), source: source.key, slot, amount, arcChainId, quote: q.quote,
         onStep: (s) => {
           setStep(STEP_TEXT[s])
           if (s === 'burn') { burned.current = true; setStatus('sent') }
@@ -87,8 +113,9 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
       }))
     } catch (e) {
       if (burned.current) return
-      setStatus('quoted')
-      setError(/rejected|denied/i.test(String(e)) ? 'You cancelled the payment.' : 'Payment failed before anything was sent. Try again.')
+      console.error('[ArcSlot] cross-chain payment failed', e)
+      setStatus('quoted'); setStep(null)
+      setError(explainCrossChainError(e, source, formatUsdc6(q.summary.debit)))
     }
   }
 
@@ -141,8 +168,8 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
 
       {quote && (status === 'quoted' || status === 'sending' || status === 'stopped') && (
         <dl
-          className="rounded-sm p-3 text-sm space-y-1.5"
-          style={{ background: 'var(--paper)', border: '1px solid var(--rule)' }}
+          className="rounded-[12px] p-3 text-sm space-y-1.5"
+          style={{ background: 'var(--paper)', border: '1px solid rgba(11,42,33,0.10)' }}
         >
           <div className="flex justify-between gap-3">
             <dt className="text-ink/80">You send on {source.name}</dt>

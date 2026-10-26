@@ -305,6 +305,52 @@ describe('PayPage — pay from another chain', () => {
     expect(vi.mocked(retryCrossChainPayment).mock.calls[0][0]).toBe(failed)
   })
 
+  it('says exactly why a payment failed: no gas on the source chain', async () => {
+    vi.mocked(sendCrossChainPayment).mockRejectedValue(Object.assign(new Error('gas'), { name: 'BALANCE_INSUFFICIENT_GAS' }))
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc/i }))
+    expect(await screen.findByText(/not enough ETH on Base Sepolia to pay gas/i)).toBeInTheDocument()
+    expect(screen.queryByText(/payment failed before anything was sent/i)).not.toBeInTheDocument()
+    expect(log).toHaveBeenCalled() // the raw error is kept for debugging
+    log.mockRestore()
+  })
+
+  it('says when Circle could not be reached (ad blocker / Brave Shields)', async () => {
+    vi.mocked(sendCrossChainPayment).mockRejectedValue(new TypeError('Failed to fetch'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc/i }))
+    expect(await screen.findByText(/couldn.t reach circle/i)).toBeInTheDocument()
+  })
+
+  it('refreshes a quote older than a minute before sending, and pays with the fresh one', async () => {
+    const t0 = 1_800_000_000_000
+    const now = vi.spyOn(Date, 'now').mockReturnValue(t0)
+    vi.mocked(quoteCrossChainPayment).mockResolvedValueOnce(quote).mockResolvedValueOnce({ ...quote, quote: '0xfresh' })
+    vi.mocked(sendCrossChainPayment).mockResolvedValue({ state: 'success', steps: [] } as never)
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    const pay = await screen.findByRole('button', { name: /pay 1\.659019 usdc/i })
+    now.mockReturnValue(t0 + 61_000)
+    fireEvent.click(pay)
+    expect(await screen.findByText(/on its way/i)).toBeInTheDocument()
+    expect(vi.mocked(quoteCrossChainPayment)).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(sendCrossChainPayment).mock.calls[0][0]).toMatchObject({ quote: '0xfresh' })
+    now.mockRestore()
+  })
+
+  it('a fresh quote is used as-is (no extra round trip)', async () => {
+    vi.mocked(sendCrossChainPayment).mockResolvedValue({ state: 'success', steps: [] } as never)
+    openTab()
+    fireEvent.click(screen.getByRole('button', { name: /review payment/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /pay 1\.659019 usdc/i }))
+    expect(await screen.findByText(/on its way/i)).toBeInTheDocument()
+    expect(vi.mocked(quoteCrossChainPayment)).toHaveBeenCalledTimes(1)
+  })
+
   it('explains a failed quote', async () => {
     vi.mocked(quoteCrossChainPayment).mockRejectedValue(new Error('route unsupported'))
     openTab()
