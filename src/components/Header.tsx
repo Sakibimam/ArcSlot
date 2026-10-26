@@ -1,4 +1,5 @@
 import { ConnectKitButton } from 'connectkit'
+import { LogoMark } from './Logo'
 import { ARC_MAINNET_ID, ARC_TESTNET_ID, type SupportedChainId } from '@/lib/chains'
 
 interface HeaderProps {
@@ -15,7 +16,8 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
     >
       <div className="mx-auto max-w-[1120px] flex items-center justify-between gap-4 px-4 sm:px-6 h-14">
         {/* Wordmark */}
-        <a href="#/" className="font-bold text-ink text-[15px] tracking-tight shrink-0">
+        <a href="#/" className="inline-flex items-center gap-1.5 font-bold text-ink text-[15px] tracking-tight shrink-0">
+          <LogoMark />
           ArcSlot
         </a>
 

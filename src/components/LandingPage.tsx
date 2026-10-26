@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { QrCode } from 'lucide-react'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Separator } from '@/components/ui/separator'
+import { LogoMark } from '@/components/Logo'
 import { getFactoryAddress, ARC_MAINNET_ID } from '@/lib/chains'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -304,7 +305,8 @@ export function LandingPage() {
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 bg-paper/90 backdrop-blur-sm border-b border-rule">
         <div className="mx-auto max-w-[1120px] px-4 sm:px-6 h-14 flex items-center justify-between">
-          <a href="#/" className="font-bold text-ink tracking-tight text-[15px]">
+          <a href="#/" className="inline-flex items-center gap-1.5 font-bold text-ink tracking-tight text-[15px]">
+            <LogoMark />
             ArcSlot
           </a>
           <a

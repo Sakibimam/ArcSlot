@@ -1,9 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <title>ArcSlot</title>
   <rect width="64" height="64" rx="14" fill="#13233A"/>
-  <path d="M16 11H48V47l-4 4-4-4-4 4-4-4-4 4-4-4-4 4-4-4Z" fill="#F2F4F3"/>
-  <rect x="22" y="19" width="20" height="3.5" rx="1.75" fill="#13233A" opacity=".35"/>
-  <rect x="22" y="26.5" width="13" height="3.5" rx="1.75" fill="#13233A" opacity=".35"/>
-  <circle cx="40" cy="38" r="8.5" fill="#0B7A4B"/>
-  <path d="M36 38.2l2.9 2.9 5.4-6" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M17 34A15 15 0 0 1 47 34Z" fill="#7D93F2"/>
+  <rect x="8" y="37" width="48" height="8" rx="4" fill="#F2F4F3"/>
 </svg>
