@@ -2,7 +2,7 @@
 
 **Get paid in USDC for cents, not percent.**
 
-[**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · on Arc testnet · Built with [Arc Studio](https://studio.arc.io)
+[**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · live on Arc mainnet · Built with [Arc Studio](https://studio.arc.io)
 
 ---
 
@@ -191,12 +191,12 @@ All four contracts are deployed through the standard CREATE2 deployer (`0x4e59�
 
 | Contract | Address | Live on |
 |---|---|---|
-| `Slot` (implementation) | `0x5B4f7e9F90c404F4C4926D2d039218de34567566` | Arc testnet, Ethereum Sepolia |
-| `SlotFactory` | [`0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3`](https://explorer.testnet.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3) | Arc testnet, Ethereum Sepolia |
+| `Slot` (implementation) | `0x5B4f7e9F90c404F4C4926D2d039218de34567566` | **Arc mainnet**, Arc testnet, Ethereum Sepolia |
+| `SlotFactory` | [`0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3`](https://explorer.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3) | **Arc mainnet**, Arc testnet, Ethereum Sepolia |
 | `SlotVault` (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc testnet, Ethereum Sepolia |
 | `VaultFactory` | [`0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97`](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) | Arc testnet, Ethereum Sepolia |
 
-Arc mainnet: not yet deployed. `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… PRIVATE_KEY=… bun run deploy:deterministic` (idempotent). See [`DEPLOYMENTS.md`](DEPLOYMENTS.md) for history and [`AUDIT.md`](AUDIT.md) / [`AUDIT-v6.md`](AUDIT-v6.md) for Arc Studio's security reviews, and [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) for the white-hat pass and audit triage.
+**Arc mainnet:** `Slot` and `SlotFactory` deployed 2026-10-28 at the same addresses ([factory on explorer.arc.io](https://explorer.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3)); the vault stays testnet-only. `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… PRIVATE_KEY=… bun run deploy:deterministic` (idempotent). See [`DEPLOYMENTS.md`](DEPLOYMENTS.md) for history and [`AUDIT.md`](AUDIT.md) / [`AUDIT-v6.md`](AUDIT-v6.md) for Arc Studio's security reviews, and [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) for the white-hat pass and audit triage.
 
 Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0xe6f1581977aae624b2c06d2ba305c8c9ba82041d7eddaea261a7ab06455e1c58) — merchant +0.141329 USDC, sweeper reimbursed 0.008671 USDC (0.002 tip + gas refund) vs 0.005873 USDC real gas.
 

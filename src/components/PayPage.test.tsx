@@ -48,6 +48,12 @@ describe('PayPage', () => {
     expect(screen.getByRole('button', { name: /connect wallet/i })).toBeInTheDocument()
   })
 
+  it('on a mainnet link, tells the payer the contracts are unaudited', () => {
+    slotReads()
+    render(<PayPage {...props} chainId={5042} />)
+    expect(screen.getByRole('note')).toHaveTextContent(/real USDC.*unaudited/i)
+  })
+
   it('when Phantom refuses the switch, says why and offers the other ways to pay', async () => {
     slotReads()
     wagmiState.account = { address: ME, chainId: 11155111, connector: { id: 'app.phantom', name: 'Phantom' } }

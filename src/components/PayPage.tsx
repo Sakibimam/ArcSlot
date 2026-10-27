@@ -4,6 +4,7 @@ import {
   useSwitchChain, useWaitForTransactionReceipt, useWriteContract,
 } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
+import { MainnetNote } from '@/components/MainnetNote'
 import { explainSwitchError, isPhantom, walletAppLinks } from '@/lib/wallet-help'
 import { type ContractFunctionParameters, erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
@@ -230,6 +231,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
 
   return (
     <div className="space-y-4">
+      <MainnetNote chainId={chainId} />
       {/* ── Receipt card ─────────────────────────────────────────────────── */}
       <div
         className="rounded-[16px] overflow-hidden"

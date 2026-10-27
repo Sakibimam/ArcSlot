@@ -8,8 +8,8 @@ describe('getFactoryAddress', () => {
   it('keeps v8 links working: the previous factory is listed as legacy', () => {
     expect(LEGACY_FACTORY_ADDRESSES[ARC_TESTNET_ID]).toContain('0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49')
   })
-  it('returns null for mainnet until it is deployed', () => {
-    expect(getFactoryAddress(ARC_MAINNET_ID)).toBeNull()
+  it('returns the mainnet SlotFactory (v9, same address as testnet)', () => {
+    expect(getFactoryAddress(ARC_MAINNET_ID)).toBe('0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3')
   })
 })
 

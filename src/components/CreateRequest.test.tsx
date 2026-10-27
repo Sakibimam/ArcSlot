@@ -235,4 +235,16 @@ describe('CreateRequest — live receipt preview', () => {
     expect(screen.getByTestId('preview-receive')).toHaveTextContent(/^about 999\.98 USDC$/)
     expect(screen.getByText(/after network fees/i)).toBeInTheDocument()
   })
+
+  it('on mainnet, warns that the contracts are unaudited and to use small amounts', () => {
+    wagmiState.account = { address: ME, chainId: 5042 }
+    render(<CreateRequest chainId={5042} onCreated={vi.fn()} />)
+    expect(screen.getByRole('note')).toHaveTextContent(/real USDC.*unaudited.*small amounts/i)
+  })
+
+  it('on testnet, no mainnet warning', () => {
+    wagmiState.account = { address: ME, chainId: 5042002 }
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    expect(screen.queryByText(/unaudited/i)).not.toBeInTheDocument()
+  })
 })

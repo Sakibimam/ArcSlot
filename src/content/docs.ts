@@ -59,7 +59,7 @@ export const DOCS: DocSection[] = [
         '**Any wallet.** Payers can pay with a connected wallet, send manually to the address or QR, or pay from Base, Ethereum, Arbitrum, OP Mainnet, Polygon or Avalanche through Circle CCTP.',
         '**Tamper-proof links.** The amount and description are stored on-chain, so nobody can edit them in a link.',
       ] },
-      { type: 'note', tone: 'info', text: `ArcSlot ${DOCS_VERSION} is live on Arc testnet. Get free test USDC at the [Circle faucet](${TESTNET_FAUCET_URL}). Arc mainnet is not deployed yet.` },
+      { type: 'note', tone: 'info', text: `ArcSlot ${DOCS_VERSION} is live on Arc mainnet and Arc testnet. The contracts are tested and reviewed but have no third-party audit yet, so use small amounts on mainnet. Free test USDC: [Circle faucet](${TESTNET_FAUCET_URL}).` },
       { type: 'p', text: 'New here? Start with [Get paid](#/docs/merchants), or see [Architecture](#/docs/architecture) for how the pieces fit.' },
     ],
   },
@@ -70,7 +70,7 @@ export const DOCS: DocSection[] = [
     summary: 'Create a payment link, share it, collect the money.',
     blocks: [
       { type: 'steps', items: [
-        { title: 'Connect a wallet', text: 'Open the [app](#/app) and connect any EVM wallet on Arc testnet. Payouts go to this wallet unless you choose a different address or a quantum-safe vault.' },
+        { title: 'Connect a wallet', text: 'Open the [app](#/app), pick Testnet or Mainnet at the top, and connect any EVM wallet. Payouts go to this wallet unless you choose a different address or a quantum-safe vault.' },
         { title: 'Create a request', text: 'Enter the amount in USDC and what it is for (up to 80 bytes). Optionally let it expire after 1, 7 or 30 days. One transaction deploys the Slot and stores the request on-chain.' },
         { title: 'Share the link', text: 'Copy the link or show the QR code. The link carries only the Slot address, so it can be sent anywhere.' },
         { title: 'Watch it arrive', text: 'The request card shows live progress, such as `0.40 of 1.00 USDC received`, and flips to paid the moment the money lands.' },
@@ -255,7 +255,7 @@ net    = gross − fee − reward              → merchant` },
     group: 'Reference',
     summary: `Deployed addresses for ${DOCS_VERSION}. Identical on every chain.`,
     blocks: [
-      { type: 'p', text: 'All contracts are deployed through the standard CREATE2 deployer `0x4e59b44847b379578588920cA78FbF26c0B4956C`, so they have the same address on every chain. Live on Arc testnet and Ethereum Sepolia.' },
+      { type: 'p', text: 'All contracts are deployed through the standard CREATE2 deployer `0x4e59b44847b379578588920cA78FbF26c0B4956C`, so they have the same address on every chain. `Slot` and `SlotFactory` are live on Arc mainnet, Arc testnet and Ethereum Sepolia; the vault contracts on the testnets only.' },
       { type: 'table', head: ['Contract', 'Address'], rows: [
         ['`SlotFactory`', `[\`${FACTORY}\`](${EXPLORER}${FACTORY})`],
         ['`Slot` (implementation)', `[\`${SLOT_IMPL}\`](${EXPLORER}${SLOT_IMPL})`],
@@ -265,7 +265,7 @@ net    = gross − fee − reward              → merchant` },
       ] },
       { type: 'table', head: ['Network', 'Chain ID', 'RPC', 'Explorer'], rows: [
         ['Arc testnet', '`5042002`', '`https://rpc.testnet.arc.io`', '[explorer.testnet.arc.io](https://explorer.testnet.arc.io)'],
-        ['Arc mainnet', '`5042`', '`https://rpc.mainnet.arc.io`', 'Not deployed yet'],
+        ['Arc mainnet', '`5042`', '`https://rpc.mainnet.arc.io`', '[explorer.arc.io](https://explorer.arc.io)'],
       ] },
       { type: 'p', text: 'Factory settings on Arc: `tip` = 2000 (0.002 USDC), `minSweep` = 100000 (0.1 USDC). Earlier factories are superseded; see `DEPLOYMENTS.md` in the repo.' },
     ],
