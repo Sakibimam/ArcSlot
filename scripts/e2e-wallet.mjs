@@ -17,11 +17,15 @@ const CHAINS = {
 }
 
 // contextOptions: extra Playwright context options (e.g. a viewport or recordVideo for demo recordings).
-export async function walletPage(browser, key, name, contextOptions = {}) {
+// opts.chains replaces the testnet-only chain list; only scripts/demo-mainnet.mjs passes it (explicit opt-in).
+export async function walletPage(browser, key, name, contextOptions = {}, opts = {}) {
   const account = privateKeyToAccount(hexKey(key))
-  let current = arcTestnet.id
+  const chains = opts.chains ?? CHAINS
+  let current = opts.initialChain ?? arcTestnet.id
+  if (!chains[current]) throw new Error(`start chain ${current} is not in the allowed list`)
+  const sent = []
   const clients = (id) => {
-    const { chain, rpc } = CHAINS[id]
+    const { chain, rpc } = chains[id]
     return {
       wallet: createWalletClient({ account, chain, transport: http(rpc) }),
       pub: createPublicClient({ chain, transport: http(rpc) }),
@@ -38,7 +42,7 @@ export async function walletPage(browser, key, name, contextOptions = {}) {
       case 'net_version': return String(current)
       case 'wallet_switchEthereumChain': {
         const id = Number(params[0].chainId)
-        if (!CHAINS[id]) throw Object.assign(new Error(`e2e wallet does not support chain ${id}`), { code: 4902 })
+        if (!chains[id]) throw Object.assign(new Error(`e2e wallet does not support chain ${id}`), { code: 4902 })
         if (id !== current) {
           current = id
           await page.evaluate((hex) => window.__walletEmit('chainChanged', hex), numberToHex(id))
@@ -63,6 +67,7 @@ export async function walletPage(browser, key, name, contextOptions = {}) {
           ...(tx.gas ? { gas: BigInt(tx.gas) } : {}),
         })
         console.log(`[${name}] sent ${hash} on ${current}`)
+        sent.push({ hash, chainId: current, to: tx.to })
         return hash
       }
       default: return clients(current).pub.request({ method, params })
@@ -78,7 +83,7 @@ export async function walletPage(browser, key, name, contextOptions = {}) {
       removeListener: (e, f) => { listeners[e] = (listeners[e] ?? []).filter((x) => x !== f) },
     }
   })
-  return { page, ctx, address: account.address }
+  return { page, ctx, address: account.address, sent }
 }
 
 export async function connect(page) {
