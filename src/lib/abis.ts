@@ -754,6 +754,11 @@ export const SLOT_FACTORY_ABI = [
 
 export const SLOT_ABI = [
   {
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "receive",
     "stateMutability": "payable"
   },

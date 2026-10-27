@@ -13,9 +13,9 @@ import {
 } from '@/lib/chains'
 
 export const DOCS_UPDATED = '2026-10-27'
-export const DOCS_VERSION = 'v8'
+export const DOCS_VERSION = 'v9'
 /** Slot implementation (EIP-1167 template). Not read by the app, so it lives here. */
-export const SLOT_IMPL = '0x136F85f4cb8e3758Fc421c2220FBeebb294D8DE2'
+export const SLOT_IMPL = '0x5B4f7e9F90c404F4C4926D2d039218de34567566'
 
 const FACTORY = FACTORY_ADDRESSES[ARC_TESTNET_ID]
 const VAULT_FACTORY = VAULT_FACTORY_ADDRESSES[ARC_TESTNET_ID]
@@ -372,7 +372,7 @@ src/content/docs.ts   this documentation` },
     summary: 'Unit, fork, stress and live end-to-end tests.',
     blocks: [
       { type: 'table', head: ['Command', 'What it covers'], rows: [
-        ['`bun run contracts:test`', '169 Foundry unit + fuzz tests'],
+        ['`bun run contracts:test`', '172 Foundry unit + fuzz tests'],
         ['`bun run contracts:test:fork`', '21 fork tests on Arc mainnet state: real USDC, blocklist, PQ precompile with real SLH-DSA signatures, and a two-chain recovery test'],
         ['`bun run contracts:test:stress`', '1,000-actor invariant suite and a 20,000-action simulation'],
         ['`bun run test`', '300+ Vitest unit and component tests'],

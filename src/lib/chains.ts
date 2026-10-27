@@ -23,7 +23,7 @@ export function getChainMeta(chainId: SupportedChainId) {
 // Replace these with real addresses once createSlot is deployed on each chain.
 export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
   [ARC_MAINNET_ID]: '0x0000000000000000000000000000000000000000', // not yet deployed
-  [ARC_TESTNET_ID]: '0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49',
+  [ARC_TESTNET_ID]: '0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3', // v9: Slot implementation locked (audit M-1)
 };
 
 /** Earlier SlotFactory versions still holding live slots (newest first). Their
@@ -31,6 +31,7 @@ export const FACTORY_ADDRESSES: Record<SupportedChainId, `0x${string}`> = {
 export const LEGACY_FACTORY_ADDRESSES: Record<SupportedChainId, readonly `0x${string}`[]> = {
   [ARC_MAINNET_ID]: [],
   [ARC_TESTNET_ID]: [
+    '0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49', // v8
     '0xFe3356346e2978a4BeA738e37144Ad52F4C8b01A', // v7
     '0xCEc73Fb0a1B24C2Bd44126c7E9CAD93126A41151', // v6
     '0xaaC460901F37E2c250732D1e208e660F23D8E156', // v5

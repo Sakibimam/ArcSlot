@@ -1,20 +1,31 @@
 # ArcSlot Contract Deployments
 
-## Current (v8)
+## Current (v9)
 
-Deployed by the developer with the repository's deterministic deploy script
-(`bun run deploy:deterministic`), via CREATE2 through the canonical deterministic deployer
-`0x4e59b44847b379578588920cA78FbF26c0B4956C`. **Arc Studio did not deploy these contracts.**
-Because CREATE2 was used, the addresses are identical on every supported network.
+Deployed by the developer with `scripts/deploy-deterministic.mjs` (reads the key from `.env`, never from the
+command line), via CREATE2 through the canonical deterministic deployer `0x4e59b44847b379578588920cA78FbF26c0B4956C`.
+Arc Studio cannot sign on Arc mainnet and **did not deploy these contracts**; it audited v8 and wrote the v9 fix and
+its tests ([`AUDIT-v8-mainnet.md`](AUDIT-v8-mainnet.md)). Because CREATE2 was used, the addresses are identical on every network.
 
 | Contract | Address | Networks | Explorer |
 |---|---|---|---|
-| SlotFactory | `0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49) |
-| Slot (implementation) | `0x136F85f4cb8e3758Fc421c2220FBeebb294D8DE2` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x136F85f4cb8e3758Fc421c2220FBeebb294D8DE2) |
+| SlotFactory | `0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3) |
+| Slot (implementation) | `0x5B4f7e9F90c404F4C4926D2d039218de34567566` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x5B4f7e9F90c404F4C4926D2d039218de34567566) |
 | VaultFactory | `0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) |
 | SlotVault (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc Testnet, Ethereum Sepolia | [Arc Testnet](https://explorer.testnet.arc.io/address/0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0) |
 
 VaultFactory and SlotVault are unchanged since v5 (same bytecode, same addresses), so existing vaults keep working.
+
+### What changed in v9 (Arc Studio pre-mainnet audit)
+
+- **M-1 fixed: the Slot implementation is locked.** Its constructor marks it initialised, so nobody can call
+  `initialize()` on the implementation and make themselves its merchant. Clones are unaffected (own storage).
+  Test-first: `contracts/test/HardeningV9.t.sol` failed on v8 and passes on v9; also checked live on testnet
+  (`initialize` on the implementation reverts `AlreadyInitialised()`).
+- The same test file guards the v8 removal of `resolveQuarantine` (Studio's H-1 suggested re-adding it, which would
+  reintroduce the v7 blacklist bypass; it was reclassified Info).
+- Only Slot and SlotFactory changed; v8 slots keep working through `LEGACY_FACTORY_ADDRESSES`.
+- v8 (`0x4baEfA…EB49` / `0x136F85…8DE2`) is superseded.
 
 ### What changed in v8 (independent review of v7)
 

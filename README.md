@@ -191,8 +191,8 @@ All four contracts are deployed through the standard CREATE2 deployer (`0x4e59�
 
 | Contract | Address | Live on |
 |---|---|---|
-| `Slot` (implementation) | `0x136F85f4cb8e3758Fc421c2220FBeebb294D8DE2` | Arc testnet, Ethereum Sepolia |
-| `SlotFactory` | [`0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49`](https://explorer.testnet.arc.io/address/0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49) | Arc testnet, Ethereum Sepolia |
+| `Slot` (implementation) | `0x5B4f7e9F90c404F4C4926D2d039218de34567566` | Arc testnet, Ethereum Sepolia |
+| `SlotFactory` | [`0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3`](https://explorer.testnet.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3) | Arc testnet, Ethereum Sepolia |
 | `SlotVault` (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc testnet, Ethereum Sepolia |
 | `VaultFactory` | [`0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97`](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) | Arc testnet, Ethereum Sepolia |
 
@@ -200,7 +200,7 @@ Arc mainnet: not yet deployed. `tip = 2000` (0.002 USDC) and `minSweep = 100000`
 
 Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0xe6f1581977aae624b2c06d2ba305c8c9ba82041d7eddaea261a7ab06455e1c58) — merchant +0.141329 USDC, sweeper reimbursed 0.008671 USDC (0.002 tip + gas refund) vs 0.005873 USDC real gas.
 
-> Earlier testnet factories — `0xFe3356…b01A` (v7), `0xCEc73F…1151` (v6, accepted blacklisted payouts), `0xaaC460…E156` (v5, slot address not bound to its creator: audit H-1), `0x387eA5…474c` (no on-chain requests) and `0x34163d…4a45` (no reimbursement cap or base-fee pricing) — are superseded; do not use them.
+> Earlier testnet factories — `0x4baEfA…EB49` (v8, Slot implementation could be initialised by anyone: audit M-1), `0xFe3356…b01A` (v7), `0xCEc73F…1151` (v6, accepted blacklisted payouts), `0xaaC460…E156` (v5, slot address not bound to its creator: audit H-1), `0x387eA5…474c` (no on-chain requests) and `0x34163d…4a45` (no reimbursement cap or base-fee pricing) — are superseded; do not use them.
 
 ## Development
 
@@ -233,7 +233,7 @@ bun run build        # Vite production build → dist/
 ### Contracts
 
 ```bash
-bun run contracts:test        # 169 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
+bun run contracts:test        # 172 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
 bun run contracts:test:fork   # 21 fork tests: Arc mainnet (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; --ffi) + a two-chain Arc testnet/Sepolia recovery test
 bun run contracts:test:stress # 1,000-actor invariant suite + 20k-action simulation (slow)
 bun run test                  # 300+ Vitest unit + component integration tests
@@ -256,7 +256,7 @@ VAULT_FACTORY=0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97 node scripts/e2e-vault.
 Live contract-level check against the deployed factory (signs with `PRIVATE_KEY` from `.env`):
 
 ```bash
-RPC=https://rpc.testnet.arc.io FACTORY=0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49 \
+RPC=https://rpc.testnet.arc.io FACTORY=0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3 \
   MERCHANT=<another address> bash scripts/e2e-live.sh
 ```
 

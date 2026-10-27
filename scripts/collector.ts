@@ -18,7 +18,7 @@ import { formatUsdc6 } from '../src/lib/slot-logic'
 const NETWORK = process.env.NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
 const chain = NETWORK === 'mainnet' ? arc : arcTestnet
 const RPC = process.env.RPC ?? (NETWORK === 'mainnet' ? 'https://rpc.mainnet.arc.io' : 'https://rpc.testnet.arc.io')
-const FACTORY = (process.env.FACTORY ?? '0x4baEfAb2E5fc17b7Ff69E6263d04d1D38319EB49') as Hex
+const FACTORY = (process.env.FACTORY ?? '0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3') as Hex
 const USDC = '0x3600000000000000000000000000000000000000' as Hex
 const PRIORITY_FEE = BigInt(process.env.PRIORITY_FEE_WEI ?? 1_000_000_000) // 1 gwei
 const INTERVAL_MS = Number(process.env.INTERVAL_SECONDS ?? 30) * 1000
