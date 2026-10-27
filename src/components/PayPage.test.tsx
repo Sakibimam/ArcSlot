@@ -6,6 +6,11 @@ vi.mock('wagmi', () => wagmiModule)
 vi.mock('connectkit', () => connectkitModule)
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
+const freshBuild = vi.hoisted(() => ({ newer: false, reload: vi.fn() }))
+vi.mock('@/lib/fresh-build', () => ({
+  newerBuildAvailable: vi.fn(() => Promise.resolve(freshBuild.newer)),
+  reloadOnceFor: vi.fn(() => { freshBuild.reload(); return true }),
+}))
 import { PayPage } from './PayPage'
 import { SLOT_VAULT_IMPL } from '@/lib/chains'
 import { minimalProxyCode } from '@/lib/slot-logic'
@@ -30,6 +35,8 @@ const chainRequest = (over: Partial<ChainRequest> = {}): ChainRequest => ({
 const props = { chainId: 5042002 as const, slot: SLOT, amount: 1_500_000n, label: 'Invoice #42' }
 
 beforeEach(() => {
+  freshBuild.newer = false
+  freshBuild.reload.mockClear()
   resetWagmi()
   slotReads()
 })
@@ -52,6 +59,22 @@ describe('PayPage', () => {
     slotReads()
     render(<PayPage {...props} chainId={5042} />)
     expect(screen.getByRole('note')).toHaveTextContent(/real USDC.*unaudited/i)
+  })
+
+  it('a link that looks invalid in an out-of-date tab reloads once to the new version instead', async () => {
+    slotReads({ isSlot: false })
+    freshBuild.newer = true
+    render(<PayPage {...props} />)
+    await vi.waitFor(() => expect(freshBuild.reload).toHaveBeenCalledTimes(1))
+    expect(screen.queryByText(/this payment link is not valid/i)).not.toBeInTheDocument()
+  })
+
+  it('with the current version running, an invalid link still says so', async () => {
+    slotReads({ isSlot: false })
+    freshBuild.newer = false
+    render(<PayPage {...props} />)
+    expect(await screen.findByText(/this payment link is not valid/i)).toBeInTheDocument()
+    expect(freshBuild.reload).not.toHaveBeenCalled()
   })
 
   it('when Phantom refuses the switch, says why and offers the other ways to pay', async () => {
@@ -167,11 +190,11 @@ describe('PayPage', () => {
     expect(screen.getByRole('img', { name: /^paid$/i })).toBeInTheDocument()
   })
 
-  it('rejects a link that does not point at a payment slot', () => {
+  it('rejects a link that does not point at a payment slot', async () => {
     // The address answers no merchant(): not a slot at all.
     slotReads({ merchant: null as unknown as string })
     render(<PayPage {...props} />)
-    expect(screen.getByText(/this payment link is not valid/i)).toBeInTheDocument()
+    expect(await screen.findByText(/this payment link is not valid/i)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument()
   })
 
@@ -189,10 +212,10 @@ describe('PayPage', () => {
 
   // White-hat PoC (contracts/test/WhiteHat.t.sol): any contract can answer
   // merchant() with a famous payee and keep the money. Only factory slots pass.
-  it('rejects a look-alike contract the factory did not deploy', () => {
+  it('rejects a look-alike contract the factory did not deploy', async () => {
     slotReads({ isSlot: false })
     render(<PayPage {...props} />)
-    expect(screen.getByText(/this payment link is not valid/i)).toBeInTheDocument()
+    expect(await screen.findByText(/this payment link is not valid/i)).toBeInTheDocument()
     expect(screen.queryByText(/fixed in the contract/i)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pay/i })).not.toBeInTheDocument()
   })

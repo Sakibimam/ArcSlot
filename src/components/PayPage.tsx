@@ -5,6 +5,7 @@ import {
 } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import { MainnetNote } from '@/components/MainnetNote'
+import { newerBuildAvailable, reloadOnceFor } from '@/lib/fresh-build'
 import { explainSwitchError, isPhantom, walletAppLinks } from '@/lib/wallet-help'
 import { type ContractFunctionParameters, erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
@@ -133,6 +134,18 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
   // link: say so and retry, instead of telling the payer the link is bad.
   const unreachable = isError && data === undefined
   const invalid = !unreachable && !isLoading && data !== undefined && (!merchant || !isFactorySlot)
+  // An old tab can call a valid new link invalid (e.g. one created on a network added since it loaded).
+  const [staleCheck, setStaleCheck] = useState<'pending' | 'current'>('pending')
+  useEffect(() => {
+    if (!invalid) return
+    let live = true
+    void newerBuildAvailable().then((newer) => {
+      if (!live) return
+      if (newer && reloadOnceFor(window.location.hash)) return
+      setStaleCheck('current')
+    })
+    return () => { live = false }
+  }, [invalid])
 
   const requested = request ? (request.amount > 0n ? request.amount : undefined) : linkAmount
   const rawLabel = request ? request.label : linkLabel
@@ -202,6 +215,14 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
           We&apos;re retrying automatically. If this keeps happening, check your connection or allow this site in your ad blocker.
         </p>
         <Button variant="secondary" className="mt-4" onClick={() => void refetch()}>Try again</Button>
+      </Card>
+    )
+  }
+
+  if (invalid && staleCheck !== 'current') {
+    return (
+      <Card className="text-center">
+        <p className="text-sm text-ink/80">Loading payment request…</p>
       </Card>
     )
   }
