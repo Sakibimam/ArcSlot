@@ -1,5 +1,5 @@
 // Geometry for the landing hero's scroll morph: the full-screen sky photo closes in on the
-// frame around her, then that framed rectangle glides into the middle-card slot.
+// frame around the two friends, then that framed rectangle glides into the middle-card slot.
 
 export interface Rect { x: number; y: number; w: number; h: number }
 export interface HeroGeometry {
@@ -12,14 +12,21 @@ export interface HeroGeometry {
   right: Rect
 }
 
-/** hero-sky.jpg is 2400×1598. */
-export const IMG_RATIO = 2400 / 1598
-/** Where the frame sits on the photo (fractions of the image), measured on the 1440×900 mock. */
-export const FRAME_ON_IMAGE = { x: 0.491, y: 0.4252, w: 0.2558, h: 0.5122 }
-/** The photo is drawn ~14% wider than the stage so she sits right of centre. */
+/** hero-sky.jpg is 2400×1601 (images.test checks it). */
+export const IMG_RATIO = 2400 / 1601
+/** Where the frame sits on the photo (fractions of the image): around both faces, 3:4. */
+export const FRAME_ON_IMAGE = { x: 1060 / 2400, y: 400 / 1601, w: 700 / 2400, h: 933 / 1601 }
+/** Both faces (with hats' brims), measured on the photo. The payment UI must stay below them. */
+export const FACES_ON_IMAGE = [
+  { x: 1400 / 2400, y: 450 / 1601, w: 250 / 2400, h: 310 / 1601 },
+  { x: 1100 / 2400, y: 760 / 1601, w: 230 / 2400, h: 250 / 1601 },
+]
+/** Payment UI inside the frame, as fractions of its height: the amount tile's top, the invoice row's bottom gap. */
+export const FRAME_UI = { amountTop: 0.69, rowBottom: 0.03 }
+/** The photo is drawn ~14% wider than the stage so the subjects sit right of centre. */
 const IMG_SCALE = 1.14
-/** Vertical focus of the photo (like object-position y). */
-const IMG_FOCUS_Y = 0.18
+/** Vertical focus of the photo (like object-position y): lifts the photo so the whole frame fits. */
+const IMG_FOCUS_Y = 0.38
 const GAP = 24
 const SIDE = 0.86
 

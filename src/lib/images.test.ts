@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { IMG_RATIO } from './morph'
 
 // The landing photos ship as-is from public/images. A tool once round-tripped them as
 // text, which silently corrupted every file (the page showed empty frames), so check bytes.
@@ -27,5 +28,23 @@ describe('landing photos', () => {
     const credits = readFileSync(`${dir}/CREDITS.md`, 'utf8')
     for (const f of jpgs) expect(credits, f).toContain(f)
     expect(credits).toMatch(/Unsplash License/)
+    // A photo whose source isn't confirmed yet must never ship.
+    expect(credits).not.toMatch(/to confirm/i)
+  })
+
+  // The scroll morph's geometry (src/lib/morph.ts) is measured on the hero photo's exact size.
+  it('the hero photo has the size the morph geometry was measured on', () => {
+    const size = (f: string) => {
+      const b = readFileSync(`${dir}/${f}`)
+      for (let i = 2; i < b.length; ) {
+        const marker = b[i + 1]
+        if (marker >= 0xc0 && marker <= 0xc2) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)]
+        i += 2 + b.readUInt16BE(i + 2)
+      }
+      return [0, 0]
+    }
+    const [w, h] = size('hero-sky.jpg')
+    expect(w / h).toBeCloseTo(IMG_RATIO, 4)
+    expect(size('hero-sky-mobile.jpg')).toEqual([800, 1200])
   })
 })

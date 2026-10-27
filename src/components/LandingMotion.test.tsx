@@ -202,6 +202,15 @@ describe('landing motion', () => {
       expect(h).toBeLessThanOrEqual(230)
     })
 
+    it('a soft light veil sits behind the headline, inside the photo layer (so it leaves with the photo)', () => {
+      setEnv({ desktop: true })
+      const { container } = render(<LandingPage />)
+      const veil = container.querySelector<HTMLElement>('[data-part="morph-stage"] [data-part="hero-veil"]')!
+      expect(veil).not.toBeNull()
+      expect(veil.style.background).toMatch(/linear-gradient/)
+      expect(veil.closest('.will-change-transform')).not.toBeNull()
+    })
+
     it('the big photo sits on its own layer, so the receipt animations never repaint it', () => {
       setEnv({ desktop: true })
       const { container } = render(<LandingPage />)

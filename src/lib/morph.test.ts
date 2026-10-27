@@ -1,15 +1,23 @@
 import { describe, it, expect } from 'vitest'
-import { heroGeometry, morphState, FRAME_ON_IMAGE } from './morph'
+import { heroGeometry, morphState, FRAME_ON_IMAGE, FACES_ON_IMAGE, FRAME_UI } from './morph'
 
 const near = (a: number, b: number, tol = 2) => Math.abs(a - b) <= tol
 
 describe('hero geometry', () => {
-  it('puts the frame around her torso exactly as on the 1440×900 mock (806, 430, 420×560)', () => {
-    const g = heroGeometry(1440, 900)
-    expect(near(g.frame.x, 806)).toBe(true)
-    expect(near(g.frame.y, 430)).toBe(true)
-    expect(near(g.frame.w, 420)).toBe(true)
-    expect(near(g.frame.h, 560)).toBe(true)
+  it('the frame holds both faces, and the payment UI sits below them, never on a face', () => {
+    const f = FRAME_ON_IMAGE
+    for (const face of FACES_ON_IMAGE) {
+      // horizontally the face is inside the frame
+      expect(face.x).toBeGreaterThanOrEqual(f.x)
+      expect(face.x + face.w).toBeLessThanOrEqual(f.x + f.w)
+      // and it ends above where the amount tile starts (in frame-relative height)
+      const top = (face.y - f.y) / f.h
+      const bottom = (face.y + face.h - f.y) / f.h
+      expect(top).toBeGreaterThanOrEqual(0)
+      expect(bottom).toBeLessThan(FRAME_UI.amountTop)
+    }
+    expect(FRAME_UI.amountTop).toBeGreaterThan(0.6)
+    expect(FRAME_UI.rowBottom).toBeGreaterThan(0)
   })
 
   it('the photo always covers the stage, at any size', () => {
@@ -50,10 +58,17 @@ describe('hero layout at every size', () => {
   it('the end row leaves room for the nav and the section heading above it (≥ 300px)', () => {
     for (const [w, h] of sizes) expect(heroGeometry(w, h).card.y, `${w}x${h}`).toBeGreaterThanOrEqual(300)
   })
-  it('on the hero, the invoice row inside the frame (52%–70% of its height) is fully on screen', () => {
+  it('on the hero, the whole frame (the invoice row sits at its bottom) is on screen, below the nav', () => {
     for (const [w, h] of sizes) {
       const { frame } = heroGeometry(w, h)
-      expect(frame.y + frame.h * 0.7, `${w}x${h}`).toBeLessThanOrEqual(h)
+      expect(frame.y + frame.h, `${w}x${h}`).toBeLessThanOrEqual(h)
+      expect(frame.y, `${w}x${h}`).toBeGreaterThanOrEqual(110)
+    }
+  })
+  it('the frame never runs into the headline column (text ends 24px before it)', () => {
+    for (const [w, h] of sizes) {
+      const { frame } = heroGeometry(w, h)
+      expect(96 + Math.min(640, frame.x - 120), `${w}x${h}`).toBeLessThanOrEqual(frame.x - 24)
     }
   })
 })

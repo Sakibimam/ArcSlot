@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { LogoMark } from '@/components/Logo'
-import { heroGeometry, morphState, type HeroGeometry, type Rect } from '@/lib/morph'
+import { heroGeometry, morphState, FRAME_UI, type HeroGeometry, type Rect } from '@/lib/morph'
 
 // ── Receipts shown in the hero frame (items only: the people in our photos are stock models) ──
 
@@ -59,15 +59,17 @@ function FrameUI() {
   const { n, r, serial } = useHeroReceipt()
   return (
     <div data-part="hero-frame" className="absolute inset-0 [container-type:inline-size]">
-      <div key={`amount-${n}`} className="absolute inset-x-0 top-[16%] flex flex-col items-center gap-[2.4cqw] motion-safe:animate-stamp-in">
-        <span className="dot leading-none text-ink bg-white/95 rounded-[4.3cqw] px-[4.8cqw] pt-[1.9cqw] pb-[2.4cqw] text-[13.3cqw]">
-          {usd(r.net)}
+      {/* Below both faces (FRAME_UI): the amount, then the invoice row at the bottom. */}
+      <div key={`amount-${n}`} className="absolute inset-x-0 flex justify-center motion-safe:animate-stamp-in" style={{ top: `${FRAME_UI.amountTop * 100}%` }}>
+        <span className="flex items-center gap-[2.4cqw] rounded-[4.3cqw] bg-white/95 px-[4.8cqw] py-[2.1cqw]">
+          <span className="dot leading-none text-ink text-[12cqw]">{usd(r.net)}</span>
+          <span className="rounded-full bg-ink px-[3.4cqw] py-[1.6cqw] text-[3.4cqw] font-semibold text-white">USDC</span>
         </span>
-        <span className="rounded-full bg-ink px-[4.8cqw] py-[2.1cqw] text-[3.6cqw] font-semibold text-white">USDC</span>
       </div>
       <div
         key={`row-${n}`}
-        className="absolute left-[3.3cqw] right-[3.3cqw] top-[52%] flex items-center gap-[3.3cqw] rounded-[4.8cqw] bg-white px-[4.3cqw] py-[3.8cqw] shadow-[0_20px_40px_-18px_rgba(11,42,33,0.35)] motion-safe:animate-slide-up"
+        style={{ bottom: `${FRAME_UI.rowBottom * 100}%` }}
+        className="absolute left-[3.3cqw] right-[3.3cqw] flex items-center gap-[3.3cqw] rounded-[4.8cqw] bg-white px-[4.3cqw] py-[3.8cqw] shadow-[0_20px_40px_-18px_rgba(11,42,33,0.35)] motion-safe:animate-slide-up"
       >
         <span className="flex size-[10cqw] shrink-0 items-center justify-center rounded-full bg-ink">
           <LogoMark className="size-[5.7cqw]" ink="#FFFFFF" paper="#0B2A21" />
@@ -283,6 +285,12 @@ function SkyStage({ networkStatus }: { networkStatus: string }) {
             className="pointer-events-none absolute max-w-none select-none will-change-transform"
             style={at(g.img)}
           />
+          {/* A soft light veil behind the headline: the deep sky alone gives the small text ~4:1. */}
+          <div
+            data-part="hero-veil"
+            className="pointer-events-none absolute inset-0"
+            style={{ background: 'linear-gradient(90deg, rgba(246,247,242,0.5) 0%, rgba(246,247,242,0.4) 28%, rgba(246,247,242,0) 46%)' }}
+          />
           <div ref={outline} className="absolute rounded-[30px] border-2 border-white/95" style={at(g.frame)} />
           <div className="absolute" style={at(g.frame)}><FrameUI /></div>
         </div>
@@ -325,8 +333,8 @@ function StaticHero({ networkStatus }: { networkStatus: string }) {
             className="absolute inset-0 h-full w-full object-cover"
             style={{ objectPosition: '50% 20%' }}
           />
-          {/* The frame around her, with the payment inside */}
-          <div className="absolute left-[15%] right-[12%] top-[34%] h-[78%]">
+          {/* The frame around both of them, with the payment below their faces */}
+          <div className="absolute left-[17%] right-[17.5%] top-[26%] h-[70%]">
             <div className="absolute inset-0 rounded-[22px] border-2 border-white/95" />
             <FrameUI />
           </div>
