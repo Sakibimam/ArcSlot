@@ -116,7 +116,15 @@ describe('CreateRequest', () => {
     wagmiState.account = { address: ME, chainId: 5042 }
     render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /switch to arc testnet/i }))
-    expect(wagmiState.switchChain).toHaveBeenCalledWith({ chainId: 5042002 })
+    expect(wagmiState.switchChainAsync).toHaveBeenCalledWith({ chainId: 5042002 })
+  })
+
+  it('when the wallet refuses the switch, explains how to fix it', async () => {
+    wagmiState.account = { address: ME, chainId: 5042, connector: { id: 'app.phantom', name: 'Phantom' } }
+    wagmiState.switchChainAsync = vi.fn(() => Promise.reject(Object.assign(new Error('Unrecognized chain ID'), { code: 4902 })))
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /switch to arc testnet/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Testnet Mode/)
   })
 
   it('explains when the network is not live yet', () => {

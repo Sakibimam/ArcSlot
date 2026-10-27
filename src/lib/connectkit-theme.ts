@@ -15,4 +15,16 @@ export const CONNECTKIT_THEME: Record<string, string> = {
   '--ck-primary-button-border-radius': '999px',
   '--ck-secondary-button-border-radius': '999px',
   '--ck-focus-color': '#B3261E',
+  // Network menu (ConnectKit draws it dark by default, which hid our ink text)
+  '--ck-dropdown-background': '#FFFFFF',
+  '--ck-dropdown-color': '#0B2A21',
+  '--ck-dropdown-box-shadow': '0 0 0 1px rgba(11,42,33,0.12), 0 24px 48px -16px rgba(11,42,33,0.35)',
+  '--ck-dropdown-button-color': '#0B2A21',
+  '--ck-dropdown-button-background': '#FFFFFF',
+  '--ck-dropdown-button-hover-color': '#0B2A21',
+  '--ck-dropdown-button-hover-background': '#EEF1E8',
+  '--ck-dropdown-active-color': '#0B2A21',
+  '--ck-dropdown-active-static-color': '#17643E',
+  '--ck-dropdown-active-background': '#E4EDE3',
+  '--ck-dropdown-pending-color': '#2F4A41',
 }

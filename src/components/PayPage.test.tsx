@@ -48,11 +48,40 @@ describe('PayPage', () => {
     expect(screen.getByRole('button', { name: /connect wallet/i })).toBeInTheDocument()
   })
 
+  it('when Phantom refuses the switch, says why and offers the other ways to pay', async () => {
+    slotReads()
+    wagmiState.account = { address: ME, chainId: 11155111, connector: { id: 'app.phantom', name: 'Phantom' } }
+    wagmiState.switchChainAsync = vi.fn(() => Promise.reject(Object.assign(new Error('Unrecognized chain ID'), { code: 4902 })))
+    render(<PayPage {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: /switch to arc testnet/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Testnet Mode/)
+    fireEvent.click(screen.getByRole('button', { name: /pay from another chain/i }))
+    expect(screen.getByRole('tab', { name: /another chain/i })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('on a phone browser with no wallet, offers to open the link inside Phantom or MetaMask', () => {
+    slotReads()
+    delete (window as { ethereum?: unknown }).ethereum // no injected wallet
+    render(<PayPage {...props} />)
+    const phantom = screen.getByRole('link', { name: /open in phantom/i })
+    expect(phantom.getAttribute('href')).toMatch(/^https:\/\/phantom\.app\/ul\/browse\//)
+    expect(decodeURIComponent(phantom.getAttribute('href')!)).toContain(window.location.href)
+    expect(screen.getByRole('link', { name: /open in metamask/i }).getAttribute('href')).toMatch(/^https:\/\/metamask\.app\.link\/dapp\//)
+  })
+
+  it('with a wallet already in the browser, no app links are shown', () => {
+    slotReads()
+    ;(window as unknown as { ethereum: unknown }).ethereum = { request: vi.fn() }
+    render(<PayPage {...props} />)
+    expect(screen.queryByRole('link', { name: /open in phantom/i })).not.toBeInTheDocument()
+    delete (window as { ethereum?: unknown }).ethereum
+  })
+
   it('offers a network switch when the wallet is elsewhere', () => {
     wagmiState.account = { address: ME, chainId: 5042 }
     render(<PayPage {...props} />)
     fireEvent.click(screen.getByRole('button', { name: /switch to arc testnet/i }))
-    expect(wagmiState.switchChain).toHaveBeenCalledWith({ chainId: 5042002 })
+    expect(wagmiState.switchChainAsync).toHaveBeenCalledWith({ chainId: 5042002 })
   })
 
   it('pays the exact amount with a USDC transfer to the slot', () => {

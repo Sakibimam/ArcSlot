@@ -4,6 +4,7 @@ import {
   useSwitchChain, useWaitForTransactionReceipt, useWriteContract,
 } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
+import { explainSwitchError, isPhantom, walletAppLinks } from '@/lib/wallet-help'
 import { type ContractFunctionParameters, erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -74,8 +75,20 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
   const testnet = chainId === ARC_TESTNET_ID
   const network = networkName(chainId)
   const addr = slot as `0x${string}`
-  const { address: wallet, chainId: walletChain } = useAccount()
-  const { switchChain, isPending: switching } = useSwitchChain()
+  const { address: wallet, chainId: walletChain, connector } = useAccount()
+  const { switchChainAsync, isPending: switching } = useSwitchChain()
+  const [switchError, setSwitchError] = useState<string | null>(null)
+  const switchToArc = async () => {
+    setSwitchError(null)
+    try {
+      await switchChainAsync({ chainId })
+    } catch (e) {
+      console.error('[ArcSlot] network switch failed', e)
+      setSwitchError(explainSwitchError(e, { network, chainId, testnet, phantom: isPhantom(connector) }))
+    }
+  }
+  // Phone browsers have no wallet: offer to reopen this page inside a wallet app.
+  const [hasInjectedWallet] = useState(() => typeof window !== 'undefined' && 'ethereum' in window)
   const [mode, setMode] = useState<'wallet' | 'crosschain' | 'manual'>('wallet')
   const [typed, setTyped] = useState('')
 
@@ -425,11 +438,39 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                   <div className="flex justify-center">
                     <ConnectKitButton />
                   </div>
+                  {!hasInjectedWallet && (
+                    <div className="pt-2 space-y-2">
+                      <p className="text-xs text-ink/80">On a phone? Open this page in your wallet app:</p>
+                      <div className="flex justify-center gap-2">
+                        {walletAppLinks(window.location.href).map((l) => (
+                          <a
+                            key={l.name}
+                            href={l.href}
+                            className="inline-flex h-10 items-center rounded-full border border-ink/20 px-4 text-sm font-semibold text-ink hover:bg-ink/[0.05]"
+                          >
+                            Open in {l.name}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : walletChain !== chainId ? (
-                <Button className="w-full" loading={switching} onClick={() => switchChain({ chainId })}>
-                  Switch to {network}
-                </Button>
+                <div className="space-y-3">
+                  <Button className="w-full" loading={switching} onClick={() => { void switchToArc() }}>
+                    Switch to {network}
+                  </Button>
+                  {switchError && (
+                    <div role="alert" className="rounded-[12px] border border-serial/25 bg-[#FDF2F0] p-3 text-sm text-ink space-y-2">
+                      <p>{switchError}</p>
+                      <p className="text-ink/80">Or pay another way:</p>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setMode('crosschain')} className="rounded-full bg-ink px-3.5 py-1.5 text-xs font-semibold text-paper">Pay from another chain</button>
+                        <button type="button" onClick={() => setMode('manual')} className="rounded-full border border-ink/25 px-3.5 py-1.5 text-xs font-semibold text-ink">Send manually</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <>
                   {typeof myBalance === 'bigint' && (

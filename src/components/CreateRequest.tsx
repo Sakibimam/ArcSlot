@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAccount, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { explainSwitchError, isPhantom } from '@/lib/wallet-help'
 import { ConnectKitButton } from 'connectkit'
 import { isAddress, parseAbi, zeroAddress } from 'viem'
 import { ChevronDown, CircleCheck, Link2, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 import { SLOT_FACTORY_ABI } from '@/lib/abis'
-import { type SupportedChainId, USDC_ADDRESS, getFactoryAddress, networkName, shortAddr } from '@/lib/chains'
+import { type SupportedChainId, ARC_TESTNET_ID, USDC_ADDRESS, getFactoryAddress, networkName, shortAddr } from '@/lib/chains'
 import { type StoredSlot, formatUsdc6, makePayRef, parseUsdc6 } from '@/lib/slot-logic'
 import { buildTxExplorerUrl } from '@/onchain-facts'
 import { Button, Card, Field, inputClass, inputStyle } from './ui'
@@ -102,8 +103,18 @@ function ReceiptPreview({ amount, label }: { amount: string; label: string }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps) {
-  const { address: wallet, chainId: walletChain } = useAccount()
-  const { switchChain, isPending: switching } = useSwitchChain()
+  const { address: wallet, chainId: walletChain, connector } = useAccount()
+  const { switchChainAsync, isPending: switching } = useSwitchChain()
+  const [switchError, setSwitchError] = useState<string | null>(null)
+  const switchNetwork = async () => {
+    setSwitchError(null)
+    try {
+      await switchChainAsync({ chainId })
+    } catch (e) {
+      console.error('[ArcSlot] network switch failed', e)
+      setSwitchError(explainSwitchError(e, { network: networkName(chainId), chainId, testnet: chainId === ARC_TESTNET_ID, phantom: isPhantom(connector) }))
+    }
+  }
   const factory = getFactoryAddress(chainId)
 
   const [amount, setAmount] = useState('')
@@ -495,9 +506,14 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
             )}
 
             {wrongChain ? (
-              <Button className="w-full" loading={switching} onClick={() => switchChain({ chainId })}>
-                Switch to {networkName(chainId)}
-              </Button>
+              <div className="space-y-3">
+                <Button className="w-full" loading={switching} onClick={() => { void switchNetwork() }}>
+                  Switch to {networkName(chainId)}
+                </Button>
+                {switchError && (
+                  <p role="alert" className="rounded-[12px] border border-serial/25 bg-[#FDF2F0] p-3 text-sm text-ink">{switchError}</p>
+                )}
+              </div>
             ) : (
               <Button
                 className="w-full"
