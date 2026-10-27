@@ -75,6 +75,16 @@ contract Slot is ReentrancyGuard {
 
     bool private _initialised;
 
+    // ─── Constructor ───────────────────────────────────────────────────────────
+
+    /// @dev Lock the implementation so it can never be initialised directly.
+    ///      EIP-1167 clones have their own storage and call initialize() on
+    ///      first use; the shared implementation must stay permanently locked
+    ///      so an attacker cannot set themselves as merchant on it.
+    constructor() {
+        _initialised = true;
+    }
+
     /// @notice The factory that deployed this slot (records collector stats).
     address public factory;
 
