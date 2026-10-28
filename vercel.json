@@ -3,6 +3,16 @@
   "installCommand": "bun install --frozen-lockfile",
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/rpc/arc-mainnet",
+      "destination": "https://rpc.mainnet.arc.io"
+    },
+    {
+      "source": "/rpc/arc-testnet",
+      "destination": "https://rpc.testnet.arc.io"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
+// Same-origin Arc RPC paths (see src/lib/rpc.ts and the rewrites in vercel.json).
+const arcRpcProxy = {
+  '/rpc/arc-mainnet': { target: 'https://rpc.mainnet.arc.io', changeOrigin: true, rewrite: () => '/' },
+  '/rpc/arc-testnet': { target: 'https://rpc.testnet.arc.io', changeOrigin: true, rewrite: () => '/' },
+}
+
 export default defineConfig({
   plugins: [react(), nodePolyfills()],
   resolve: {
@@ -37,5 +43,9 @@ export default defineConfig({
   server: {
     allowedHosts: true,
     cors: true,
+    proxy: arcRpcProxy,
+  },
+  preview: {
+    proxy: arcRpcProxy,
   },
 })

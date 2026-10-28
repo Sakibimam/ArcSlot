@@ -3,7 +3,7 @@
  * Built with Arc Studio — https://studio.arc.io
  */
 
-import { http, createConfig } from 'wagmi'
+import { http, fallback, createConfig } from 'wagmi'
 import {
   mainnet, arc, arcTestnet,
   base, arbitrum, optimism, polygon, avalanche,
@@ -11,6 +11,7 @@ import {
 } from 'viem/chains'
 import { injected } from 'wagmi/connectors'
 import { registerChain } from './tracing'
+import { arcRpcUrls } from './lib/rpc'
 
 // Pre-register chain RPC URLs so trace events show correct chain names immediately
 registerChain(arc.id, arc.rpcUrls.default.http[0])
@@ -21,8 +22,9 @@ export const config = createConfig({
   chains: [arc, arcTestnet, mainnet, base, arbitrum, optimism, polygon, avalanche, baseSepolia, sepolia, arbitrumSepolia],
   connectors: [injected()],
   transports: {
-    [arc.id]: http('https://rpc.mainnet.arc.io'),
-    [arcTestnet.id]: http('https://rpc.testnet.arc.io'),
+    // own domain first (browser shields), Arc directly as the fallback
+    [arc.id]: fallback(arcRpcUrls(arc.id).map((u) => http(u))),
+    [arcTestnet.id]: fallback(arcRpcUrls(arcTestnet.id).map((u) => http(u))),
     [mainnet.id]: http(), // ENS resolution uses mainnet
     [base.id]: http(),
     [arbitrum.id]: http(),
