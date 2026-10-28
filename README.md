@@ -6,7 +6,7 @@
 [![CI](https://github.com/Sakibimam/ArcSlot/actions/workflows/ci.yml/badge.svg)](https://github.com/Sakibimam/ArcSlot/actions/workflows/ci.yml)
 [![Built with Arc Studio](https://img.shields.io/badge/built%20with-Arc%20Studio-0B2A21)](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987)
 
-[**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · [**Live stats**](https://arc-slot-three.vercel.app/#/stats) · [**Arc Studio project**](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987)
+[**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · [**Demo video**](https://www.youtube.com/watch?v=uGWlTz-G-xM) · [**Live stats**](https://arc-slot-three.vercel.app/#/stats) · [**Arc Studio project**](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987)
 
 ---
 
@@ -51,6 +51,8 @@ Stablecoins already won the argument: Stripe paid [$1.1 billion](https://www.nbc
 | Contracts on Arc mainnet | [`SlotFactory 0x849e…E9c3`](https://explorer.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3) · [`Slot 0x5B4f…7566`](https://explorer.arc.io/address/0x5B4f7e9F90c404F4C4926D2d039218de34567566) |
 | USDC moving through contract + app | [create](https://explorer.arc.io/tx/0x5924e6e36f71feef3f673a72a1b8a696bb6748e55d09233ddfbf2635e0376439) → [pay](https://explorer.arc.io/tx/0x4f127ddac1c210556e10183328a9d7678f683e5254b7be05f2f8826562a5b41c) → [collect](https://explorer.arc.io/tx/0x84d17dde8c5392a9a6ed389ff49ef679e083467ea671efb57406bf3dff8b334c) (example transaction) · [all volume](https://arc-slot-three.vercel.app/#/stats) |
 | Contracts tested and reviewed in Arc Studio | [`AUDIT-v8-mainnet.md`](AUDIT-v8-mainnet.md) (pre-mainnet audit) · [`contracts/test/HardeningV9.t.sol`](contracts/test/HardeningV9.t.sol) (Studio's fix, test-first) · [`AUDIT.md`](AUDIT.md) · [`AUDIT-v6.md`](AUDIT-v6.md) |
+| Video walkthrough (build in Arc Studio + mainnet transaction) | [youtube.com/watch?v=uGWlTz-G-xM](https://www.youtube.com/watch?v=uGWlTz-G-xM) |
+| Wallets | merchant/deployer `0x30c7eE328B80ce1dc15AC8F75e1FfAf51B9bB9Fb` (deploys, create, collect) · payer `0x3658c0022837572B1B9acea0327dd80CcA4758de` (pay) |
 | Public repo | you are here |
 
 ## Built with Arc Studio
