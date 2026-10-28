@@ -61,6 +61,33 @@ describe('PayPage', () => {
     expect(screen.getByRole('note')).toHaveTextContent(/real USDC.*unaudited/i)
   })
 
+  it('a blocked or failed factory check means "can\'t reach Arc", never "invalid"', () => {
+    const fail = { status: 'failure', error: new Error('blocked'), result: undefined }
+    wagmiState.readContracts = {
+      isLoading: false, isError: false,
+      data: [fail, fail, fail, fail, fail, fail],
+    }
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/can.t reach arc right now/i)).toBeInTheDocument()
+    expect(screen.queryByText(/this payment link is not valid/i)).not.toBeInTheDocument()
+  })
+
+  it('our factory confirms the slot but the merchant read failed: retry, don\'t call it invalid', () => {
+    wagmiState.readContracts = {
+      isLoading: false, isError: false,
+      data: [{ status: 'failure', error: new Error('rate limited'), result: undefined }, { result: 0n }, { result: 0n }, { result: undefined }, { status: 'success', result: true }, { result: false }],
+    }
+    render(<PayPage {...props} />)
+    expect(screen.getByText(/can.t reach arc right now/i)).toBeInTheDocument()
+  })
+
+  it('a genuinely invalid link offers a reload, for tabs still running an old version', async () => {
+    slotReads({ isSlot: false })
+    render(<PayPage {...props} />)
+    expect(await screen.findByText(/this payment link is not valid/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument()
+  })
+
   it('a link that looks invalid in an out-of-date tab reloads once to the new version instead', async () => {
     slotReads({ isSlot: false })
     freshBuild.newer = true

@@ -131,8 +131,13 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
   const legacySlot = data?.[4]?.result !== true && !!data?.slice(5).some((r) => r?.result === true)
   const isFactorySlot = data?.[4]?.result === true || legacySlot
   // A failed request to Arc (rate limit, ad blocker, network) is NOT an invalid
-  // link: say so and retry, instead of telling the payer the link is bad.
-  const unreachable = isError && data === undefined
+  // link: say so and retry, instead of telling the payer the link is bad. The
+  // batch reports each call separately, so a single blocked call counts too:
+  // only a factory that answered "not mine" makes a link invalid.
+  const failed = (r: { status?: string } | undefined) => r?.status === 'failure'
+  const factoryUnknown = !isFactorySlot && !!data?.slice(4).some(failed)
+  const merchantUnknown = isFactorySlot && failed(data?.[0])
+  const unreachable = (isError && data === undefined) || factoryUnknown || merchantUnknown
   const invalid = !unreachable && !isLoading && data !== undefined && (!merchant || !isFactorySlot)
   // An old tab can call a valid new link invalid (e.g. one created on a network added since it loaded).
   const [staleCheck, setStaleCheck] = useState<'pending' | 'current'>('pending')
@@ -235,6 +240,9 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
         <p className="text-sm mt-2 text-ink/80">
           It doesn&apos;t point to a payment request on {network}. Ask the merchant for a new link.
         </p>
+        <Button variant="secondary" className="mt-4" onClick={() => window.location.reload()}>
+          Reload the page
+        </Button>
       </Card>
     )
   }
