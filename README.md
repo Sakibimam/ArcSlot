@@ -32,7 +32,8 @@ Stablecoins already won the argument: Stripe paid [$1.1 billion](https://www.nbc
 
 ## Proof
 
-- **Live and working** on Arc testnet: create a link, pay it from Arc or from Ethereum Sepolia, collect it. Real payments, every step on-chain ([create](https://explorer.testnet.arc.io/tx/0xb1c63ec19f9746d9b4dd12154962fd091a00953390a4614e9f518f88d0ecd012), [pay](https://explorer.testnet.arc.io/tx/0xdb755498676c516178543af264de05aea67c60cf621fb2dfd049e482bbff847a), [collect](https://explorer.testnet.arc.io/tx/0x9aabaec545abd14e75d135442b5b2664d11a3a0d34669998cec855716f2732f7)).
+- **Live on Arc mainnet** with real USDC: a 1 USDC request created, paid from a second wallet and collected through the live app ([create](https://explorer.arc.io/tx/0x5924e6e36f71feef3f673a72a1b8a696bb6748e55d09233ddfbf2635e0376439), [pay](https://explorer.arc.io/tx/0x4f127ddac1c210556e10183328a9d7678f683e5254b7be05f2f8826562a5b41c), [collect](https://explorer.arc.io/tx/0x84d17dde8c5392a9a6ed389ff49ef679e083467ea671efb57406bf3dff8b334c)).
+- **Also on Arc testnet**: create a link, pay it from Arc or from Ethereum Sepolia, collect it. Real payments, every step on-chain ([create](https://explorer.testnet.arc.io/tx/0xb1c63ec19f9746d9b4dd12154962fd091a00953390a4614e9f518f88d0ecd012), [pay](https://explorer.testnet.arc.io/tx/0xdb755498676c516178543af264de05aea67c60cf621fb2dfd049e482bbff847a), [collect](https://explorer.testnet.arc.io/tx/0x9aabaec545abd14e75d135442b5b2664d11a3a0d34669998cec855716f2732f7)).
 - **Hardened:** 300+ automated tests, a 1,000-actor randomized stress campaign, two security reviews in Arc Studio and an independent white-hat review, with every finding fixed. (No third-party audit yet.)
 - **Fully public code:** everything that touches money is in this repo, readable by anyone.
 
