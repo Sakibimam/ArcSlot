@@ -2,7 +2,11 @@
 
 **Get paid in USDC for cents, not percent.**
 
-[**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · live on Arc mainnet · Built with [Arc Studio](https://studio.arc.io)
+[![Live on Arc mainnet](https://img.shields.io/badge/Arc%20mainnet-live-1E7A4C)](https://explorer.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3)
+[![CI](https://github.com/Sakibimam/ArcSlot/actions/workflows/ci.yml/badge.svg)](https://github.com/Sakibimam/ArcSlot/actions/workflows/ci.yml)
+[![Built with Arc Studio](https://img.shields.io/badge/built%20with-Arc%20Studio-0B2A21)](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987)
+
+[**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · [**Live stats**](https://arc-slot-three.vercel.app/#/stats) · [**Arc Studio project**](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987)
 
 ---
 
@@ -34,8 +38,29 @@ Stablecoins already won the argument: Stripe paid [$1.1 billion](https://www.nbc
 
 - **Live on Arc mainnet** with real USDC: a 1 USDC request created, paid from a second wallet and collected through the live app ([create](https://explorer.arc.io/tx/0x5924e6e36f71feef3f673a72a1b8a696bb6748e55d09233ddfbf2635e0376439), [pay](https://explorer.arc.io/tx/0x4f127ddac1c210556e10183328a9d7678f683e5254b7be05f2f8826562a5b41c), [collect](https://explorer.arc.io/tx/0x84d17dde8c5392a9a6ed389ff49ef679e083467ea671efb57406bf3dff8b334c)).
 - **Also on Arc testnet**: create a link, pay it from Arc or from Ethereum Sepolia, collect it. Real payments, every step on-chain ([create](https://explorer.testnet.arc.io/tx/0xb1c63ec19f9746d9b4dd12154962fd091a00953390a4614e9f518f88d0ecd012), [pay](https://explorer.testnet.arc.io/tx/0xdb755498676c516178543af264de05aea67c60cf621fb2dfd049e482bbff847a), [collect](https://explorer.testnet.arc.io/tx/0x9aabaec545abd14e75d135442b5b2664d11a3a0d34669998cec855716f2732f7)).
-- **Hardened:** 300+ automated tests, a 1,000-actor randomized stress campaign, two security reviews in Arc Studio and an independent white-hat review, with every finding fixed. (No third-party audit yet.)
+- **Live, verifiable numbers:** the [stats page](https://arc-slot-three.vercel.app/#/stats) reads every request straight from the contracts, with a link to check it on the explorer.
+- **Hardened:** 172 contract unit and fuzz tests, 21 fork tests against real Arc mainnet state, a 1,000-actor invariant stress suite (512,000 random calls) and 390+ app tests. Three security reviews in Arc Studio plus an independent white-hat review, every finding fixed or documented. (No third-party audit yet; the app tells mainnet users to keep amounts small.)
 - **Fully public code:** everything that touches money is in this repo, readable by anyone.
+
+## For Arc Microgrants reviewers
+
+| Requirement | Where to check |
+|---|---|
+| Arc Studio project | [studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987) |
+| Live app calling the contracts | [arc-slot-three.vercel.app](https://arc-slot-three.vercel.app) (pick **Arc Mainnet** in the network chip) |
+| Contracts on Arc mainnet | [`SlotFactory 0x849e…E9c3`](https://explorer.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3) · [`Slot 0x5B4f…7566`](https://explorer.arc.io/address/0x5B4f7e9F90c404F4C4926D2d039218de34567566) |
+| USDC moving through contract + app | [create](https://explorer.arc.io/tx/0x5924e6e36f71feef3f673a72a1b8a696bb6748e55d09233ddfbf2635e0376439) → [pay](https://explorer.arc.io/tx/0x4f127ddac1c210556e10183328a9d7678f683e5254b7be05f2f8826562a5b41c) → [collect](https://explorer.arc.io/tx/0x84d17dde8c5392a9a6ed389ff49ef679e083467ea671efb57406bf3dff8b334c) (example transaction) · [all volume](https://arc-slot-three.vercel.app/#/stats) |
+| Contracts tested and reviewed in Arc Studio | [`AUDIT-v8-mainnet.md`](AUDIT-v8-mainnet.md) (pre-mainnet audit) · [`contracts/test/HardeningV9.t.sol`](contracts/test/HardeningV9.t.sol) (Studio's fix, test-first) · [`AUDIT.md`](AUDIT.md) · [`AUDIT-v6.md`](AUDIT-v6.md) |
+| Public repo | you are here |
+
+## Built with Arc Studio
+
+ArcSlot started in [Arc Studio](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987) and Studio stayed in the loop for every contract change that matters:
+
+- **First contract to first app (Oct 24):** Studio wrote the original `Slot` and `SlotFactory`, tested them against real Arc mainnet state (Circle's blocklist, USDC's 6-decimal view, the CREATE2 deployer), added the permissionless sweep, fixed its own security findings, wired the frontend and deployed v1 to Arc testnet. Those five commits are authored by Arc Studio in this repo's history.
+- **Security reviews:** [`AUDIT.md`](AUDIT.md) and [`AUDIT-v6.md`](AUDIT-v6.md), then a full adversarial review right before mainnet ([`AUDIT-v8-mainnet.md`](AUDIT-v8-mainnet.md)). It found that anyone could initialise the Slot implementation; Studio wrote the failing tests and the fix ([`HardeningV9.t.sol`](contracts/test/HardeningV9.t.sol)), and that v9 is exactly what runs on Arc mainnet (byte-for-byte checked on-chain).
+- **App:** Studio built the landing and app redesign and the docs page scaffold.
+- **Also built with Claude Code:** later iterations (cross-chain payments, wrong-network recovery, the vault, hardening) were developed with Claude Code and kept test-first; Arc Studio's sandbox cannot sign on mainnet, so the reviewed v9 was deployed with [`scripts/deploy-deterministic.mjs`](scripts/deploy-deterministic.mjs). Full history is public.
 
 ---
 
@@ -197,7 +222,7 @@ All four contracts are deployed through the standard CREATE2 deployer (`0x4e59�
 | `SlotVault` (implementation) | `0x192C03F98e1Bc1BbF6C50388A7D24ecFcb4280a0` | Arc testnet, Ethereum Sepolia |
 | `VaultFactory` | [`0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97`](https://explorer.testnet.arc.io/address/0x85154fE5e5F5d2e9d4f11ef3159EB5c451b1eB97) | Arc testnet, Ethereum Sepolia |
 
-**Arc mainnet:** `Slot` and `SlotFactory` deployed 2026-10-28 at the same addresses ([factory on explorer.arc.io](https://explorer.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3)); the vault stays testnet-only. `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… PRIVATE_KEY=… bun run deploy:deterministic` (idempotent). See [`DEPLOYMENTS.md`](DEPLOYMENTS.md) for history and [`AUDIT.md`](AUDIT.md) / [`AUDIT-v6.md`](AUDIT-v6.md) for Arc Studio's security reviews, and [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) for the white-hat pass and audit triage.
+**Arc mainnet:** `Slot` and `SlotFactory` deployed 2026-10-28 at the same addresses ([factory on explorer.arc.io](https://explorer.arc.io/address/0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c3)); the vault stays testnet-only. `tip = 2000` (0.002 USDC) and `minSweep = 100000` (0.1 USDC) on Arc. Deploy to any chain with `RPC=… ONLY=payments [DRY_RUN=1] node scripts/deploy-deterministic.mjs` (idempotent; reads the key from `.env`, never from the command line). See [`DEPLOYMENTS.md`](DEPLOYMENTS.md) for history and [`AUDIT.md`](AUDIT.md) / [`AUDIT-v6.md`](AUDIT-v6.md) / [`AUDIT-v8-mainnet.md`](AUDIT-v8-mainnet.md) for Arc Studio's security reviews, and [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) for the white-hat pass and audit triage.
 
 Live testnet end-to-end run (create → pay 0.15 USDC → stranger sweep): [sweep tx](https://explorer.testnet.arc.io/tx/0xe6f1581977aae624b2c06d2ba305c8c9ba82041d7eddaea261a7ab06455e1c58) — merchant +0.141329 USDC, sweeper reimbursed 0.008671 USDC (0.002 tip + gas refund) vs 0.005873 USDC real gas.
 
@@ -237,7 +262,7 @@ bun run build        # Vite production build → dist/
 bun run contracts:test        # 172 Foundry unit + fuzz tests (mock USDC, mock PQ verifier)
 bun run contracts:test:fork   # 21 fork tests: Arc mainnet (real USDC, blocklist, PQ precompile with real SLH-DSA signatures; --ffi) + a two-chain Arc testnet/Sepolia recovery test
 bun run contracts:test:stress # 1,000-actor invariant suite + 20k-action simulation (slow)
-bun run test                  # 300+ Vitest unit + component integration tests
+bun run test                  # 396 Vitest unit + component integration tests
 bun run test:all              # everything above + typecheck + build
 bun run abis                  # regenerate src/lib/abis.ts from Foundry artifacts
 ```
@@ -263,7 +288,7 @@ RPC=https://rpc.testnet.arc.io FACTORY=0x849eE5AEd72d1Ba5ADa092e0d68C4B2D161BE9c
 
 ## Environment variables
 
-None required to run the frontend — the app reads chain state via public RPC endpoints.
+None required to run the frontend. The app reads Arc through its own domain first (`/rpc/arc-mainnet`, `/rpc/arc-testnet`, forwarded to Arc's public RPC by `vercel.json` and by the Vite dev server) so browser shields such as Brave's can't block it, and falls back to Arc's RPC directly (`src/lib/rpc.ts`).
 
 For self-deploying contracts (optional):
 
@@ -287,12 +312,13 @@ contracts/
   test/                     Foundry unit + fuzz tests (mock USDC / MockPQ)
   test-integration/         Arc fork integration tests (need arc-forge)
 scripts/
-  deploy-deterministic.sh   Same-address deploy on any chain (bun run deploy:deterministic)
+  deploy-deterministic.mjs  Same-address deploy on any chain; key read from .env (ONLY=payments, DRY_RUN=1)
+  demo-mainnet.mjs          Guarded 1 USDC mainnet demo through the live app (needs MAINNET_DEMO=1)
   collector.ts              Collect-to-earn bot (bun run collect)
   gen-abis.ts               Regenerates src/lib/abis.ts (bun run abis)
   e2e-*.mjs                 Browser E2E runs against testnet
 src/
-  App.tsx                   Routing (landing / merchant / pay / collectors / docs), vault state, request merge
+  App.tsx                   Routing (landing / merchant / pay / collectors / docs / stats), vault state, request merge
   content/docs.ts           The docs site content (#/docs); tests keep its addresses in sync with chains.ts and this README
   components/
     CreateRequest.tsx       New payment request form
@@ -303,7 +329,11 @@ src/
     VaultCard.tsx           SlotVault setup + withdrawals
     Leaderboard.tsx         Collector leaderboard
     ShareSheet.tsx          Share link / QR sheet
-    Header.tsx, ui.tsx      Header with ConnectKit button, shared UI
+    Header.tsx, ui.tsx      Header (network chip, ConnectKit button), shared UI
+    LandingPage.tsx         Landing page; SkyHero.tsx is the scroll-morph hero
+    DocsPage.tsx            Docs site (#/docs)
+    StatsPage.tsx           Live platform stats (#/stats)
+    MainnetNote.tsx         Mainnet "real USDC" and testnet "test money" notes
   lib/
     abis.ts                 Generated ABIs — do not hand-edit
     chains.ts               Chain config, explorer URLs, factory address registry
@@ -312,4 +342,16 @@ src/
     crosschain*.ts          Cross-chain payment helpers
     recovery*.ts            Wrong-network recovery logic
     collector-logic.ts      Collector profitability logic
+    stats.ts                Platform totals read from the factory (paged + Multicall3)
+    rpc.ts                  Arc RPC via our own domain first, direct fallback
+    fresh-build.ts          Reloads a tab left open across a deploy instead of showing a false "invalid link"
+    wallet-help.ts          Explains failed network switches (e.g. Phantom testnet mode)
 ```
+
+## Security
+
+- Contracts: no admin keys, no upgradeability, no custody. Payout terms are fixed when a request is created.
+- Reviews: [`AUDIT.md`](AUDIT.md), [`AUDIT-v6.md`](AUDIT-v6.md), [`AUDIT-v8-mainnet.md`](AUDIT-v8-mainnet.md) (Arc Studio) and [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) (independent white-hat pass). No third-party audit yet.
+- The site ships with a strict Content-Security-Policy and no third-party scripts beyond wallet connectors.
+- Found something? Please [open an issue](https://github.com/Sakibimam/ArcSlot/issues) (for anything exploitable, ask for a private contact first).
+
