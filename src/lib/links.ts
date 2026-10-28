@@ -20,6 +20,7 @@ export type Route =
   | { page: 'invalid-pay' }
   | { page: 'pay'; chainId: SupportedChainId; slot: string; amount: bigint | undefined; label: string | undefined }
   | { page: 'docs'; section: string | undefined }
+  | { page: 'stats' }
 
 const SAFE_ID = /^[a-z][a-z0-9-]*$/
 
@@ -35,6 +36,7 @@ export function parseRoute(hash: string): Route {
   if (hash === '' || hash === '#/')   return { page: 'landing' }
   if (hash === '#/app')               return { page: 'merchant' }
   if (hash === '#/collect')           return { page: 'collectors' }
+  if (hash === '#/stats')             return { page: 'stats' }
   if (hash === '#/docs' || hash === '#/docs/') return { page: 'docs', section: undefined }
   const docsM = /^#\/docs\/([^/?]+)$/.exec(hash)
   if (docsM) {

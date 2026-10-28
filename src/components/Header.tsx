@@ -66,6 +66,9 @@ export function AppFooter() {
           <a href="#/docs" className="underline underline-offset-2 hover:text-serial">
             Docs
           </a>
+          <a href="#/stats" className="underline underline-offset-2 hover:text-serial">
+            Stats
+          </a>
           <a
             href="https://github.com/Sakibimam/ArcSlot"
             target="_blank"

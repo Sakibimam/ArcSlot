@@ -5,6 +5,7 @@ import { CreateRequest } from '@/components/CreateRequest'
 import { VaultCard } from '@/components/VaultCard'
 import { LandingPage } from '@/components/LandingPage'
 import { DocsPage } from '@/components/DocsPage'
+import { StatsPage } from '@/components/StatsPage'
 import { useAccount } from 'wagmi'
 import { loadVault } from '@/lib/vault-store'
 import { useChainRequests } from '@/lib/use-chain-requests'
@@ -77,6 +78,10 @@ export default function App() {
   // ── Docs ────────────────────────────────────────────────────────────────────
   if (route.page === 'docs') {
     return <DocsPage section={route.section} />
+  }
+
+  if (route.page === 'stats') {
+    return <StatsPage />
   }
 
   // ── Collectors page ─────────────────────────────────────────────────────────

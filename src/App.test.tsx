@@ -179,3 +179,15 @@ describe('App — docs', () => {
     expect(screen.getAllByRole('link', { name: /^docs$/i })[0]).toHaveAttribute('href', '#/docs')
   })
 })
+
+describe('App — stats', () => {
+  it('the stats page is reachable from both footers', () => {
+    window.location.hash = '#/'
+    const { unmount } = render(<App />)
+    expect(screen.getAllByRole('link', { name: /^stats$/i })[0]).toHaveAttribute('href', '#/stats')
+    unmount()
+    window.location.hash = '#/app'
+    render(<App />)
+    expect(screen.getAllByRole('link', { name: /^stats$/i })[0]).toHaveAttribute('href', '#/stats')
+  })
+})

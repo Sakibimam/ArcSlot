@@ -60,3 +60,9 @@ describe('parseRoute — docs', () => {
     expect(parseRoute('#/docs/<script>')).toEqual({ page: 'docs', section: undefined })
   })
 })
+
+describe('parseRoute — stats', () => {
+  it('routes #/stats to the public stats page', () => {
+    expect(parseRoute('#/stats')).toEqual({ page: 'stats' })
+  })
+})

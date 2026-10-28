@@ -322,7 +322,8 @@ function rescueToken(address token); // non-USDC only, always to the merchant` }
 #/app         merchant dashboard
 #/pay/...     payment page
 #/collect     collector leaderboard
-#/docs        these docs` },
+#/docs        these docs
+#/stats       live platform stats, read from the contracts` },
       { type: 'p', text: 'Links are hash routes, so they work on any static host without server rewrites. The page reads the amount, label, payee and expiry from `SlotFactory.requestOf(slot)`; anything else in the link is ignored for verified requests. An unknown chain or malformed address shows "This payment link is not valid".' },
       { type: 'p', text: 'To build a link yourself, call `predict` with your address, the merchant and a fresh 32-byte `payRef`, create the request, then share `#/pay/5042002/<slot>`.' },
     ],
