@@ -6,6 +6,8 @@
 [![CI](https://github.com/Sakibimam/ArcSlot/actions/workflows/ci.yml/badge.svg)](https://github.com/Sakibimam/ArcSlot/actions/workflows/ci.yml)
 [![Built with Arc Studio](https://img.shields.io/badge/built%20with-Arc%20Studio-0B2A21)](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987)
 
+[![ArcSlot: get paid in USDC, keep the 1.5%. The live landing page and a real 1 USDC payment paid on Arc mainnet](docs/images/arcslot-preview.jpg)](https://arc-slot-three.vercel.app)
+
 [**Try it live**](https://arc-slot-three.vercel.app) · [**Docs**](https://arc-slot-three.vercel.app/#/docs) · [**Demo video**](https://www.youtube.com/watch?v=uGWlTz-G-xM) · [**Live stats**](https://arc-slot-three.vercel.app/#/stats) · [**Arc Studio project**](https://studio.arc.io/app/7a49229c-c835-4b71-a63d-61247147c987)
 
 ---
