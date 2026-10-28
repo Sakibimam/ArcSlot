@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent, within } from '@testing-library/react'
 import { wagmiState, wagmiModule, connectkitModule, resetWagmi } from '@/test/wagmi-mock'
 
 vi.mock('wagmi', () => wagmiModule)
@@ -32,12 +32,40 @@ describe('App — landing page', () => {
 })
 
 describe('App', () => {
-  beforeEach(() => { window.location.hash = '#/app' })
+  beforeEach(() => { window.location.hash = '#/app'; localStorage.removeItem('arcslot:network') })
 
-  it('opens the merchant view on the network that is live (testnet for now)', () => {
+  it('opens on Arc Mainnet by default, shown as one clear network chip', () => {
+    localStorage.removeItem('arcslot:network')
     render(<App />)
     expect(screen.getByRole('heading', { name: /create a payment link/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /testnet/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /network: arc mainnet/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^testnet$/i })).not.toBeInTheDocument()
+  })
+
+  it('the chip opens a menu that explains both networks; picking testnet switches and is remembered', () => {
+    localStorage.removeItem('arcslot:network')
+    const { unmount } = render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /network: arc mainnet/i }))
+    const menu = screen.getByRole('menu')
+    expect(within(menu).getByRole('menuitemradio', { name: /arc mainnet.*real usdc/i })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(within(menu).getByRole('menuitemradio', { name: /arc testnet.*free test usdc/i }))
+    expect(screen.getByRole('button', { name: /network: arc testnet/i })).toBeInTheDocument()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    unmount()
+    render(<App />)
+    expect(screen.getByRole('button', { name: /network: arc testnet/i })).toBeInTheDocument()
+    localStorage.removeItem('arcslot:network')
+  })
+
+  it('the network menu closes on Escape and on a click outside', () => {
+    render(<App />)
+    const chip = screen.getByRole('button', { name: /network:/i })
+    fireEvent.click(chip)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    fireEvent.click(chip)
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('shows a friendly empty state', () => {
@@ -46,6 +74,7 @@ describe('App', () => {
   })
 
   it('lists saved requests for the selected network', () => {
+    localStorage.setItem('arcslot:network', '5042002') // a testnet feature
     saveSlots([
       { address: SLOT, chainId: 5042002, label: 'Coffee', amount: 3_000_000n },
       { address: '0x00000000000000000000000000000000000000aa', chainId: 5042, label: 'Mainnet one' },
@@ -85,12 +114,14 @@ describe('App — vault', () => {
   beforeEach(() => { window.location.hash = '#/app' })
 
   it('shows the quantum-safe vault panel to a connected merchant', () => {
+    localStorage.setItem('arcslot:network', '5042002') // a testnet feature
     wagmiState.account = { address: '0x1111111111111111111111111111111111111111', chainId: 5042002 }
     render(<App />)
     expect(screen.getByRole('heading', { name: /quantum-safe vault/i })).toBeInTheDocument()
   })
 
   it('defaults new requests to an existing vault', () => {
+    localStorage.setItem('arcslot:network', '5042002') // a testnet feature
     const ME = '0x1111111111111111111111111111111111111111'
     wagmiState.account = { address: ME, chainId: 5042002 }
     localStorage.setItem(`arc-slot:vault:v1:5042002:${ME}`, JSON.stringify({ chainId: 5042002, owner: ME, vault: '0x00000000000000000000000000000000000000aa', box: '{}' }))

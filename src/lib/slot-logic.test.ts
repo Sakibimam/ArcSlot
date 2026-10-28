@@ -179,11 +179,12 @@ describe('makePayRef', () => {
 })
 
 describe('pickDefaultChain', () => {
-  it('defaults to testnet while the contracts are unaudited, even with mainnet deployed (mainnet is one click away)', () => {
-    expect(pickDefaultChain({ 5042: '0xabc', 5042002: '0xdef' })).toBe(5042002)
+  it('prefers mainnet when its factory is deployed', () => {
+    expect(pickDefaultChain({ 5042: '0xabc', 5042002: '0xdef' })).toBe(5042)
   })
-  it('uses mainnet if it is the only network deployed', () => {
-    expect(pickDefaultChain({ 5042: '0xabc', 5042002: null })).toBe(5042)
+  it('a remembered choice wins, if that network is deployed', () => {
+    expect(pickDefaultChain({ 5042: '0xabc', 5042002: '0xdef' }, 5042002)).toBe(5042002)
+    expect(pickDefaultChain({ 5042: null, 5042002: '0xdef' }, 5042)).toBe(5042002)
   })
   it('falls back to testnet while mainnet is not deployed', () => {
     expect(pickDefaultChain({ 5042: null, 5042002: '0xdef' })).toBe(5042002)

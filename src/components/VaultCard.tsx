@@ -104,7 +104,14 @@ export function VaultCard({ chainId, onVaultChange }: VaultCardProps) {
   }, [isSuccess, txHash, wallet, chainId, onVaultChange, refetch, storeKey])
 
   if (!wallet) return null
-  if (!factory) return null
+  if (!factory) {
+    return (
+      <div className="rounded-[16px] px-5 py-4 text-sm text-ink" style={{ background: 'rgba(11,42,33,0.04)', border: '1px solid rgba(11,42,33,0.12)' }}>
+        <p className="font-semibold">Quantum-safe vault</p>
+        <p className="mt-1 text-ink/80">On Arc Testnet only while it is in review. Switch the network to Testnet to try it.</p>
+      </div>
+    )
+  }
 
   const withdrawTo = (to || wallet) as Hex
   const amountRaw = parseUsdc6(amount)

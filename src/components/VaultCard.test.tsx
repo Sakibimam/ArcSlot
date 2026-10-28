@@ -248,4 +248,10 @@ describe('VaultCard — encrypted backup', () => {
     expect(created[0]).not.toContain('5e5e')
     Reflect.deleteProperty(URL, 'createObjectURL')
   })
+
+  it('on mainnet, explains the vault is testnet-only for now instead of disappearing', () => {
+    render(<VaultCard chainId={5042} onVaultChange={vi.fn()} />)
+    expect(screen.getByText(/quantum-safe vault/i)).toBeInTheDocument()
+    expect(screen.getByText(/arc testnet only.*review/i)).toBeInTheDocument()
+  })
 })

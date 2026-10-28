@@ -247,4 +247,11 @@ describe('CreateRequest — live receipt preview', () => {
     render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
     expect(screen.queryByText(/unaudited/i)).not.toBeInTheDocument()
   })
+
+
+  it('on testnet, says plainly it is test money', () => {
+    wagmiState.account = { address: ME, chainId: 5042002 }
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    expect(screen.getByRole('note')).toHaveTextContent(/testnet.*test USDC.*not real/i)
+  })
 })

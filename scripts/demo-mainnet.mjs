@@ -30,7 +30,7 @@ try {
   step('merchant opens the live app on Arc mainnet and creates a 1 USDC request')
   await merchant.page.goto(`${APP_URL}#/app`)
   await connect(merchant.page)
-  await merchant.page.getByRole('button', { name: /^mainnet$/i }).click()
+  await merchant.page.getByRole('button', { name: /network: arc mainnet/i }).waitFor({ timeout: 20_000 })
   await merchant.page.getByRole('note').filter({ hasText: /real USDC/i }).waitFor({ timeout: 20_000 })
   await merchant.page.getByLabel(/amount/i).first().fill(AMOUNT)
   await merchant.page.getByLabel(/what is it for/i).fill(LABEL)

@@ -104,9 +104,10 @@ export function makePayRef(label: string, salt: string): Hex {
   return keccak256(toHex(`${label}#${salt}`))
 }
 
-/** Open on testnet while the contracts have no third-party audit; mainnet is one click away in the header. */
-export function pickDefaultChain(factories: Record<5042 | 5042002, string | null>): 5042 | 5042002 {
-  return factories[5042002] ? 5042002 : 5042
+/** Open on the network this browser last chose, else mainnet once it is deployed, else testnet. */
+export function pickDefaultChain(factories: Record<5042 | 5042002, string | null>, remembered?: number): 5042 | 5042002 {
+  if ((remembered === 5042 || remembered === 5042002) && factories[remembered]) return remembered
+  return factories[5042] ? 5042 : 5042002
 }
 
 /** Parse a user-entered USDC amount ("0.05") into 6-decimal units. */

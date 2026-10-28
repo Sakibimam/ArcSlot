@@ -29,12 +29,18 @@ function useRoute(): Route {
   return route
 }
 
+const NETWORK_KEY = 'arcslot:network'
+const rememberedChain = () => { try { return Number(localStorage.getItem(NETWORK_KEY)) || undefined } catch { return undefined } }
 const defaultChain = () =>
-  pickDefaultChain({ 5042: getFactoryAddress(5042), 5042002: getFactoryAddress(5042002) })
+  pickDefaultChain({ 5042: getFactoryAddress(5042), 5042002: getFactoryAddress(5042002) }, rememberedChain())
 
 export default function App() {
   const route = useRoute()
-  const [chainId, setChainId] = useState<SupportedChainId>(defaultChain)
+  const [chainId, setChainIdState] = useState<SupportedChainId>(defaultChain)
+  const setChainId = useCallback((id: SupportedChainId) => {
+    setChainIdState(id)
+    try { localStorage.setItem(NETWORK_KEY, String(id)) } catch { /* private mode: just don't remember */ }
+  }, [])
   const [requests, setRequests] = useState<StoredSlot[]>(loadSlots)
   const { address: wallet } = useAccount()
   const vaultKey = wallet ? `${chainId}:${wallet.toLowerCase()}` : ''

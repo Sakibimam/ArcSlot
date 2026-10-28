@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAccount, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { explainSwitchError, isPhantom } from '@/lib/wallet-help'
-import { MainnetNote } from '@/components/MainnetNote'
+import { MainnetNote, TestnetNote } from '@/components/MainnetNote'
 import { ConnectKitButton } from 'connectkit'
 import { isAddress, parseAbi, zeroAddress } from 'viem'
 import { ChevronDown, CircleCheck, Link2, Wallet } from 'lucide-react'
@@ -275,6 +275,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
           Get a link and QR code your customer can pay in USDC.
         </p>
         <MainnetNote chainId={chainId} className="mb-5" />
+        <TestnetNote chainId={chainId} className="mb-5" />
 
         {!factory && (
           <div

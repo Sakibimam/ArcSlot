@@ -73,6 +73,8 @@ export async function walletPage(browser, key, name, contextOptions = {}, opts =
       default: return clients(current).pub.request({ method, params })
     }
   })
+  // open the app on the same network the test wallet starts on
+  await page.addInitScript((id) => { try { localStorage.setItem('arcslot:network', String(id)) } catch { /* ignore */ } }, current)
   await page.addInitScript(() => {
     const listeners = {}
     window.__walletEmit = (e, v) => (listeners[e] ?? []).forEach((f) => f(v))

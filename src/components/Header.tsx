@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { ConnectKitButton } from 'connectkit'
 import { LogoMark } from './Logo'
 import { ARC_MAINNET_ID, ARC_TESTNET_ID, type SupportedChainId } from '@/lib/chains'
@@ -47,33 +48,7 @@ export function Header({ chainId, onChainChange, showNav = true }: HeaderProps) 
 
         {/* Right: network + wallet */}
         <div className="flex items-center gap-2 shrink-0">
-          {chainId !== undefined && onChainChange && (
-            <div
-              className="flex items-center gap-0.5 rounded-full p-0.5 serial"
-              style={{ background: 'rgba(11,42,33,0.07)', border: '1px solid rgba(11,42,33,0.12)' }}
-              role="group"
-              aria-label="Network"
-            >
-              {([
-                [ARC_TESTNET_ID, 'Testnet'],
-                [ARC_MAINNET_ID, 'Mainnet'],
-              ] as const).map(([id, label]) => (
-                <button
-                  key={id}
-                  aria-pressed={chainId === id}
-                  onClick={() => onChainChange(id)}
-                  className="px-3 py-1 text-[11px] font-medium rounded-full transition-all"
-                  style={
-                    chainId === id
-                      ? { background: 'var(--ink)', color: 'var(--paper)', boxShadow: '0 1px 3px rgba(11,42,33,0.18)' }
-                      : { background: 'transparent', color: 'var(--muted-foreground)' }
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+          {chainId !== undefined && onChainChange && <NetworkChip chainId={chainId} onChange={onChainChange} />}
           <ConnectKitButton showBalance={false} />
         </div>
       </div>
@@ -110,5 +85,66 @@ export function AppFooter() {
         </div>
       </div>
     </footer>
+  )
+}
+
+const NETWORKS = [
+  { id: ARC_MAINNET_ID, name: 'Arc Mainnet', detail: 'Real USDC' },
+  { id: ARC_TESTNET_ID, name: 'Arc Testnet', detail: 'Free test USDC to try it out' },
+] as const
+
+function NetworkChip({ chainId, onChange }: { chainId: number; onChange: (id: SupportedChainId) => void }) {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const onDown = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('mousedown', onDown)
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onDown) }
+  }, [open])
+  const current = NETWORKS.find((n) => n.id === chainId) ?? NETWORKS[0]
+  const test = current.id === ARC_TESTNET_ID
+  return (
+    <div ref={root} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Network: ${current.name}`}
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold"
+        style={test
+          ? { background: 'rgba(154,91,0,0.1)', border: '1px solid rgba(154,91,0,0.3)', color: '#7A4700' }
+          : { background: 'rgba(30,122,76,0.08)', border: '1px solid rgba(30,122,76,0.28)', color: 'var(--ink)' }}
+      >
+        <span aria-hidden="true" className="size-2 rounded-full" style={{ background: test ? '#B26A00' : '#1E7A4C' }} />
+        <span className="hidden sm:inline">{current.name}</span>
+        <span className="sm:hidden">{test ? 'Testnet' : 'Mainnet'}</span>
+        <span aria-hidden="true" className="text-[10px]">▾</span>
+      </button>
+      {open && (
+        <div role="menu" aria-label="Choose network" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-[14px] bg-surface p-1.5 shadow-[0_20px_40px_-12px_rgba(11,42,33,0.35)]" style={{ border: '1px solid rgba(11,42,33,0.12)' }}>
+          {NETWORKS.map((n) => (
+            <button
+              key={n.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={n.id === chainId}
+              onClick={() => { onChange(n.id); setOpen(false) }}
+              className="flex w-full items-start gap-2.5 rounded-[10px] px-3 py-2.5 text-left hover:bg-ink/[0.05]"
+              style={n.id === chainId ? { background: 'rgba(11,42,33,0.06)' } : undefined}
+            >
+              <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full" style={{ background: n.id === ARC_TESTNET_ID ? '#B26A00' : '#1E7A4C' }} />
+              <span>
+                <span className="block text-[14px] font-semibold text-ink">{n.name}</span>
+                <span className="block text-[12px] text-ink/80">{n.detail}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
