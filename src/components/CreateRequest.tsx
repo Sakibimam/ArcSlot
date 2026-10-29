@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useAccount, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 import { explainSwitchError, isPhantom } from '@/lib/wallet-help'
 import { MainnetNote, TestnetNote } from '@/components/MainnetNote'
-import { ConnectKitButton } from 'connectkit'
+import { ConnectWallet } from './OpenInWallet'
 import { isAddress, parseAbi, zeroAddress } from 'viem'
 import { ChevronDown, CircleCheck, Link2, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
@@ -293,9 +293,7 @@ export function CreateRequest({ chainId, vault, onCreated }: CreateRequestProps)
           >
             <Wallet className="size-6 mx-auto text-carbon" />
             <p className="text-sm text-ink/80">Connect the wallet you want to get paid in.</p>
-            <div className="flex justify-center">
-              <ConnectKitButton />
-            </div>
+            <ConnectWallet />
           </div>
         ) : (
           <div className="space-y-4">

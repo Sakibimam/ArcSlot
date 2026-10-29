@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useAccount, useSwitchChain } from 'wagmi'
-import { ConnectKitButton } from 'connectkit'
+import { ConnectWallet } from './OpenInWallet'
 import type { EIP1193Provider } from 'viem'
 import { CircleCheck, Info } from 'lucide-react'
 import { type SourceChain, sourceChainsFor } from '@/lib/crosschain'
@@ -142,7 +142,7 @@ export function CrossChainPay({ arcChainId, slot, amount }: CrossChainPayProps) 
     return (
       <div className="text-center space-y-3">
         <p className="text-sm text-ink/80">Connect a wallet that holds USDC on another chain.</p>
-        <div className="flex justify-center"><ConnectKitButton /></div>
+        <ConnectWallet />
       </div>
     )
   }

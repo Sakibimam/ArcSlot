@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { explainSwitchError, isPhantom, walletAppLinks } from './wallet-help'
+import { explainSwitchError, hasBrowserWallet, isPhone, isPhantom, walletAppLinks } from './wallet-help'
 
 const err = (code: number | undefined, message: string) => Object.assign(new Error(message), { code })
 const arcTestnet = { network: 'Arc Testnet', chainId: 5042002, testnet: true }
@@ -49,5 +49,32 @@ describe('walletAppLinks', () => {
       href: `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent('https://arc-slot-three.vercel.app')}`,
     })
     expect(metamask).toEqual({ name: 'MetaMask', href: 'https://metamask.app.link/dapp/arc-slot-three.vercel.app/#/pay/5042002/0xabc?amount=1.5' })
+  })
+})
+
+describe('walletAppLinks (phones)', () => {
+  it('covers the four big mobile wallets, each reopening the exact page', () => {
+    const url = 'https://arc-slot-three.vercel.app/#/app'
+    const links = walletAppLinks(url)
+    expect(links.map((l) => l.name)).toEqual(['Phantom', 'MetaMask', 'Coinbase Wallet', 'Trust Wallet'])
+    expect(links[2].href).toBe(`https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(url)}`)
+    expect(links[3].href).toBe(`https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(url)}`)
+  })
+})
+
+describe('hasBrowserWallet / isPhone', () => {
+  it('sees an injected wallet only when window.ethereum exists', () => {
+    expect(hasBrowserWallet({} as Window)).toBe(false)
+    expect(hasBrowserWallet({ ethereum: {} } as unknown as Window)).toBe(true)
+    // src/tracing.ts always defines window.ethereum (as undefined until a wallet sets it)
+    const traced = {} as Window
+    Object.defineProperty(traced, 'ethereum', { get: () => undefined, configurable: true })
+    expect(hasBrowserWallet(traced)).toBe(false)
+  })
+  it('treats a touch-first screen as a phone', () => {
+    const win = (coarse: boolean) => ({ matchMedia: (q: string) => ({ matches: coarse && q === '(pointer: coarse)' }) }) as unknown as Window
+    expect(isPhone(win(true))).toBe(true)
+    expect(isPhone(win(false))).toBe(false)
+    expect(isPhone({} as Window)).toBe(false)
   })
 })

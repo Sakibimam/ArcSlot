@@ -3,10 +3,10 @@ import {
   useAccount, useBytecode, useReadContract, useReadContracts,
   useSwitchChain, useWaitForTransactionReceipt, useWriteContract,
 } from 'wagmi'
-import { ConnectKitButton } from 'connectkit'
 import { MainnetNote } from '@/components/MainnetNote'
 import { newerBuildAvailable, reloadOnceFor } from '@/lib/fresh-build'
-import { explainSwitchError, isPhantom, walletAppLinks } from '@/lib/wallet-help'
+import { explainSwitchError, isPhantom } from '@/lib/wallet-help'
+import { ConnectWallet } from './OpenInWallet'
 import { type ContractFunctionParameters, erc20Abi, zeroAddress } from 'viem'
 import { QRCodeSVG } from 'qrcode.react'
 import {
@@ -90,7 +90,6 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
     }
   }
   // Phone browsers have no wallet: offer to reopen this page inside a wallet app.
-  const [hasInjectedWallet] = useState(() => typeof window !== 'undefined' && 'ethereum' in window)
   const [mode, setMode] = useState<'wallet' | 'crosschain' | 'manual'>('wallet')
   const [typed, setTyped] = useState('')
 
@@ -466,25 +465,7 @@ export function PayPage({ chainId, slot, amount: linkAmount, label: linkLabel }:
                   <p className="text-sm text-ink/80">
                     Connect a wallet holding USDC on {network}.
                   </p>
-                  <div className="flex justify-center">
-                    <ConnectKitButton />
-                  </div>
-                  {!hasInjectedWallet && (
-                    <div className="pt-2 space-y-2">
-                      <p className="text-xs text-ink/80">On a phone? Open this page in your wallet app:</p>
-                      <div className="flex justify-center gap-2">
-                        {walletAppLinks(window.location.href).map((l) => (
-                          <a
-                            key={l.name}
-                            href={l.href}
-                            className="inline-flex h-10 items-center rounded-full border border-ink/20 px-4 text-sm font-semibold text-ink hover:bg-ink/[0.05]"
-                          >
-                            Open in {l.name}
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <ConnectWallet />
                 </div>
               ) : walletChain !== chainId ? (
                 <div className="space-y-3">

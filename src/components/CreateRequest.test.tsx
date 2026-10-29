@@ -35,6 +35,23 @@ describe('CreateRequest', () => {
     expect(screen.queryByRole('button', { name: /create payment link/i })).not.toBeInTheDocument()
   })
 
+  it('on a phone browser with no wallet, offers to open the dashboard inside a wallet app', () => {
+    wagmiState.account = { address: undefined, chainId: undefined }
+    delete (window as { ethereum?: unknown }).ethereum
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    for (const name of ['Phantom', 'MetaMask', 'Coinbase Wallet', 'Trust Wallet'])
+      expect(screen.getByRole('link', { name: new RegExp(`open in ${name}`, 'i') })).toBeInTheDocument()
+    expect(decodeURIComponent(screen.getByRole('link', { name: /open in trust wallet/i }).getAttribute('href')!)).toContain(window.location.href)
+  })
+
+  it('with a wallet in the browser, shows only the connect button', () => {
+    wagmiState.account = { address: undefined, chainId: undefined }
+    ;(window as unknown as { ethereum: unknown }).ethereum = { request: vi.fn() }
+    render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
+    expect(screen.queryByRole('link', { name: /open in phantom/i })).not.toBeInTheDocument()
+    delete (window as { ethereum?: unknown }).ethereum
+  })
+
   it('pays out to the connected wallet by default — no merchant address needed', () => {
     render(<CreateRequest chainId={5042002} onCreated={vi.fn()} />)
     expect(screen.getByText('Funds go to')).toBeInTheDocument()

@@ -29,5 +29,17 @@ export function walletAppLinks(url: string): { name: string; href: string }[] {
   return [
     { name: 'Phantom', href: `https://phantom.app/ul/browse/${encodeURIComponent(url)}?ref=${encodeURIComponent(origin)}` },
     { name: 'MetaMask', href: `https://metamask.app.link/dapp/${url.replace(/^https?:\/\//, '')}` },
+    { name: 'Coinbase Wallet', href: `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(url)}` },
+    { name: 'Trust Wallet', href: `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(url)}` },
   ]
+}
+
+/** A wallet extension or wallet-app browser has injected itself into this page. */
+export function hasBrowserWallet(win: Window): boolean {
+  return !!(win as Window & { ethereum?: unknown }).ethereum
+}
+
+/** Touch-first screen: a phone or tablet, where the plain browser has no wallet of its own. */
+export function isPhone(win: Window): boolean {
+  return typeof win.matchMedia === 'function' && win.matchMedia('(pointer: coarse)').matches
 }
