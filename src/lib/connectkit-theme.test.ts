@@ -12,6 +12,10 @@ describe('wallet button theme', () => {
     expect(CONNECTKIT_THEME['--ck-connectbutton-color']).toBe('#F6F7F2')
     expect(CONNECTKIT_THEME['--ck-font-family']).toMatch(/^Archivo/)
   })
+  // Phones in dark mode got ConnectKit's dark panels under our ink text ("What is a wallet?" unreadable).
+  it('stays light whatever the system theme is', () => {
+    expect(readFileSync('src/main.tsx', 'utf8')).toMatch(/<ConnectKitProvider[^>]*mode="light"/)
+  })
   it('is applied to the ConnectKit provider', () => {
     expect(readFileSync('src/main.tsx', 'utf8')).toMatch(/<ConnectKitProvider[^>]*customTheme=\{CONNECTKIT_THEME\}/)
   })

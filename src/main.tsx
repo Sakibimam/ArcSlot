@@ -30,7 +30,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider customTheme={CONNECTKIT_THEME}>
+        <ConnectKitProvider mode="light" customTheme={CONNECTKIT_THEME}>
           <App />
           <Toaster position="top-center" />
         </ConnectKitProvider>
